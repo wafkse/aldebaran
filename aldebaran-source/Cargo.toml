@@ -1,0 +1,11 @@
+[package]
+name = "aldebaran-source"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+aldebaran-ice = { version = "0.1.0", path = "../aldebaran-ice" }
+aldebaran-primitive = { version = "0.1.0", path = "../aldebaran-primitive" }
+aldebaran-print = { version = "0.1.0", path = "../aldebaran-print" }
+aldebaran-span = { version = "0.1.0", path = "../aldebaran-span" }
+aldebaran-visualize = { version = "0.1.0", path = "../aldebaran-visualize" }
