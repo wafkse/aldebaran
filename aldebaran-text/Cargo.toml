@@ -1,0 +1,21 @@
+[package]
+name = "aldebaran-text"
+description = "Text processing for Aldebaran"
+version = "0.1.0"
+edition = "2024"
+
+
+[dependencies]
+aldebaran-grammar = { version = "0.1.0", path = "../aldebaran-grammar" }
+aldebaran-ice = { version = "0.1.0", path = "../aldebaran-ice" }
+aldebaran-logic = { path = "../aldebaran-logic" }
+aldebaran-print = { version = "0.1.0", path = "../aldebaran-print" }
+aldebaran-report = { version = "0.1.0", path = "../aldebaran-report" }
+aldebaran-dsa = { version = "0.1.0", path = "../aldebaran-dsa" }
+aldebaran-id = { version = "0.1.0", path = "../aldebaran-id" }
+aldebaran-primitive = { version = "0.1.0", path = "../aldebaran-primitive" }
+aldebaran-hash = { version = "0.1.0", path = "../aldebaran-hash" }
+aldebaran-source = { version = "0.1.0", path = "../aldebaran-source" }
+aldebaran-span = { version = "0.1.0", path = "../aldebaran-span" }
+aldebaran-visualize = { version = "0.1.0", path = "../aldebaran-visualize" }
+aldebaran-interner = { version = "0.1.0", path = "../aldebaran-interner" }
