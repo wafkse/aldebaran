@@ -1,0 +1,12 @@
+[package]
+name = "aldebaran-heap"
+version = "0.1.0"
+edition = "2024"
+
+
+[dependencies]
+allocator-api2 = "0.2.18"
+
+[features]
+default = []
+nightly = ["allocator-api2/nightly"]

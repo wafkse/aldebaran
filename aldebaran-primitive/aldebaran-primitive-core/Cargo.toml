@@ -1,0 +1,17 @@
+[package]
+name = "aldebaran-primitive-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+<<<<<<< HEAD
+paste = "1.0"
+tokel = "0.2.5"
+aldebaran-primitive-macro = { version = "0.1.0", path = "../aldebaran-primitive-macro" }
+=======
+tokel.workspace = true
+aldebaran-primitive-macro.workspace = true
+>>>>>>> 4a25ba6 (TEMP: fold into first commit)
+
+[dev-dependencies]
+const-random = "0.1.18"
