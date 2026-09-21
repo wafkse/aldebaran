@@ -1,0 +1,19 @@
+[package]
+name = "aldebaran-report"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = []
+codegen = ["dep:aldebaran-report-macro"]
+
+[dependencies]
+aldebaran-report-macro = { version = "0.1.0", path = "aldebaran-report-macro", optional = true }
+aldebaran-ansi = { version = "0.1.0", path = "../aldebaran-ansi" }
+aldebaran-dsa = { version = "0.1.0", path = "../aldebaran-dsa" }
+aldebaran-logic = { version = "0.0.0", path = "../aldebaran-logic" }
+aldebaran-primitive = { version = "0.1.0", path = "../aldebaran-primitive" }
+aldebaran-print = { version = "0.1.0", path = "../aldebaran-print" }
+aldebaran-source = { version = "0.1.0", path = "../aldebaran-source" }
+aldebaran-span = { version = "0.1.0", path = "../aldebaran-span" }
+aldebaran-visualize = { version = "0.1.0", path = "../aldebaran-visualize" }
