@@ -1,0 +1,21 @@
+[package]
+name = "aldebaran"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = []
+report-codegen = ["aldebaran-report/codegen"]
+
+
+
+[dependencies]
+aldebaran-ansi = { version = "0.1.0", path = "../aldebaran-ansi" }
+aldebaran-interner = { version = "0.1.0", path = "../aldebaran-interner" }
+aldebaran-logic = { version = "0.0.0", path = "../aldebaran-logic" }
+aldebaran-print = { version = "0.1.0", path = "../aldebaran-print" }
+aldebaran-report = { version = "0.1.0", path = "../aldebaran-report" }
+aldebaran-source = { version = "0.1.0", path = "../aldebaran-source" }
+aldebaran-span = { version = "0.1.0", path = "../aldebaran-span" }
+aldebaran-style = { version = "0.1.0", path = "../aldebaran-style" }
+aldebaran-text = { version = "0.1.0", path = "../aldebaran-text" }
