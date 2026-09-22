@@ -105,13 +105,7 @@ where
 
 /// Inline storage for one primary annotation and a fixed related set.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct InlineAnnotations<A, const N: usize> {
-    /// Required primary annotation.
-    primary: A,
-
-    /// Related annotations stored directly beside the primary annotation.
-    related: [A; N],
-}
+pub struct InlineAnnotations<A, const N: usize>(A, [A; N]);
 
 // NOTE(invariant): The primary annotation is always present and every related annotation is stored inline in declaration order.
 impl<A, const N: usize> InlineAnnotations<A, N> {
@@ -119,25 +113,25 @@ impl<A, const N: usize> InlineAnnotations<A, N> {
     #[inline]
     #[must_use]
     pub const fn new(primary: A, related: [A; N]) -> Self {
-        Self { primary, related }
+        Self(primary, related)
     }
 
     /// Borrow the primary annotation.
     #[inline]
     #[must_use]
     pub const fn primary(&self) -> &A {
-        let Self { primary, .. } = self;
+        let Self(target_primary, ..) = self;
 
-        primary
+        target_primary
     }
 
     /// Borrow the related annotation array.
     #[inline]
     #[must_use]
     pub const fn related(&self) -> &[A; N] {
-        let Self { related, .. } = self;
+        let Self(.., target_related) = self;
 
-        related
+        target_related
     }
 }
 
@@ -149,7 +143,7 @@ where
 
     #[inline]
     fn list(&self) -> Option<RefOneOrMore<'_, Self::Annotation>> {
-        let Self { primary, related } = self;
+        let Self(primary, related) = self;
 
         Some(RefOneOrMore::new(primary, related))
     }
@@ -161,7 +155,7 @@ where
 {
     #[inline]
     fn primary(&self) -> &Self::Annotation {
-        let Self { primary, .. } = self;
+        let Self(primary, ..) = self;
 
         primary
     }
