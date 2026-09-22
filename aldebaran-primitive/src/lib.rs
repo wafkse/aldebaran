@@ -1,3 +1,8 @@
+//! Primitive-type traits, operations, casts, and supporting macros.
+//!
+//! This facade combines the primitive core traits with the macro layer so
+//! consumers can work generically across Rust primitive integer types.
+
 pub mod macros {
     //! This module contains all the macros used in the crate.
 
