@@ -1,7 +1,7 @@
 //! Zero-allocation attachment of diagnostic reports to source values.
 //!
 //! [`Attached`] borrows a report and its rendering source together so backends can
-//! satisfy [`SourceReport`](crate::report::SourceReport) without making the report
+//! satisfy [`SourceReport`] without making the report
 //! itself source-owning or forcing source identity into ordinary report values.
 
 use aldebaran_source::prelude::{SourceLines, SourceMetadata};
