@@ -1,4 +1,4 @@
-//! Lexical recognition and construction over [`Text`](super::Text).
+//! Lexical recognition and construction over [`Text`].
 //!
 //! [`Lex`] defines the source-consumption protocol used by lexical values. The
 //! pass stage carries only source-derived information required by construction,
