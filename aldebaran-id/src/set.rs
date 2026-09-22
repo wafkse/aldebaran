@@ -11,7 +11,7 @@ use core::{
 
 use crate::prelude::{Id, IdMap};
 
-use aldebaran_hash::fxhash::FxHasher;
+use aldebaran_hash::rustc_hash::FxHasher;
 
 /// A set of identifiers.
 ///

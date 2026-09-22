@@ -1,11 +1,10 @@
 //! Maps of [`trait@Id`]s to values.
 
-use core::hash::BuildHasher;
-use core::hash::Hash;
+use core::hash::{BuildHasher, BuildHasherDefault, Hash};
 
 use aldebaran_dsa::prelude::HashMap;
 use aldebaran_dsa::prelude::ReverseMap;
-use aldebaran_hash::fxhash::FxBuildHasher;
+use aldebaran_hash::rustc_hash::FxHasher;
 
 use crate::prelude::Id;
 
@@ -22,7 +21,7 @@ use crate::prelude::Id;
 /// So, the time complexity to access a value by its [`trait@Id`] is `O(1)`, in all
 /// cases be it amortized or worst-case.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct IdMap<I, V, S = FxBuildHasher>
+pub struct IdMap<I, V, S = BuildHasherDefault<FxHasher>>
 where
     I: Id,
     S: BuildHasher,
@@ -459,7 +458,7 @@ mod tests {
 
     #[test]
     fn test_id_map() {
-        let mut map: IdMap<TestId8, &str, FxBuildHasher> = IdMap::new();
+        let mut map: IdMap<TestId8, &str, BuildHasherDefault<FxHasher>> = IdMap::new();
 
         assert_eq!(map.len(), 0);
 

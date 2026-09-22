@@ -5,4 +5,4 @@ pub use fnv;
 
 pub use ahash;
 
-pub use fxhash;
+pub use rustc_hash;

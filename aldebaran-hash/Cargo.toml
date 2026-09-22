@@ -6,4 +6,4 @@ edition = "2024"
 [dependencies]
 ahash.workspace = true
 fnv.workspace = true
-fxhash.workspace = true
+rustc-hash.workspace = true

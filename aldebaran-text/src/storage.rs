@@ -4,13 +4,16 @@
 //! one identity domain. [`OwnedStorage`] provides the corresponding fully owned
 //! model when values must outlive any particular source borrow.
 
-use core::{borrow::Borrow, hash::BuildHasher};
+use core::{
+    borrow::Borrow,
+    hash::{BuildHasher, BuildHasherDefault},
+};
 
 use alloc::borrow::Cow;
 
 use aldebaran_dsa::prelude::{HashMap, Vec, hash_map::RawEntryMut};
 
-use aldebaran_hash::fxhash::FxBuildHasher;
+use aldebaran_hash::rustc_hash::FxHasher;
 
 use aldebaran_id::{
     ident::TaggedId,
@@ -45,7 +48,7 @@ StorageId!(64);
 /// convert to the same kind of source reference for storage to be able to
 /// have a consistent outwards interface.
 #[derive(Debug, Clone)]
-pub struct Storage<'a, S, O, I = StorageId, H = FxBuildHasher>
+pub struct Storage<'a, S, O, I = StorageId, H = BuildHasherDefault<FxHasher>>
 where
     S: SourceDissect<'a> + SourceHash<'a> + SourceDiff<'a> + SourceOwned<'a, Owned = O> + ?Sized,
     H: BuildHasher,
@@ -252,7 +255,7 @@ where
 /// convert to the same kind of source reference for storage to be able to
 /// have a consistent outwards interface.
 #[derive(Debug, Clone)]
-pub struct OwnedStorage<S, I = StorageId, H = FxBuildHasher>
+pub struct OwnedStorage<S, I = StorageId, H = BuildHasherDefault<FxHasher>>
 where
     for<'a> S: SourceDissect<'a> + SourceHash<'a> + SourceDiff<'a> + SourceOwned<'a>,
     H: BuildHasher,
