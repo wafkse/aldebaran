@@ -311,3 +311,34 @@ where
         target_id.as_nonzeroed()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use core::mem::size_of;
+
+    use super::{Id as IdTrait, TaggedId};
+
+    Id!(
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+        become TestId
+    );
+
+    TestId!(8 become);
+
+    #[test]
+    fn tagged_id_preserves_inner_identity() {
+        let id = TestId::MIN;
+        let tagged = TaggedId::<str, TestId>::new(id);
+
+        assert_eq!(tagged.into_inner(), id);
+    }
+
+    #[test]
+    fn tagged_id_preserves_primitive_representation_without_storage_overhead() {
+        let id = TestId::MAX;
+        let tagged = TaggedId::<str, TestId>::new(id);
+
+        assert_eq!(tagged.primitive(), id.primitive());
+        assert_eq!(size_of::<TaggedId<str, TestId>>(), size_of::<TestId>());
+    }
+}

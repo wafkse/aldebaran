@@ -160,3 +160,36 @@ where
         primary
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use aldebaran_span::span::Span;
+
+    use super::{Annotations, InlineAnnotations, PrimaryAnnotations, label::Label};
+
+    #[test]
+    fn inline_annotations_preserve_primary_and_related_order() {
+        let primary = Label::new("primary", Span::unit(0));
+        let related = [
+            Label::new("first related", Span::unit(1)),
+            Label::new("second related", Span::unit(2)),
+        ];
+        let annotations = InlineAnnotations::new(primary, related);
+
+        assert_eq!(annotations.primary(), &primary);
+        assert_eq!(annotations.related(), &related);
+
+        let list = annotations.list().expect("inline annotations are always nonempty");
+
+        assert_eq!(list.first(), &primary);
+        assert_eq!(list.rest(), &related);
+    }
+
+    #[test]
+    fn primary_annotations_trait_matches_inline_primary_value() {
+        let primary = Label::new("primary", Span::unit(3));
+        let annotations = InlineAnnotations::new(primary, []);
+
+        assert_eq!(PrimaryAnnotations::primary(&annotations), &primary);
+    }
+}

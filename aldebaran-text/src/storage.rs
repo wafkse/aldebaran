@@ -453,7 +453,12 @@ where
 
 #[cfg(test)]
 mod tests {
+    use alloc::borrow::Cow;
+
     use aldebaran_hash::fnv::FnvBuildHasher;
+    use aldebaran_id::{ident::TaggedId, prelude::Id};
+    use aldebaran_interner::borrow::BorrowInterner;
+    use aldebaran_interner::owned::OwnedInterner;
 
     use super::{OwnedStorage, Storage, StorageId};
 
@@ -531,5 +536,53 @@ mod tests {
 
             assert_eq!(actual, expected);
         }
+    }
+
+    #[test]
+    fn storage_tagged_ids_resolve_the_original_value() {
+        let mut storage: Storage<'_, str, String, StorageId, FnvBuildHasher> = Storage::empty();
+
+        let tagged = storage.try_store_tagged("identifier").expect("test storage capacity is sufficient");
+
+        assert_eq!(storage.try_resolve_tagged(tagged), Some("identifier"));
+    }
+
+    #[test]
+    fn storage_trait_tagged_ids_resolve_the_original_value() {
+        let mut storage: Storage<'_, str, String, StorageId, FnvBuildHasher> = Storage::empty();
+        let input = Cow::Borrowed("identifier");
+
+        let tagged = BorrowInterner::try_store_tagged(&mut storage, input).expect("test storage capacity is sufficient");
+
+        assert_eq!(BorrowInterner::try_resolve_tagged(&storage, tagged), Some("identifier"));
+    }
+
+    #[test]
+    fn owned_storage_trait_tagged_ids_resolve_the_original_value() {
+        let mut storage: OwnedStorage<str, StorageId, FnvBuildHasher> = OwnedStorage::empty();
+
+        let tagged = OwnedInterner::try_store_tagged(&mut storage, "identifier").expect("test storage capacity is sufficient");
+
+        assert_eq!(OwnedInterner::try_resolve_tagged(&storage, tagged), Some("identifier"));
+    }
+
+    #[test]
+    fn storage_rejects_ids_outside_its_current_identity_domain() {
+        let storage: Storage<'_, str, String, StorageId, FnvBuildHasher> = Storage::empty();
+        let invalid = StorageId::MAX;
+        let tagged = TaggedId::<str, StorageId>::new(invalid);
+
+        assert_eq!(storage.try_resolve(invalid), None);
+        assert_eq!(storage.try_resolve_tagged(tagged), None);
+    }
+
+    #[test]
+    fn owned_storage_rejects_ids_outside_its_current_identity_domain() {
+        let storage: OwnedStorage<str, StorageId, FnvBuildHasher> = OwnedStorage::empty();
+        let invalid = StorageId::MAX;
+        let tagged = TaggedId::<str, StorageId>::new(invalid);
+
+        assert_eq!(storage.try_resolve(invalid), None);
+        assert_eq!(OwnedInterner::try_resolve_tagged(&storage, tagged), None);
     }
 }

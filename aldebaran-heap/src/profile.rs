@@ -56,3 +56,35 @@ pub trait Profiler: Send + Sync {
     /// Retrieve the name corresponding to the given [`Profile`].
     fn name(&self, profile: Profile) -> Option<&'static str>;
 }
+
+#[cfg(test)]
+mod tests {
+    use core::num::NonZero;
+
+    use super::{Profile, Profiled};
+
+    #[test]
+    fn none_uses_zero_profile_identity() {
+        assert_eq!(Profile::none(), 0);
+
+        match Profile::is(0) {
+            Profile::None => {}
+            Profile::Exist(_) => panic!("zero must decode as the absent profile"),
+        }
+    }
+
+    #[test]
+    fn existing_profiles_round_trip_through_storage_identity() {
+        for raw in [1, 2, 17, Profiled::MAX] {
+            let nonzero = NonZero::new(raw).expect("test profile identities are nonzero");
+            let stored = Profile::be(Profile::Exist(nonzero));
+
+            assert_eq!(stored, raw);
+
+            match Profile::is(stored) {
+                Profile::Exist(decoded) => assert_eq!(decoded, nonzero),
+                Profile::None => panic!("nonzero profile identity must remain present"),
+            }
+        }
+    }
+}

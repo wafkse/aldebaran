@@ -107,3 +107,17 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{alloc::Global, boxed::Box, heap::Heap, profile::Profile};
+
+    #[test]
+    fn default_heap_supports_allocator_backed_box_lifecycle() {
+        type DefaultHeap = Heap<Global, { Profile::none() }>;
+
+        let value = Box::new_in(42_u32, DefaultHeap::DEFAULT);
+
+        assert_eq!(*value, 42);
+    }
+}
