@@ -38,7 +38,7 @@ where
 
 impl<'source, 'context, S, L> TokenStream for LexStream<'source, 'context, S, L>
 where
-    S: Source<'source> + SourceDissect<'source> + SourceIter<'source> + ?Sized + 'source,
+    S: Source<'source> + SourceDissect<'source> + SourceIter<'source> + ?Sized,
     L: Lex<'source, S>,
 {
     type Token = L;
