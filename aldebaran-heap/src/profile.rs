@@ -1,3 +1,8 @@
+//! Allocation profile identities and profiler hooks.
+//!
+//! Profiles provide compact allocator identities, while [`Profiler`] supplies
+//! optional human-readable names consumed by the heap allocator wrapper.
+
 use core::num::NonZero;
 
 /// The underlying storage type for a [`Profile`].

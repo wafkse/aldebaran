@@ -1,3 +1,8 @@
+//! Heap allocator wrappers and allocator-backed collection aliases.
+//!
+//! The module defines [`Heap`], which couples an allocator backend with optional
+//! allocation profiling while remaining compatible with `allocator-api2`.
+
 use crate::alloc::{AllocError, Allocator, Global};
 use crate::profile::{Profile, Profiled, Profiler};
 
