@@ -18,6 +18,10 @@ use syn::{
 };
 
 #[proc_macro_derive(Choose)]
+/// Derive `Choose` from the target type's `Assert` implementation.
+///
+/// The generated implementation returns a clone of the asserted value when the
+/// input satisfies the assertion and returns `None` otherwise.
 // Procedural macro expansion is substantial and is intentionally not inlined.
 #[inline]
 pub fn derive_choose(input: TokenStream) -> TokenStream {
@@ -55,6 +59,11 @@ pub fn derive_choose(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_derive(Assert, attributes(assert))]
+/// Derive composable assertion behavior from `assert` attributes.
+///
+/// Struct metadata defines one assertion composition. Enum metadata defines one
+/// assertion per variant and expands the corresponding predicate and formatter
+/// implementations.
 // Procedural macro expansion is substantial and is intentionally not inlined.
 #[inline]
 pub fn derive_assert(input: TokenStream) -> TokenStream {

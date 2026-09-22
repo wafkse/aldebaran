@@ -1,3 +1,5 @@
+//! Integration coverage for assertion derives and logical combinators.
+
 use core::fmt;
 
 use aldebaran_logic::{
