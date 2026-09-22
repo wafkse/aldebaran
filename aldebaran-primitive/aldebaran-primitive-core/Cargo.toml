@@ -9,20 +9,8 @@ documentation = "https://docs.rs/aldebaran-primitive-core"
 edition = "2024"
 
 [dependencies]
-<<<<<<< HEAD
-<<<<<<< HEAD
-paste = "1.0"
-tokel = "0.2.5"
-aldebaran-primitive-macro = { version = "0.1.0", path = "../aldebaran-primitive-macro" }
-=======
 tokel.workspace = true
 aldebaran-primitive-macro.workspace = true
->>>>>>> 4a25ba6 (TEMP: fold into first commit)
-=======
-paste.workspace = true
-tokel.workspace = true
-aldebaran-primitive-macro.workspace = true
->>>>>>> 88ffad6 (workspace: unify dependencies)
 
 [dev-dependencies]
 const-random.workspace = true
