@@ -1,3 +1,5 @@
+//! Source traversal, lexical recognition, interning, and token streaming.
+
 use aldebaran_grammar::prelude::{Skipping, TokenStream};
 use aldebaran_logic::prelude::{Assert, Choose, OneOf};
 use aldebaran_source::prelude::{Source, SourceDissect, SourceIter};

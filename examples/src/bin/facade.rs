@@ -1,3 +1,5 @@
+//! Facade-focused lexical scanning and diagnostic access.
+
 use aldebaran::{
     prelude::{Annotated, Report},
     text::prelude::{AsciiDigit, Text},

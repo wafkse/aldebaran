@@ -1,3 +1,5 @@
+//! Composable assertions and token stream primitives.
+
 use aldebaran_grammar::prelude::{Lookahead, Slice, TokenStream};
 use aldebaran_logic::prelude::{Assert, Choose, DefaultFormatter, OneOf};
 use aldebaran_text::prelude::{AsciiAlphabetic, AsciiAlphanumeric, AsciiDigit, AsciiHexadecimal};

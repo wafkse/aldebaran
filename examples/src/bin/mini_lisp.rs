@@ -1,3 +1,5 @@
+//! A small Lisp lexer, parser, AST, evaluator, and diagnostic reporting example.
+
 use core::fmt;
 
 use aldebaran::{

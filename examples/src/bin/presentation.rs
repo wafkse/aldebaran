@@ -1,3 +1,5 @@
+//! Printing, visualization, and terminal styling composition.
+
 use core::fmt::Write as _;
 
 use aldebaran_ansi::prelude::{Color, Paintable, Style};

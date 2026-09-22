@@ -1,3 +1,5 @@
+//! Foundational allocator, identity, hashing, and primitive utilities.
+
 use core::hash::{Hash, Hasher};
 use core::num::NonZero;
 

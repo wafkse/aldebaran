@@ -1,3 +1,5 @@
+//! End-to-end diagnostic report construction and rendering.
+
 use aldebaran_report::{
     codegen::Report,
     prelude::{Fancy, FancySettings, Fancyness, Present, RenderMut, Report, Textual},
