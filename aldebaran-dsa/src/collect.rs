@@ -1,3 +1,8 @@
+//! General-purpose and Aldebaran-specific collection types.
+//!
+//! The module combines allocation-backed collection re-exports with structures
+//! such as [`ReverseMap`] that support compiler-oriented indexing patterns.
+
 pub mod one_or_more;
 
 pub mod static_vec;

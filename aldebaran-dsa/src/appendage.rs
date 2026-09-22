@@ -1,3 +1,8 @@
+//! Type-level tuple append and prepend operations.
+//!
+//! [`Appendage`] grows tuples while preserving their component types, and
+//! [`Uniform`] converts homogeneous tuples into fixed-size arrays.
+
 /// A trait for those that can have types `{ap,pre}pended` to them.
 ///
 /// This is useful for certain cummulative operations, such as appending
@@ -24,6 +29,7 @@ pub trait Uniform<const K: usize, T>
 where
     Self: Appendage,
 {
+    /// Convert the homogeneous tuple into an array while preserving tuple order.
     fn array(self) -> [T; K];
 }
 
