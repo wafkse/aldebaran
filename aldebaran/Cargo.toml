@@ -1,6 +1,11 @@
 [package]
 name = "aldebaran"
 version = "0.1.0"
+description = "Compiler framework for source processing, parsing, diagnostics, and supporting infrastructure"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran"
 edition = "2024"
 
 [features]

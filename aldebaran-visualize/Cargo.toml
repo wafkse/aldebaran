@@ -1,6 +1,11 @@
 [package]
 name = "aldebaran-visualize"
 version = "0.1.0"
+description = "Lossy human-readable rendering for source-shaped values"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran-visualize"
 edition = "2024"
 
 [dependencies]

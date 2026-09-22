@@ -1,6 +1,11 @@
 [package]
 name = "aldebaran-logic"
-version = "0.0.0"
+version = "0.1.0"
+description = "Composable assertions, predicates, and classification for arbitrary inputs"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran-logic"
 edition = "2024"
 
 [dependencies]

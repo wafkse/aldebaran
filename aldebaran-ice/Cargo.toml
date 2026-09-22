@@ -1,6 +1,11 @@
 [package]
 name = "aldebaran-ice"
 version = "0.1.0"
+description = "Internal compiler error utilities for Aldebaran"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran-ice"
 edition = "2024"
 
 [dependencies]

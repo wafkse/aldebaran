@@ -1,6 +1,11 @@
 [package]
 name = "aldebaran-id"
 version = "0.1.0"
+description = "Strongly typed object identities and ID-indexed collections"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran-id"
 edition = "2024"
 
 [features]

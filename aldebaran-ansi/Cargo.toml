@@ -1,6 +1,11 @@
 [package]
 name = "aldebaran-ansi"
 version = "0.1.0"
+description = "ANSI terminal styling primitives for Aldebaran"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran-ansi"
 edition = "2024"
 
 [dependencies]

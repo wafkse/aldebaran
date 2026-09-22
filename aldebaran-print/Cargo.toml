@@ -1,4 +1,9 @@
 [package]
 name = "aldebaran-print"
 version = "0.1.0"
+description = "Sink-oriented no_std printing with optional external context"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran-print"
 edition = "2024"

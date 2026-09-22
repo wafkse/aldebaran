@@ -1,6 +1,11 @@
 [package]
 name = "aldebaran-heap"
 version = "0.1.0"
+description = "no_std allocator and collection wrappers for Aldebaran"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran-heap"
 edition = "2024"
 
 

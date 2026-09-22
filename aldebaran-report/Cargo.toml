@@ -1,6 +1,11 @@
 [package]
 name = "aldebaran-report"
 version = "0.1.0"
+description = "Allocation-free diagnostic reports and source annotations"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran-report"
 edition = "2024"
 
 [features]

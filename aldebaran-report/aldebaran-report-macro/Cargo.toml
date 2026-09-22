@@ -1,6 +1,11 @@
 [package]
 name = "aldebaran-report-macro"
 version = "0.1.0"
+description = "Procedural derive macro for Aldebaran diagnostic reports"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran-report-macro"
 edition = "2024"
 
 [lib]

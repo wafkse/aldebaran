@@ -1,6 +1,11 @@
 [package]
 name = "aldebaran-logic-macro"
 version = "0.1.0"
+description = "Derive macros for Aldebaran logical assertions and classifications"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran-logic-macro"
 edition = "2024"
 
 [lib]

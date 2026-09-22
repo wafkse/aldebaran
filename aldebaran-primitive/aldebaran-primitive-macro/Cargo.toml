@@ -1,6 +1,11 @@
 [package]
 name = "aldebaran-primitive-macro"
 version = "0.1.0"
+description = "Macros for enumerating and classifying Rust primitive types"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran-primitive-macro"
 edition = "2024"
 
 [dependencies]

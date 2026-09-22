@@ -1,7 +1,11 @@
 [package]
 name = "aldebaran-text"
-description = "Text processing for Aldebaran"
 version = "0.1.0"
+description = "Lexical scanning and text processing for Aldebaran"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran-text"
 edition = "2024"
 
 

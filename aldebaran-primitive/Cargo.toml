@@ -1,6 +1,11 @@
 [package]
 name = "aldebaran-primitive"
 version = "0.1.0"
+description = "Facade for Aldebaran primitive-type traits and macros"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran-primitive"
 edition = "2024"
 
 [dependencies]

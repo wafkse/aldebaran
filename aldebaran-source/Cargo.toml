@@ -1,6 +1,11 @@
 [package]
 name = "aldebaran-source"
 version = "0.1.0"
+description = "Generic source capabilities and line-oriented source metadata"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran-source"
 edition = "2024"
 
 [dependencies]

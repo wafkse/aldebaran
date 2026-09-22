@@ -1,6 +1,11 @@
 [package]
 name = "aldebaran-primitive-core"
 version = "0.1.0"
+description = "Generic traits and operations over Rust primitive types"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran-primitive-core"
 edition = "2024"
 
 [dependencies]

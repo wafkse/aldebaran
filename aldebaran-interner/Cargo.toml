@@ -1,6 +1,11 @@
 [package]
 name = "aldebaran-interner"
 version = "0.1.0"
+description = "Borrowed and owned value interning for stable identities"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran-interner"
 edition = "2024"
 
 [dependencies]

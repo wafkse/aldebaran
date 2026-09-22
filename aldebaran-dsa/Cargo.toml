@@ -1,6 +1,11 @@
 [package]
 name = "aldebaran-dsa"
 version = "0.1.0"
+description = "Data structures and algorithms for Aldebaran compiler infrastructure"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran-dsa"
 edition = "2024"
 
 [features]

@@ -1,6 +1,11 @@
 [package]
 name = "aldebaran-report-codegen"
 version = "0.1.0"
+description = "Code generation for Aldebaran diagnostic report derives"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran-report-codegen"
 edition = "2024"
 
 [dependencies]

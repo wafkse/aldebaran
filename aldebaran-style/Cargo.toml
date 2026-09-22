@@ -1,6 +1,11 @@
 [package]
 name = "aldebaran-style"
 version = "0.1.0"
+description = "Generic text styling abstractions"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran-style"
 edition = "2024"
 
 [dependencies]

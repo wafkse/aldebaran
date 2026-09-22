@@ -1,6 +1,11 @@
 [package]
 name = "aldebaran-span"
 version = "0.1.0"
+description = "Strongly typed non-empty source spans"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran-span"
 edition = "2024"
 
 [dependencies]

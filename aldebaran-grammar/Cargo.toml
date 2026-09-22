@@ -1,6 +1,11 @@
 [package]
 name = "aldebaran-grammar"
 version = "0.1.0"
+description = "Token stream primitives for hand-written parsers"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran-grammar"
 edition = "2024"
 
 [dependencies]
