@@ -1,62 +1,36 @@
-//! Allocation backend exports selected by the heap feature set.
+//! Allocation backend exports from `allocator_api2`.
 //!
-//! Nightly builds forward the standard allocation crate. Stable builds forward
-//! `allocator_api2` and provide `Box` and `Vec` aliases whose default allocator
-//! is the crate [`Heap`](crate::heap::Heap).
-
-//
-extern crate alloc as liballoc;
-
-use allocator_api2 as liballoc2;
+//! The crate provides `Box` and `Vec` aliases whose default allocator is
+//! [`Heap`](crate::heap::Heap).
 
 #[doc(inline)]
-#[cfg(feature = "nightly")]
-pub use liballoc::*;
+pub use allocator_api2::alloc;
 
 #[doc(inline)]
-#[cfg(not(feature = "nightly"))]
-pub use liballoc2::*;
+pub use allocator_api2::collections;
 
-/// Boxed allocation support using the selected allocation backend.
-///
-/// Stable builds default the allocator parameter to [`crate::heap::Heap`]. Nightly builds
-/// forward the allocation crate implementation directly.
+#[doc(inline)]
+pub use allocator_api2::SliceExt;
+
+#[doc(inline)]
+pub use allocator_api2::unsize_box;
+
+/// Boxed allocation support with [`crate::heap::Heap`] as the default
+/// allocator.
 pub mod boxed {
     use crate::heap::Heap;
 
-    #[cfg(feature = "nightly")]
-    use super::liballoc;
-
-    #[cfg(not(feature = "nightly"))]
-    use super::liballoc2;
-
-    /// A type alias to [`Box`] that makes use of the [`Heap`] allocator as the
-    /// default.
-    #[cfg(not(feature = "nightly"))]
-    pub type Box<T, A = Heap> = liballoc2::boxed::Box<T, A>;
-
-    #[cfg(feature = "nightly")]
-    pub use liballoc::boxed::Box;
+    /// A type alias to `allocator_api2::boxed::Box` with [`Heap`] as its
+    /// default allocator.
+    pub type Box<T, A = Heap> = allocator_api2::boxed::Box<T, A>;
 }
 
-/// Vector allocation support using the selected allocation backend.
-///
-/// Stable builds default the allocator parameter to [`crate::heap::Heap`]. Nightly builds
-/// forward the allocation crate implementation directly.
+/// Vector allocation support with [`crate::heap::Heap`] as the default
+/// allocator.
 pub mod vec {
     use crate::heap::Heap;
 
-    #[cfg(feature = "nightly")]
-    use super::liballoc;
-
-    #[cfg(not(feature = "nightly"))]
-    use super::liballoc2;
-
-    /// A type alias to [`Vec`] that makes use of the [`Heap`] allocator as the
-    /// default.
-    #[cfg(not(feature = "nightly"))]
-    pub type Vec<T, A = Heap> = liballoc2::vec::Vec<T, A>;
-
-    #[cfg(feature = "nightly")]
-    pub use liballoc::vec::Vec;
+    /// A type alias to `allocator_api2::vec::Vec` with [`Heap`] as its default
+    /// allocator.
+    pub type Vec<T, A = Heap> = allocator_api2::vec::Vec<T, A>;
 }

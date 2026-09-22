@@ -47,19 +47,17 @@ where
     A: Allocator,
 {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        match self {
-            Heap { profiler, .. } => {
-                write!(f, "<heap allocator for")?;
+        let Self { profiler, .. } = self;
 
-                if let Some(name) = profiler.map(|profiler| profiler.name(Profile::is(P))).flatten() {
-                    write!(f, " {}", name)?;
-                } else {
-                    write!(f, " (unnamed) {:2X}", P)?;
-                }
+        write!(f, "<heap allocator for")?;
 
-                write!(f, ">")
-            }
+        if let Some(name) = profiler.and_then(|profiler| profiler.name(Profile::is(P))) {
+            write!(f, " {}", name)?;
+        } else {
+            write!(f, " (unnamed) {:2X}", P)?;
         }
+
+        write!(f, ">")
     }
 }
 
