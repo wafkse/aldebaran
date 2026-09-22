@@ -112,6 +112,16 @@ let mut text = Text::create("a");
 text.expect_is_next(Lowercase).expect("lowercase character");
 ```
 
+## Examples
+
+Runnable examples for the full workspace live in [`examples`](./examples). They
+cover the low-level foundations, source handling, parsing, diagnostics,
+presentation, and the top-level facade.
+
+```sh
+cargo run -p aldebaran-examples --bin diagnostics
+```
+
 ## History
 
 Aldebaran was originally part of another project and was later extracted into this standalone repository. The initial commit series reflects that extraction and may appear unusually segmented.
