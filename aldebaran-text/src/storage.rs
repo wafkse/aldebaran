@@ -184,7 +184,13 @@ where
 
                 storage_list.push(target_value);
 
-                entry.insert_with_hasher(value_hash, key_id, (), |_| value_hash);
+                entry.insert_with_hasher(value_hash, key_id, (), |&key| {
+                    let key_id: I::BackingPrimitive = key.primitive();
+                    let key_id = key_id.cast().saturating_sub(1);
+                    let target_exist = storage_list[key_id].as_ref();
+
+                    build_hasher.hash_one(target_exist)
+                });
 
                 Some(key_id)
             }
@@ -248,11 +254,11 @@ where
 #[derive(Debug, Clone)]
 pub struct OwnedStorage<S, I = StorageId, H = FxBuildHasher>
 where
-    S: ?Sized,
     for<'a> S: SourceDissect<'a> + SourceHash<'a> + SourceDiff<'a> + SourceOwned<'a>,
     H: BuildHasher,
     I: Id,
     I::BackingPrimitive: TryCast<usize>,
+    S: ?Sized,
     usize: TryCast<I::BackingPrimitive>,
 {
     /// The hasher builder for this storage.
@@ -272,11 +278,11 @@ where
 
 impl<S, I, H> OwnedStorage<S, I, H>
 where
-    S: ?Sized,
     for<'a> S: SourceDissect<'a> + SourceHash<'a> + SourceDiff<'a> + SourceOwned<'a>,
     H: BuildHasher,
     I: Id,
     I::BackingPrimitive: TryCast<usize>,
+    S: ?Sized,
     usize: TryCast<I::BackingPrimitive>,
 {
     /// A new, completely empty internment storage.
@@ -316,10 +322,10 @@ where
 impl<S, I, H> OwnedInterner<S, I> for OwnedStorage<S, I, H>
 where
     for<'a> S: SourceDissect<'a> + SourceHash<'a> + SourceDiff<'a> + SourceOwned<'a>,
-    S: ?Sized,
     H: BuildHasher,
     I: Id,
     I::BackingPrimitive: TryCast<usize>,
+    S: ?Sized,
     usize: TryCast<I::BackingPrimitive>,
 {
     #[inline]
@@ -352,10 +358,10 @@ where
 impl<S, I, H> OwnedStorage<S, I, H>
 where
     for<'a> S: SourceDissect<'a> + SourceHash<'a> + SourceDiff<'a> + SourceOwned<'a>,
-    S: ?Sized,
     H: BuildHasher,
     I: Id,
     I::BackingPrimitive: TryCast<usize>,
+    S: ?Sized,
     usize: TryCast<I::BackingPrimitive>,
 {
     /// Store the target value `V` in this [`OwnedStorage`].
@@ -414,7 +420,13 @@ where
 
                 storage_list.push(target_value.to_owned());
 
-                entry.insert_with_hasher(value_hash, key_id, (), |_| value_hash);
+                entry.insert_with_hasher(value_hash, key_id, (), |&key| {
+                    let key_id: I::BackingPrimitive = key.primitive();
+                    let key_id = key_id.cast().saturating_sub(1);
+                    let target_exist: &S = storage_list[key_id].borrow();
+
+                    build_hasher.hash_one(target_exist)
+                });
 
                 Some(key_id)
             }
@@ -440,7 +452,22 @@ where
 mod tests {
     use aldebaran_hash::fnv::FnvBuildHasher;
 
-    use super::{Storage, StorageId};
+    use super::{OwnedStorage, Storage, StorageId};
+
+    const GROWTH_VALUES: [&str; 12] = [
+        "define",
+        "radius",
+        "area",
+        "multiply",
+        "conditional",
+        "equals",
+        "addition",
+        "answer",
+        "branch",
+        "operator",
+        "binding",
+        "result",
+    ];
 
     #[test]
     fn storage_stores() {
@@ -465,5 +492,41 @@ mod tests {
         assert_eq!(storage.try_resolve(source_id).expect("should never fail"), source);
 
         assert_eq!(source_id, source_id2,);
+    }
+
+    #[test]
+    fn storage_remains_deduplicated_after_growth() {
+        let mut storage: Storage<'_, str, String, StorageId, FnvBuildHasher> = Storage::empty();
+        let mut ids = Vec::new();
+
+        for value in GROWTH_VALUES {
+            let id = storage.try_store(value).expect("test storage capacity is sufficient");
+
+            ids.push(id);
+        }
+
+        for (value, expected) in GROWTH_VALUES.into_iter().zip(ids) {
+            let actual = storage.try_store(value).expect("test storage capacity is sufficient");
+
+            assert_eq!(actual, expected);
+        }
+    }
+
+    #[test]
+    fn owned_storage_remains_deduplicated_after_growth() {
+        let mut storage: OwnedStorage<str, StorageId, FnvBuildHasher> = OwnedStorage::empty();
+        let mut ids = Vec::new();
+
+        for value in GROWTH_VALUES {
+            let id = storage.try_store(value).expect("test storage capacity is sufficient");
+
+            ids.push(id);
+        }
+
+        for (value, expected) in GROWTH_VALUES.into_iter().zip(ids) {
+            let actual = storage.try_store(value).expect("test storage capacity is sufficient");
+
+            assert_eq!(actual, expected);
+        }
     }
 }
