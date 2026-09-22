@@ -7,15 +7,27 @@ edition = "2024"
 default = []
 report-codegen = ["aldebaran-report/codegen"]
 
+[[test]]
+name = "report_codegen"
+required-features = ["report-codegen"]
+
 
 
 [dependencies]
-aldebaran-ansi = { version = "0.1.0", path = "../aldebaran-ansi" }
-aldebaran-interner = { version = "0.1.0", path = "../aldebaran-interner" }
-aldebaran-logic = { version = "0.0.0", path = "../aldebaran-logic" }
-aldebaran-print = { version = "0.1.0", path = "../aldebaran-print" }
-aldebaran-report = { version = "0.1.0", path = "../aldebaran-report" }
-aldebaran-source = { version = "0.1.0", path = "../aldebaran-source" }
-aldebaran-span = { version = "0.1.0", path = "../aldebaran-span" }
-aldebaran-style = { version = "0.1.0", path = "../aldebaran-style" }
-aldebaran-text = { version = "0.1.0", path = "../aldebaran-text" }
+aldebaran-ansi.workspace = true
+aldebaran-dsa.workspace = true
+aldebaran-grammar.workspace = true
+aldebaran-hash.workspace = true
+aldebaran-heap.workspace = true
+aldebaran-ice.workspace = true
+aldebaran-id.workspace = true
+aldebaran-interner.workspace = true
+aldebaran-logic.workspace = true
+aldebaran-primitive.workspace = true
+aldebaran-print.workspace = true
+aldebaran-report.workspace = true
+aldebaran-source.workspace = true
+aldebaran-span.workspace = true
+aldebaran-style.workspace = true
+aldebaran-text.workspace = true
+aldebaran-visualize.workspace = true

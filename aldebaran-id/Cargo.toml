@@ -7,8 +7,8 @@ edition = "2024"
 default = []
 
 [dependencies]
-tokel = "0.2.5"
-aldebaran-dsa = { version = "0.1.0", path = "../aldebaran-dsa" }
-aldebaran-hash = { version = "0.1.0", path = "../aldebaran-hash" }
-aldebaran-heap = { version = "0.1.0", path = "../aldebaran-heap" }
-aldebaran-primitive = { version = "0.1.0", path = "../aldebaran-primitive" }
+tokel.workspace = true
+aldebaran-dsa.workspace = true
+aldebaran-hash.workspace = true
+aldebaran-heap.workspace = true
+aldebaran-primitive.workspace = true

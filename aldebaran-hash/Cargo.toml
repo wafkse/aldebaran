@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-ahash = { default-features = false, version = "0.8.11" }
-fnv = { version = "1.0.7", default-features = false }
-fxhash = "0.2.1"
+ahash.workspace = true
+fnv.workspace = true
+fxhash.workspace = true

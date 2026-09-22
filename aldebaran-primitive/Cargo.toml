@@ -4,5 +4,5 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-aldebaran-primitive-core = { version = "0.1.0", path = "aldebaran-primitive-core" }
-aldebaran-primitive-macro = { version = "0.1.0", path = "aldebaran-primitive-macro" }
+aldebaran-primitive-core.workspace = true
+aldebaran-primitive-macro.workspace = true

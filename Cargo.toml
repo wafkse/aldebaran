@@ -1,9 +1,6 @@
 [workspace]
 members = [
-<<<<<<< HEAD
     "examples",
-=======
->>>>>>> 34dda89 (chore: add workspace configuration)
     "aldebaran",
     "aldebaran-logic",
     "aldebaran-logic/aldebaran-logic-macro",
@@ -31,7 +28,6 @@ members = [
 ]
 resolver = "3"
 
-<<<<<<< HEAD
 [workspace.package]
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/wafkse/aldebaran"
@@ -77,14 +73,3 @@ tokel = "0.3.0"
 
 [profile.dev]
 opt-level = 1
-=======
-[profile.dev]
-opt-level = 1
-
-[patch.crates-io]
-fack = { path = "../fack/fack" }
-fack-codegen = { path = "../fack/fack-codegen" }
-fack-core = { path = "../fack/fack-core" }
-fack-macro = { path = "../fack/fack-macro" }
-tokel = { path = "../tokel/tokel" }
->>>>>>> 34dda89 (chore: add workspace configuration)

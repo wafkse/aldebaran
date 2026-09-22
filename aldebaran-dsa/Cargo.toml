@@ -8,7 +8,7 @@ default = ["profile"]
 profile = []
 
 [dependencies]
-tokel = "0.2.5"
-hashbrown = { version = "0.15.0", features = [] }
-smallvec = { version = "1.13.2", features = [] }
-aldebaran-primitive = { version = "0.1.0", path = "../aldebaran-primitive" }
+tokel.workspace = true
+hashbrown.workspace = true
+smallvec.workspace = true
+aldebaran-primitive.workspace = true

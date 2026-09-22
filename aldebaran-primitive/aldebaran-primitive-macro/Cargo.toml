@@ -4,8 +4,4 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-<<<<<<< HEAD
-paste = "1.0"
-=======
 tokel.workspace = true
->>>>>>> 4a25ba6 (TEMP: fold into first commit)

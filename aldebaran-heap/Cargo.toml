@@ -5,8 +5,7 @@ edition = "2024"
 
 
 [dependencies]
-allocator-api2 = "0.2.18"
+allocator-api2.workspace = true
 
 [features]
 default = []
-nightly = ["allocator-api2/nightly"]

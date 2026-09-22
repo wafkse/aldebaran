@@ -4,5 +4,5 @@ version = "0.0.0"
 edition = "2024"
 
 [dependencies]
-aldebaran-logic-macro = { version = "0.1.0", path = "aldebaran-logic-macro" }
-aldebaran-print = { version = "0.1.0", path = "../aldebaran-print" }
+aldebaran-logic-macro.workspace = true
+aldebaran-print.workspace = true
