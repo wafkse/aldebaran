@@ -3,8 +3,7 @@ name: build
 on:
   push:
     branches:
-      - edge
-      - 'pr/**'
+      - development
   repository_dispatch:
     types:
       - build
@@ -15,8 +14,8 @@ env:
 
 jobs:
   build:
-    name: Build on ${{ matrix.os }} using rust ${{ matrix.toolchain }}
-    runs-on: ubuntu-latest
+    name: Build on ${{ matrix.os }} using Rust ${{ matrix.toolchain }}
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         toolchain:

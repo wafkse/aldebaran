@@ -3,8 +3,7 @@ name: test
 on:
   push:
     branches:
-      - edge
-      - 'pr/**'
+      - development
   repository_dispatch:
     types:
       - test
@@ -16,7 +15,7 @@ env:
 jobs:
   test:
     name: Test on ${{ matrix.os }} using rust ${{ matrix.toolchain }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         toolchain:
@@ -32,4 +31,4 @@ jobs:
         with:
           submodules: recursive
       - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
-      - run: cargo test --verbose  
+      - run: cargo test --verbose
