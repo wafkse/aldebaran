@@ -112,7 +112,14 @@ styling. See [`diagnostics`](./examples/diagnostics) and
 [`mini-lisp`](./examples/mini-lisp) for complete examples.
 
 The diagnostics example uses UTF-8 identifiers and deliberately overlapping
-annotations. It renders this without ANSI color:
+annotations. By default it uses Unicode framing with ANSI color:
+
+![ANSI-colored duplicate-binding diagnostic with overlapping UTF-8 spans](./docs/diagnostics-ansi.svg)
+
+<details>
+<summary>Plain-text rendering (<code>--no-ansi</code>)</summary>
+
+With ANSI styling stripped, the same diagnostic is:
 
 ```text
 error: duplicate binding
@@ -139,6 +146,20 @@ error: duplicate binding
     │
 ────┘
 ```
+
+</details>
+
+Run it with independent ANSI and Unicode controls:
+
+```sh
+cargo run -p aldebaran-example-diagnostics
+cargo run -p aldebaran-example-diagnostics -- --no-ansi
+cargo run -p aldebaran-example-diagnostics -- --no-unicode
+cargo run -p aldebaran-example-diagnostics -- --no-ansi --no-unicode
+```
+
+The corresponding inverse flags are `--ansi` and `--unicode`; when a switch is
+repeated, the last value wins. Use `--help` for the full CLI usage.
 
 ## More examples
 
