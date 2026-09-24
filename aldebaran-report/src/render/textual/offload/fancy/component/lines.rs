@@ -44,16 +44,20 @@ struct VisualWidth(u32);
 impl fmt::Write for VisualWidth {
     #[inline]
     fn write_str(&mut self, source: &str) -> fmt::Result {
+        let Self(target_value) = self;
+
         let width = u32::try_from(source.chars().count()).unwrap_or(u32::MAX);
 
-        self.0 = self.0.saturating_add(width);
+        *target_value = target_value.saturating_add(width);
 
         Ok(())
     }
 
     #[inline]
     fn write_char(&mut self, _: char) -> fmt::Result {
-        self.0 = self.0.saturating_add(1);
+        let Self(target_value) = self;
+
+        *target_value = target_value.saturating_add(1);
 
         Ok(())
     }
@@ -177,18 +181,6 @@ where
                 }
             }
         }
-    }
-
-    /// Retrieve the right display boundary used for marker lane packing.
-    #[inline]
-    const fn display_end(target: Span) -> usize {
-        target.end()
-    }
-
-    /// Retrieve the left display boundary used for marker placement.
-    #[inline]
-    const fn display_start(target: Span) -> usize {
-        target.start()
     }
 
     /// Count rendered scalar cells in one source interval.
@@ -398,7 +390,7 @@ where
                                     target_list
                                 };
 
-                                target_list.sort_by_key(|(target, ..)| Self::display_end(*target));
+                                target_list.sort_by_key(|(target, ..)| target.end());
 
                                 let target_backup: Vec<(Span, &<E::Annotations as Annotations>::Annotation)> = target_list
                                     .iter()
@@ -419,10 +411,10 @@ where
                                     let mut target_ignore = Vec::new();
 
                                     for pair @ (target, _) in target_list.into_iter() {
-                                        if Self::display_start(target) >= rightmost_index {
+                                        if target.start() >= rightmost_index {
                                             target_storage.push(pair);
 
-                                            rightmost_index = Self::display_end(target);
+                                            rightmost_index = target.end();
                                         } else {
                                             target_ignore.push(pair);
                                         }
@@ -443,22 +435,17 @@ where
                                             .entry(annotation_target)
                                             .or_insert_with(|| style_iter.next().unwrap_or(default_style));
 
-                                        ' '.times(Self::display_width(
-                                            line,
-                                            content_span,
-                                            rightmost_index,
-                                            Self::display_start(target),
-                                        ))
-                                        .sequence(
-                                            marker_char
-                                                .times(Self::marker_width(line, content_span, target))
-                                                .stylable()
-                                                .styled(*style)
-                                                .only_when(is_colored),
-                                        )
-                                        .print(sink)?;
+                                        ' '.times(Self::display_width(line, content_span, rightmost_index, target.start()))
+                                            .sequence(
+                                                marker_char
+                                                    .times(Self::marker_width(line, content_span, target))
+                                                    .stylable()
+                                                    .styled(*style)
+                                                    .only_when(is_colored),
+                                            )
+                                            .print(sink)?;
 
-                                        rightmost_index = Self::display_end(target);
+                                        rightmost_index = target.end();
                                     }
 
                                     '\n'.print(sink)?
