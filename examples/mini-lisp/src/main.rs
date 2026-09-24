@@ -3,6 +3,7 @@
 use core::fmt;
 
 use aldebaran::{
+    grammar::prelude::{Skipping, TokenStream},
     logic::{
         fmt::{Formatter, Precedence},
         prelude::{Assert, Choose, OneOf, Or},
@@ -20,7 +21,6 @@ use aldebaran::{
         },
     },
 };
-use aldebaran_grammar::prelude::{Skipping, TokenStream};
 
 /// Symbol punctuation shared by the start and continuation predicates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Assert)]

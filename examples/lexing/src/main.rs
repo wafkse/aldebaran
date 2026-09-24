@@ -1,12 +1,11 @@
-//! Source traversal, lexical recognition, interning, and token streaming.
+//! Source traversal, lexical recognition, interning, and token-stream lookahead.
 
-use aldebaran_grammar::prelude::{Skipping, TokenStream};
+use aldebaran_grammar::prelude::{Lookahead, Skipping, Slice, TokenStream};
 use aldebaran_logic::prelude::{Assert, Choose, OneOf};
 use aldebaran_source::prelude::{Source, SourceDissect, SourceIter};
 use aldebaran_text::prelude::{
     AsciiAlphabetic, AsciiAlphanumeric, AsciiDigit, AsciiWhitespace, Internment, Lex, LexStream, OwnedStorage, StorageId, Text,
 };
-use aldebaran_visualize::prelude::Visualize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Assert, Choose)]
 #[assert(disjunctive)]
@@ -167,10 +166,16 @@ fn main() {
     assert_eq!(tokens[4], Token::Integer(17));
     assert_eq!(tokens[5], Token::Punctuation('*'));
 
-    let bytes = [b'A', 0xff, b'Z'];
-    assert_eq!(format!("{}", bytes.as_slice().visual()), "A�Z");
+    let mut parser_stream = Slice::new(tokens.as_slice());
+    let first = parser_stream.lookahead::<0>().expect("slice streams are infallible");
+    let third = parser_stream.lookahead::<2>().expect("slice streams are infallible");
+
+    assert_eq!(first, Some(tokens[0]));
+    assert_eq!(third, Some(tokens[2]));
+    assert_eq!(parser_stream.next().expect("slice streams are infallible"), Some(tokens[0]));
 
     println!("source footprint {footprint:?}");
     println!("visible tokens {tokens:?}");
     println!("repeated identifier shares {first_identifier}");
+    println!("parser lookahead {first:?}, then {third:?}");
 }

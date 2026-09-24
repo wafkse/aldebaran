@@ -1,0 +1,9 @@
+[package]
+name = "aldebaran-example-mini-lisp"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+aldebaran = { workspace = true, features = ["report-codegen"] }
+aldebaran-logic.workspace = true

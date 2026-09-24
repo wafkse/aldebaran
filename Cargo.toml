@@ -1,6 +1,10 @@
 [workspace]
 members = [
-    "examples",
+    "examples/foundations",
+    "examples/lexing",
+    "examples/diagnostics",
+    "examples/presentation",
+    "examples/mini-lisp",
     "aldebaran",
     "aldebaran-logic",
     "aldebaran-logic/aldebaran-logic-macro",

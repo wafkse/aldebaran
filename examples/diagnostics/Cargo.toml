@@ -1,0 +1,9 @@
+[package]
+name = "aldebaran-example-diagnostics"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+aldebaran-report = { workspace = true, features = ["codegen"] }
+aldebaran-span.workspace = true

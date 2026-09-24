@@ -127,7 +127,7 @@ mod tests {
             RenderMut,
             textual::{
                 Present, Textual,
-                offload::fancy::{FancySettings, Fancyness},
+                offload::fancy::{Colored, FancySettings, Fancyness, LayoutSettings, charset::Charset},
             },
         },
     };
@@ -150,6 +150,26 @@ mod tests {
             .expect("failed to render source boundary diagnostic");
 
         assert!(output.contains("missing input"));
+    }
+
+    #[test]
+    fn unicode_source_marker_uses_rendered_width() {
+        let source = "let résumé = 1;\n";
+        let start = source.find("résumé").expect("unicode binding is present");
+        let length = NonZero::new("résumé".len()).expect("unicode binding is nonempty");
+        let annotation = Label::new("unicode binding", Span::new(start, length));
+        let report = oneshot::single(source, annotation);
+        let mut output = String::new();
+        let mut renderer = Textual::<'_, _, Fancy, _>::new(&mut output);
+        let settings = FancySettings::tuple((Colored::No, LayoutSettings::standard(), Charset::UNICODE));
+
+        renderer
+            .render_mut_with_input(Present::from_input(settings), &report)
+            .expect("failed to render unicode diagnostic");
+
+        assert!(output.contains("let résumé = 1;"));
+        assert!(output.contains("│     ^^^^^^"));
+        assert!(!output.contains("│     ^^^^^^^^"));
     }
 
     #[test]

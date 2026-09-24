@@ -1,27 +1,23 @@
 # Aldebaran examples
 
-This package contains runnable examples for the public workspace surface. The
-examples are grouped around real compiler-framework workflows so related crates
-are shown together.
+Each example is a separate workspace crate with only the dependencies it uses.
+Run them from the workspace root with `cargo run -p <package>`.
 
-Run an example with
+| Crate | Package | What it covers |
+| --- | --- | --- |
+| [`mini-lisp`](./mini-lisp) | `aldebaran-example-mini-lisp` | End-to-end lexer, internment, token streaming, recursive-descent parser, spanned AST, evaluator, and phase-specific diagnostics. Uses the `aldebaran` facade. |
+| [`lexing`](./lexing) | `aldebaran-example-lexing` | Source traversal, derived lexical assertions, `Lex`, persistent internment, trivia filtering, and parser lookahead over the resulting token stream. |
+| [`diagnostics`](./diagnostics) | `aldebaran-example-diagnostics` | A derived report over UTF-8 source with six labels, nested overlapping spans, and Unicode diagnostic framing. |
+| [`presentation`](./presentation) | `aldebaran-example-presentation` | Structured printing, lossy visualization, ANSI painting, and direct style application. |
+| [`foundations`](./foundations) | `aldebaran-example-foundations` | Primitive casts, spans, inline collections, reverse maps, hashing, heap allocation, typed IDs, and ICE helpers. |
+
+For example:
 
 ```sh
-cargo run -p aldebaran-examples --bin foundations
+cargo run -p aldebaran-example-mini-lisp
+cargo run -p aldebaran-example-lexing
 ```
 
-The available examples are
-
-| Example | Workspace coverage |
-| --- | --- |
-| `foundations` | `aldebaran-primitive`, `aldebaran-dsa`, `aldebaran-hash`, `aldebaran-heap`, `aldebaran-ice`, `aldebaran-id`, `aldebaran-span` |
-| `source_and_text` | Complete `Lex` pipeline using source slices, persistent identifier internment, integer construction, `LexStream`, derived lexical assertions, trivia filtering, and visualization. |
-| `logic_and_grammar` | Advanced `Assert` and `Choose` derives using conjunctive, disjunctive, expression-backed, and enum-variant predicates, then `OneOf` classification and grammar-stream lookahead. |
-| `mini_lisp` | End-to-end Lisp built around `Lex<str>` and a live `LexStream`, with composable `Assert` predicates, persistent symbol internment, direct stream parsing into a spanned AST, evaluation, structured phase errors, derived `Report` implementations, multi-span annotations, and fancy source diagnostics. |
-| `presentation` | `aldebaran-print`, `aldebaran-style`, `aldebaran-ansi`, `aldebaran-visualize` |
-| `diagnostics` | `aldebaran-report`, `aldebaran-report-macro`, `aldebaran-report-codegen`, `aldebaran-source`, `aldebaran-span` |
-| `facade` | `aldebaran` and its source-processing facade |
-
-`aldebaran-primitive-core` and `aldebaran-primitive-macro` provide the public
-primitive API through `aldebaran-primitive`. The `foundations` example exercises
-that combined surface.
+The examples overlap at their boundaries. `mini-lisp` shows how the framework
+composes through the facade; the smaller crates focus on individual subsystems
+and use those crates directly.

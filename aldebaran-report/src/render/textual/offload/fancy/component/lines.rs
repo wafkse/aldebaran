@@ -9,7 +9,7 @@ mod snippet;
 
 pub use self::snippet::{IrrelevantSegment, RelevantSegment, SnippetSegment};
 
-use core::{fmt, hash, marker};
+use core::{fmt, hash, marker, num::NonZero};
 
 use aldebaran_dsa::collect::Vec;
 
@@ -36,6 +36,28 @@ use crate::{
     },
     report::SourceReport,
 };
+
+/// Formatting sink that counts rendered Unicode scalar values.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+struct VisualWidth(u32);
+
+impl fmt::Write for VisualWidth {
+    #[inline]
+    fn write_str(&mut self, source: &str) -> fmt::Result {
+        let width = u32::try_from(source.chars().count()).unwrap_or(u32::MAX);
+
+        self.0 = self.0.saturating_add(width);
+
+        Ok(())
+    }
+
+    #[inline]
+    fn write_char(&mut self, _: char) -> fmt::Result {
+        self.0 = self.0.saturating_add(1);
+
+        Ok(())
+    }
+}
 
 /// Line-by-line rendering stage for the fancy textual report.
 ///
@@ -169,10 +191,43 @@ where
         target.start()
     }
 
+    /// Count rendered scalar cells in one source interval.
+    #[inline]
+    fn display_width(line: &<E::Source as SourceLines<'a>>::Line, content_span: Span, start: usize, end: usize) -> u32
+    where
+        <<E::Source as SourceLines<'a>>::Line as LineSegmented<'a, E::Source>>::View: Visualize,
+    {
+        let start = start.max(content_span.start());
+        let end = end.min(content_span.end());
+
+        if start >= end {
+            return 0;
+        }
+
+        let Some(length) = NonZero::new(end - start) else {
+            return 0;
+        };
+        let relative = Span::new(start - content_span.start(), length);
+        let Some(view) = line.window(relative) else {
+            return u32::try_from(end - start).unwrap_or(u32::MAX);
+        };
+        let mut width = VisualWidth::default();
+        let _ = view.visualize(&mut width);
+
+        width.0
+    }
+
     /// Retrieve the number of marker cells occupied by one projected target.
     #[inline]
-    fn marker_width(target: Span) -> u32 {
-        target.length().get() as u32
+    fn marker_width(line: &<E::Source as SourceLines<'a>>::Line, content_span: Span, target: Span) -> u32
+    where
+        <<E::Source as SourceLines<'a>>::Line as LineSegmented<'a, E::Source>>::View: Visualize,
+    {
+        if target.start() >= content_span.end() {
+            1
+        } else {
+            Self::display_width(line, content_span, target.start(), target.end()).max(1)
+        }
     }
 }
 
@@ -388,15 +443,20 @@ where
                                             .entry(annotation_target)
                                             .or_insert_with(|| style_iter.next().unwrap_or(default_style));
 
-                                        ' '.times(Self::display_start(target).abs_diff(rightmost_index) as _)
-                                            .sequence(
-                                                marker_char
-                                                    .times(Self::marker_width(target))
-                                                    .stylable()
-                                                    .styled(*style)
-                                                    .only_when(is_colored),
-                                            )
-                                            .print(sink)?;
+                                        ' '.times(Self::display_width(
+                                            line,
+                                            content_span,
+                                            rightmost_index,
+                                            Self::display_start(target),
+                                        ))
+                                        .sequence(
+                                            marker_char
+                                                .times(Self::marker_width(line, content_span, target))
+                                                .stylable()
+                                                .styled(*style)
+                                                .only_when(is_colored),
+                                        )
+                                        .print(sink)?;
 
                                         rightmost_index = Self::display_end(target);
                                     }

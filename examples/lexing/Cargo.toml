@@ -1,0 +1,11 @@
+[package]
+name = "aldebaran-example-lexing"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+aldebaran-grammar.workspace = true
+aldebaran-logic.workspace = true
+aldebaran-source.workspace = true
+aldebaran-text.workspace = true

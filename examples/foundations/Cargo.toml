@@ -1,0 +1,14 @@
+[package]
+name = "aldebaran-example-foundations"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+aldebaran-dsa.workspace = true
+aldebaran-hash.workspace = true
+aldebaran-heap.workspace = true
+aldebaran-ice.workspace = true
+aldebaran-id.workspace = true
+aldebaran-primitive.workspace = true
+aldebaran-span.workspace = true
