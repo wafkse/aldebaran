@@ -39,9 +39,16 @@ where
     T: Title,
     K: ErrorKind,
 {
+    /// Source text associated with this report.
     source: &'source S,
+
+    /// Nonempty annotation collection attached to the report.
     annotations: OneOrMore<A>,
+
+    /// Human-readable report title.
     title: T,
+
+    /// Structured report kind.
     kind: K,
 }
 

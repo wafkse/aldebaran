@@ -94,7 +94,7 @@ pub trait Report {
             .reduce(|left, right| left.superset(right))
     }
 
-    /// Borrow this report together with one concrete rendering source.
+    /// Borrow this report together with a concrete rendering source.
     ///
     /// Attachment stores only references and does not copy or allocate report state.
     #[inline]

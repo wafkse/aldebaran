@@ -1,6 +1,6 @@
 //! One-shot reports with an explicit diagnostic kind.
 //!
-//! [`OneshotKinded`] combines a borrowed source, one annotation, and a caller
+//! [`OneshotKinded`] combines a borrowed source, an annotation, and a caller
 //! supplied error kind. It keeps kind policy explicit while avoiding a custom
 //! report structure for short-lived diagnostics.
 

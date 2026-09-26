@@ -1,6 +1,6 @@
 //! Concise one-shot reports with a statically known primary annotation.
 //!
-//! [`OneshotConcise`] borrows a source and one annotation while deriving the
+//! [`OneshotConcise`] borrows a source and an annotation while deriving the
 //! report title directly from that annotation. It avoids constructing a dedicated
 //! error type when source, title, and target are already available together.
 

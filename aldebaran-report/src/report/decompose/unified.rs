@@ -1,7 +1,7 @@
 //! Unified borrowed title views for decomposed report values.
 //!
 //! [`UnifiedTitle`] represents either an ordinary report title or the title of an
-//! inline annotation. This allows decomposition code to expose one title surface
+//! inline annotation. This allows decomposition code to expose a unified title surface
 //! without allocating or coercing distinct title types into strings.
 
 use core::fmt;
@@ -19,10 +19,16 @@ where
     A: Annotated,
 {
     /// The left-hand side possibility.
-    Left(&'a T),
+    Left(
+        /// Borrowed ordinary report title.
+        &'a T,
+    ),
 
     /// The right-hand side possibility.
-    Right(&'a A),
+    Right(
+        /// Borrowed annotation whose message supplies the title view.
+        &'a A,
+    ),
 }
 
 impl<'a, T, A> UnifiedTitle<'a, T, A>

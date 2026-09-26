@@ -2,7 +2,7 @@
 //!
 //! This module associates annotations with their source lines and groups regions
 //! whose line ranges overlap. The iterator types perform this grouping without
-//! allocating a separate interval index, allowing renderers to process one
+//! allocating a separate interval index, allowing renderers to process each
 //! related source region at a time.
 
 use core::{fmt, num::NonZero, ops::RangeInclusive};
@@ -14,7 +14,7 @@ use crate::{error::Lines, error::Source};
 
 use super::Annotated;
 
-/// A printable view of one source and its related annotations.
+/// A printable view of a source and its related annotations.
 ///
 /// Printing discovers contiguous annotation groups, selects the source lines
 /// covered by each group, and forwards those lines to the source printing
@@ -25,7 +25,10 @@ where
     S: Source<'a>,
     A: Annotated,
 {
+    /// Source whose lines are selected for snippet rendering.
     target_source: &'a S,
+
+    /// Primary annotation and the remaining annotations associated with the source.
     annotations: (&'a A, &'a [A]),
 }
 
@@ -77,13 +80,16 @@ where
     }
 }
 
-/// A structure that gurantees that there is at least one [`Annotated`].
+/// A structure that guarantees at least one [`Annotated`] value.
 #[derive(Debug, Hash)]
 pub struct OneOrMore<'a, A>
 where
     A: Annotated,
 {
+    /// Required first annotation.
     a0: &'a A,
+
+    /// Remaining annotations after the first value.
     a_n: &'a [A],
 }
 
@@ -116,7 +122,7 @@ where
         a0
     }
 
-    /// Retrieve the rest of the annotations, that is, all annotations except the first one.
+    /// Retrieve the annotations after the first value.
     #[inline]
     pub const fn rest(&self) -> &'a [A] {
         let &Self { a_n, .. } = self;
@@ -166,7 +172,12 @@ pub struct OnceOrMore<'a, A>
 where
     A: Annotated,
 {
+    /// Current nonzero position in the remaining annotations.
+    ///
+    /// `None` means the required first annotation has not yet been yielded.
     i0: Option<NonZero<usize>>,
+
+    /// Nonempty annotation collection being traversed.
     a0: OneOrMore<'a, A>,
 }
 
@@ -196,10 +207,10 @@ where
     }
 }
 
-/// Iterator that discovers one annotation region at a time.
+/// Iterator that discovers annotation regions sequentially.
 ///
 /// Annotations belong to the same region when their source line ranges overlap.
-/// Each yielded [`ContiguousFor`] becomes the query view for one region, while
+/// Each yielded [`ContiguousFor`] becomes the query view for that region, while
 /// previously grouped annotations are skipped on later iterations.
 #[derive(Debug, Hash)]
 pub struct Contiguous<'a, A, S>
@@ -306,7 +317,7 @@ where
     }
 }
 
-/// Query view centered on one annotation region.
+/// Query view centered on an annotation region.
 ///
 /// The view records the target annotation and its line range, then exposes an
 /// iterator over every annotation that overlaps that range. The inflection point
@@ -376,7 +387,7 @@ where
     }
 }
 
-/// Iterator over annotations that overlap one target line range.
+/// Iterator over annotations that overlap the target line range.
 ///
 /// Iteration resumes from the last discovered position and skips earlier entries
 /// using the region inflection point. This preserves the allocation-free grouping

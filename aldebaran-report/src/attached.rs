@@ -32,7 +32,7 @@ where
     S: SourceLines<'source> + SourceMetadata<'source> + ?Sized,
     R: Report + ?Sized,
 {
-    /// Borrow one report together with one concrete source.
+    /// Borrow a report together with a concrete source.
     #[inline]
     #[must_use]
     pub const fn new(source: &'source S, report: &'report R) -> Self {

@@ -1,6 +1,6 @@
 //! Minimal inline annotations for diagnostic reports.
 //!
-//! [`Label`] pairs a printable message with one nonempty diagnostic span and
+//! [`Label`] pairs a printable message with a nonempty diagnostic span and
 //! implements [`Annotated`]. It is the small building block
 //! used by one-shot reports and fixed annotation collections.
 
@@ -10,7 +10,7 @@ use aldebaran_span::span::Span;
 
 use aldebaran_source::prelude::Source;
 
-/// A minimal inline annotation with one message and one nonempty diagnostic span.
+/// A minimal inline annotation with a message and a nonempty diagnostic span.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct Label<C>
 where
@@ -27,7 +27,7 @@ impl<C> Label<C>
 where
     C: Title,
 {
-    /// Construct one span annotation.
+    /// Construct a span annotation.
     #[inline]
     #[must_use]
     pub const fn new(message: C, span: Span) -> Self {

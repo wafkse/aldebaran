@@ -1,6 +1,6 @@
 //! One-shot reports over a borrowed nonempty annotation collection.
 //!
-//! [`OneshotMany`] attaches one title and source to a collection of annotations
+//! [`OneshotMany`] attaches a title and source to a collection of annotations
 //! selected by the caller. The report borrows all inputs and exposes them through
 //! ordinary reporting traits without copying annotation storage.
 

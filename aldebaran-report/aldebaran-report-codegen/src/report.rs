@@ -12,7 +12,7 @@ use syn::{Attribute, Data, DeriveInput, Fields, Ident, LitStr, Member, Path, Typ
 ///
 /// Construction classifies the input as a structure or enum and validates its
 /// report metadata before code generation. Expansion consumes this representation
-/// to emit the complete runtime `Annotated` and `Report` implementations.
+/// to emit the runtime `Annotated` and `Report` implementations.
 #[derive(Debug)]
 pub struct Report {
     /// Name of the diagnostic type.
@@ -25,9 +25,8 @@ pub struct Report {
     body: Body,
 }
 
-// NOTE(invariant): Every stored body has one complete report policy and one unambiguous primary target.
 impl Report {
-    /// Parse and validate one derive input.
+    /// Parse and validate the derive input.
     #[inline]
     pub fn new(input: DeriveInput) -> syn::Result<Self> {
         let DeriveInput {
@@ -63,18 +62,24 @@ impl Report {
     }
 }
 
-/// Validated shape of one report.
+/// Validated report shape.
 #[derive(Debug)]
 enum Body {
-    /// One report structure.
-    Struct(Structure),
+    /// Report structure generation state.
+    Struct(
+        /// Validated report structure policy.
+        Structure,
+    ),
 
     /// Per-alternative report policies.
-    Enum(Vec<Variant>),
+    Enum(
+        /// Validated policies for each enum alternative.
+        Vec<Variant>,
+    ),
 }
 
 impl Body {
-    /// Generate one report enum implementation.
+    /// Generate the report enum implementation.
     fn expand_enum(ident: &Ident, generics: &syn::Generics, variants: &[Variant], runtime: &TokenStream) -> TokenStream {
         let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
         let message = variants.iter().map(|variant| variant.message_arm(runtime));
@@ -126,20 +131,19 @@ impl Body {
     }
 }
 
-/// Validated generation state for one report structure.
+/// Validated generation state for a report structure.
 ///
-/// The structure owns the complete reporting policy selected from its attributes
+/// The structure owns the reporting policy selected from its attributes
 /// and fields. Expansion delegates to that policy after target ambiguity and
 /// incompatible metadata combinations have already been rejected.
 #[derive(Debug)]
 struct Structure {
-    /// Complete report generation policy.
+    /// Validated report generation policy.
     policy: StructurePolicy,
 }
 
-// NOTE(invariant): Every policy identifies exactly one primary annotation source and one complete title policy.
 impl Structure {
-    /// Validate one report structure.
+    /// Validate the report structure.
     fn new(attributes: Vec<Attribute>, fields: Fields, ident: &Ident) -> syn::Result<Self> {
         let members = Self::members(fields);
         let policy = StructurePolicy::parse(&attributes, &members, ident)?;
@@ -165,7 +169,7 @@ impl Structure {
         }
     }
 
-    /// Determine whether one type is syntactically a source span.
+    /// Determine whether a type is syntactically a source span.
     fn is_span(ty: &Type) -> bool {
         match ty {
             Type::Path(path) => path.path.segments.last().map(|segment| segment.ident == "Span").unwrap_or(false),
@@ -173,7 +177,7 @@ impl Structure {
         }
     }
 
-    /// Find one declared member and preserve its type.
+    /// Find the declared member and preserve its type.
     fn member(members: &[(Member, Type)], selected: &Member, ident: &Ident) -> syn::Result<TargetMember> {
         members
             .iter()
@@ -182,7 +186,7 @@ impl Structure {
             .ok_or_else(|| syn::Error::new_spanned(ident, "report member does not exist"))
     }
 
-    /// Infer one unambiguous source target.
+    /// Infer an unambiguous source target.
     fn target(members: &[(Member, Type)], ident: &Ident) -> syn::Result<TargetMember> {
         let spans = members
             .iter()
@@ -206,7 +210,7 @@ impl Structure {
         }
     }
 
-    /// Generate one report structure implementation.
+    /// Generate the report structure implementation.
     fn expand(&self, ident: &Ident, generics: &syn::Generics, runtime: &TokenStream) -> TokenStream {
         let Self { policy } = self;
 
@@ -214,17 +218,20 @@ impl Structure {
     }
 }
 
-/// Complete generation policy for one report structure.
+/// Generation policy for a report structure.
 ///
 /// A policy determines whether behavior is forwarded to a wrapped report, built
-/// from one primary source target, or backed by an existing annotation collection.
+/// from a primary source target, or backed by an existing annotation collection.
 /// Each variant contains everything needed to generate both reporting traits.
 #[derive(Debug)]
 enum StructurePolicy {
-    /// Forward every diagnostic facet to one wrapped report field.
-    Transparent(TargetMember),
+    /// Forward every diagnostic facet to the wrapped report field.
+    Transparent(
+        /// Wrapped report member receiving every forwarded operation.
+        TargetMember,
+    ),
 
-    /// Build one primary annotation from a selected source target.
+    /// Build the primary annotation from a selected source target.
     Custom {
         /// Diagnostic title policy.
         title: TitlePolicy,
@@ -250,7 +257,7 @@ enum StructurePolicy {
 }
 
 impl StructurePolicy {
-    /// Parse one complete structure report policy.
+    /// Parse the structure report policy.
     fn parse(attributes: &[Attribute], members: &[(Member, Type)], ident: &Ident) -> syn::Result<Self> {
         let declarations = Declarations::parse(attributes)?;
         let Declarations {
@@ -305,7 +312,7 @@ impl StructurePolicy {
         }
     }
 
-    /// Generate implementations for one validated structure policy.
+    /// Generate implementations for the validated structure policy.
     fn expand(&self, ident: &Ident, generics: &syn::Generics, runtime: &TokenStream) -> TokenStream {
         match self {
             Self::Transparent(target) => Self::expand_transparent(ident, generics, runtime, target),
@@ -318,7 +325,7 @@ impl StructurePolicy {
         }
     }
 
-    /// Generate one custom primary-annotation implementation.
+    /// Generate the custom primary-annotation implementation.
     fn expand_custom(
         ident: &Ident,
         generics: &syn::Generics,
@@ -370,7 +377,7 @@ impl StructurePolicy {
         }
     }
 
-    /// Generate one transparent forwarding implementation.
+    /// Generate the transparent forwarding implementation.
     fn expand_transparent(ident: &Ident, generics: &syn::Generics, runtime: &TokenStream, target: &TargetMember) -> TokenStream {
         let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
         let inner = target.reference();
@@ -414,7 +421,7 @@ impl StructurePolicy {
         }
     }
 
-    /// Generate a report backed by one stored nonempty annotation collection.
+    /// Generate a report backed by the stored nonempty annotation collection.
     fn expand_stored(
         ident: &Ident,
         generics: &syn::Generics,
@@ -575,14 +582,20 @@ impl Declarations {
 #[derive(Debug)]
 enum TitlePolicy {
     /// Static diagnostic title.
-    Static(LitStr),
+    Static(
+        /// Literal emitted as the diagnostic title.
+        LitStr,
+    ),
 
     /// Function used to project a borrowed title from the error.
-    With(Path),
+    With(
+        /// Function path used to project a borrowed diagnostic title.
+        Path,
+    ),
 }
 
 impl TitlePolicy {
-    /// Resolve one exclusive title declaration.
+    /// Resolve the exclusive title declaration.
     fn resolve(title: Option<LitStr>, title_with: Option<Path>, ident: &Ident) -> syn::Result<Self> {
         match (title, title_with) {
             (Some(title), None) => Ok(Self::Static(title)),
@@ -592,7 +605,7 @@ impl TitlePolicy {
         }
     }
 
-    /// Generate one title expression.
+    /// Generate the title expression.
     fn expression(&self, subject: TokenStream) -> TokenStream {
         match self {
             Self::Static(title) => quote!(#title),
@@ -601,18 +614,28 @@ impl TitlePolicy {
     }
 }
 
-/// Source target selected from one structure member.
+/// Source target selected from a structure member.
 #[derive(Debug, Clone)]
 enum TargetMember {
     /// Member stores a source span directly.
-    Span(Member, Type),
+    Span(
+        /// Structure member containing the source span.
+        Member,
+        /// Declared type of the selected member.
+        Type,
+    ),
 
     /// Member supplies its target through Annotated.
-    Annotated(Member, Type),
+    Annotated(
+        /// Structure member implementing the annotation contract.
+        Member,
+        /// Declared type of the selected member.
+        Type,
+    ),
 }
 
 impl TargetMember {
-    /// Construct one member classification.
+    /// Construct the member classification.
     fn new(member: Member, ty: Type) -> Self {
         if Structure::is_span(&ty) {
             Self::Span(member, ty)
@@ -637,7 +660,7 @@ impl TargetMember {
         }
     }
 
-    /// Generate one source-span expression.
+    /// Generate the source-span expression.
     fn expression(&self, runtime: &TokenStream) -> TokenStream {
         match self {
             Self::Span(member, _) => quote!(self.#member),
@@ -650,10 +673,16 @@ impl TargetMember {
 #[derive(Debug)]
 enum Message {
     /// Static annotation text.
-    Static(LitStr),
+    Static(
+        /// Literal emitted as the primary annotation message.
+        LitStr,
+    ),
 
     /// Function used to project annotation text from the error.
-    With(Path),
+    With(
+        /// Function path used to project a borrowed annotation message.
+        Path,
+    ),
 }
 
 impl Message {
@@ -667,7 +696,7 @@ impl Message {
         }
     }
 
-    /// Resolve one required exclusive message declaration.
+    /// Resolve the required exclusive message declaration.
     fn resolve(message: Option<LitStr>, message_with: Option<Path>, ident: &Ident) -> syn::Result<Self> {
         match (message, message_with) {
             (Some(message), None) => Ok(Self::Static(message)),
@@ -677,7 +706,7 @@ impl Message {
         }
     }
 
-    /// Generate one message expression.
+    /// Generate the message expression.
     fn expression(&self, subject: TokenStream) -> TokenStream {
         match self {
             Self::Static(message) => quote!(#message),
@@ -686,7 +715,7 @@ impl Message {
     }
 }
 
-/// One validated report enum alternative.
+/// Validated report enum alternative.
 #[derive(Debug)]
 struct Variant {
     /// Variant constructor name.
@@ -702,9 +731,8 @@ struct Variant {
     cfg: Vec<Attribute>,
 }
 
-// NOTE(invariant): Every variant wraps exactly one error value and carries one complete report policy.
 impl Variant {
-    /// Validate one report enum alternative.
+    /// Validate the report enum alternative.
     fn new(variant: syn::Variant) -> syn::Result<Self> {
         let syn::Variant { attrs, ident, fields, .. } = variant;
         let ty = match fields {
@@ -732,7 +760,7 @@ impl Variant {
         Ok(Self { ident, ty, policy, cfg })
     }
 
-    /// Generate one message match arm.
+    /// Generate the message match arm.
     fn message_arm(&self, runtime: &TokenStream) -> TokenStream {
         let Self { ident, policy, cfg, .. } = self;
         let message = match policy {
@@ -746,7 +774,7 @@ impl Variant {
         }
     }
 
-    /// Generate one target match arm.
+    /// Generate the target match arm.
     fn target_arm(&self, runtime: &TokenStream) -> TokenStream {
         let Self { ident, ty, cfg, .. } = self;
         let target = if Structure::is_span(ty) {
@@ -761,7 +789,7 @@ impl Variant {
         }
     }
 
-    /// Generate one title match arm.
+    /// Generate the title match arm.
     fn title_arm(&self, runtime: &TokenStream) -> TokenStream {
         let Self { ident, policy, cfg, .. } = self;
         let title = match policy {
@@ -793,7 +821,7 @@ enum Policy {
 }
 
 impl Policy {
-    /// Parse report metadata from one item or enum alternative.
+    /// Parse report metadata from an item or enum alternative.
     fn parse(attributes: &[Attribute], ident: &Ident) -> syn::Result<Self> {
         let mut transparent = false;
         let mut title = None;

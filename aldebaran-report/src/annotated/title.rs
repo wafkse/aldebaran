@@ -2,7 +2,7 @@
 //!
 //! [`Title`] exposes a printable view while preserving the context required by
 //! the underlying value. Textual renderers may choose to require a default
-//! context, while context-aware renderers can provide one explicitly.
+//! context, while context-aware renderers can provide it explicitly.
 
 use aldebaran_print::prelude::Print;
 

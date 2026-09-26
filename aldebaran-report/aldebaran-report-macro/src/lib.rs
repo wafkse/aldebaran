@@ -13,7 +13,10 @@ use syn::{DeriveInput, parse_macro_input};
 
 /// Runtime path used by generated report implementations.
 #[derive(Debug)]
-struct RuntimePath(TokenStream2);
+struct RuntimePath(
+    /// Tokens naming the report runtime visible from generated code.
+    TokenStream2,
+);
 
 impl RuntimePath {
     /// Resolve either the direct runtime crate or the public facade.
@@ -30,7 +33,7 @@ impl RuntimePath {
         }
     }
 
-    /// Convert one direct dependency result into a Rust path.
+    /// Convert a direct dependency result into a Rust path.
     fn direct(found: FoundCrate) -> TokenStream2 {
         match found {
             FoundCrate::Itself => quote!(crate),
@@ -42,7 +45,7 @@ impl RuntimePath {
         }
     }
 
-    /// Convert one facade dependency result into its report module path.
+    /// Convert a facade dependency result into its report module path.
     fn facade(found: FoundCrate) -> TokenStream2 {
         match found {
             FoundCrate::Itself => quote!(crate::report),

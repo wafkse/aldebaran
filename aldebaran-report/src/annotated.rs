@@ -71,11 +71,11 @@ pub trait Annotations {
     /// Annotation type exposed by this collection.
     type Annotation: Annotated;
 
-    /// Borrow the available annotations as one primary value plus a related slice.
+    /// Borrow the available annotations as a primary value plus a related slice.
     fn list(&self) -> Option<RefOneOrMore<'_, Self::Annotation>>;
 }
 
-/// An annotation collection that statically guarantees one primary annotation.
+/// An annotation collection that statically guarantees a primary annotation.
 pub trait PrimaryAnnotations: Annotations {
     /// Borrow the primary annotation.
     fn primary(&self) -> &Self::Annotation;
@@ -103,13 +103,18 @@ where
     }
 }
 
-/// Inline storage for one primary annotation and a fixed related set.
+/// Inline storage for a primary annotation and a fixed related set.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct InlineAnnotations<A, const N: usize>(A, [A; N]);
+pub struct InlineAnnotations<A, const N: usize>(
+    /// The primary annotation.
+    A,
+    /// Related annotations stored inline in declaration order.
+    [A; N],
+);
 
 // NOTE(invariant): The primary annotation is always present and every related annotation is stored inline in declaration order.
 impl<A, const N: usize> InlineAnnotations<A, N> {
-    /// Construct one fixed annotation set.
+    /// Construct a fixed annotation set.
     #[inline]
     #[must_use]
     pub const fn new(primary: A, related: [A; N]) -> Self {

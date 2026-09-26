@@ -22,7 +22,10 @@ pub struct DecomposeByClone<'a, E>
 where
     E: Report<'a>,
 {
+    /// Wrapped report whose components are exposed through cloning.
     error: E,
+
+    /// Associates the adaptor with the source report lifetime.
     _marker: PhantomData<&'a ()>,
 }
 
