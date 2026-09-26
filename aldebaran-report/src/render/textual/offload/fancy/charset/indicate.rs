@@ -551,9 +551,16 @@ impl Default for Point {
 /// report.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct Arrow {
+    /// Upward-pointing arrow glyph.
     up: char,
+
+    /// Downward-pointing arrow glyph.
     down: char,
+
+    /// Leftward-pointing arrow glyph.
     left: char,
+
+    /// Rightward-pointing arrow glyph.
     right: char,
 }
 
@@ -754,14 +761,39 @@ impl<'a> Iterator for Marker<'a> {
         let &mut Self {
             base,
             ref mut index,
-            ref default,
+            default,
             ..
         } = self;
 
-        let &c = base.get(*index).unwrap_or(default);
+        match base.get(*index) {
+            Some(&c) => {
+                *index = (*index + 1) % base.len();
 
-        *index = (*index + 1) % base.len();
+                Some(c)
+            }
+            None => Some(default),
+        }
+    }
+}
 
-        Some(c)
+#[cfg(test)]
+mod tests {
+    use super::Marker;
+
+    #[test]
+    fn empty_marker_set_uses_default() {
+        let mut marker = Marker::set(&[], '?');
+
+        assert_eq!(marker.next(), Some('?'));
+        assert_eq!(marker.next(), Some('?'));
+    }
+
+    #[test]
+    fn marker_set_cycles() {
+        let mut marker = Marker::set(&['a', 'b'], '?');
+
+        assert_eq!(marker.next(), Some('a'));
+        assert_eq!(marker.next(), Some('b'));
+        assert_eq!(marker.next(), Some('a'));
     }
 }

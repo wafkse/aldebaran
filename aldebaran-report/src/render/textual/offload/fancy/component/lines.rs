@@ -39,7 +39,10 @@ use crate::{
 
 /// Formatting sink that counts rendered Unicode scalar values.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-struct VisualWidth(u32);
+struct VisualWidth(
+    /// Number of Unicode scalar values written to the sink.
+    u32,
+);
 
 impl fmt::Write for VisualWidth {
     #[inline]
@@ -77,6 +80,7 @@ where
     E::Source: SourceLines<'a> + SourceMetadata<'a> + 'a,
     <E::Source as SourceMetadata<'a>>::Metadata: Location,
 {
+    /// Carries the source lifetime and renderer type relationships without runtime storage.
     _marker: (
         marker::PhantomData<&'a ()>,
         marker::PhantomData<E>,
@@ -151,9 +155,9 @@ where
     E::Source: SourceLines<'a> + SourceMetadata<'a> + 'a,
     <E::Source as SourceMetadata<'a>>::Metadata: Location,
 {
-    /// Determine whether one source span intersects a rendered source line.
+    /// Determine whether a source span intersects a rendered source line.
     #[inline]
-    fn line_relevant(target: Span, line_span: Span, source_size: usize) -> bool {
+    fn relevant(target: Span, line_span: Span, source_size: usize) -> bool {
         if target.overlaps(line_span) {
             true
         } else if target.start() == source_size {
@@ -163,12 +167,12 @@ where
         }
     }
 
-    /// Project one source span onto visible content.
+    /// Project a source span onto visible content.
     ///
     /// A unit span beginning at the source length is preserved on the final
     /// visible phase so EOF diagnostics retain their boundary marker.
     #[inline]
-    fn phase_target(target: Span, phase_span: Span, content_span: Span) -> Option<Span> {
+    fn project(target: Span, phase_span: Span, content_span: Span) -> Option<Span> {
         match target.intersect(phase_span) {
             Some(span) => Some(span),
             None => {
@@ -183,9 +187,9 @@ where
         }
     }
 
-    /// Count rendered scalar cells in one source interval.
+    /// Count rendered scalar cells in a source interval.
     #[inline]
-    fn display_width(line: &<E::Source as SourceLines<'a>>::Line, content_span: Span, start: usize, end: usize) -> u32
+    fn width(line: &<E::Source as SourceLines<'a>>::Line, content_span: Span, start: usize, end: usize) -> u32
     where
         <<E::Source as SourceLines<'a>>::Line as LineSegmented<'a, E::Source>>::View: Visualize,
     {
@@ -207,19 +211,6 @@ where
         let _ = view.visualize(&mut width);
 
         width.0
-    }
-
-    /// Retrieve the number of marker cells occupied by one projected target.
-    #[inline]
-    fn marker_width(line: &<E::Source as SourceLines<'a>>::Line, content_span: Span, target: Span) -> u32
-    where
-        <<E::Source as SourceLines<'a>>::Line as LineSegmented<'a, E::Source>>::View: Visualize,
-    {
-        if target.start() >= content_span.end() {
-            1
-        } else {
-            Self::display_width(line, content_span, target.start(), target.end()).max(1)
-        }
     }
 }
 
@@ -307,7 +298,7 @@ where
                     .list()
                     .into_iter()
                     .flat_map(|annotations| annotations.iter())
-                    .filter(|&annotation| Self::line_relevant(annotation.target(), line_span, source_size))
+                    .filter(|&annotation| Self::relevant(annotation.target(), line_span, source_size))
                     .collect();
 
                 match OneOrMore::from_vec(annotations) {
@@ -376,7 +367,7 @@ where
 
                                 let mut target_list = {
                                     let mut target_iter = target_list.iter().filter_map(|&annotation| {
-                                        Self::phase_target(annotation.target(), phase_span, content_span).map(|target| (target, annotation))
+                                        Self::project(annotation.target(), phase_span, content_span).map(|target| (target, annotation))
                                     });
 
                                     let (capacity, _) = target_iter.size_hint();
@@ -427,6 +418,12 @@ where
                                     for (target, annotation) in target_storage.drain(..) {
                                         let annotation_target = annotation.target();
 
+                                        let marker_width = if target.start() >= content_span.end() {
+                                            1
+                                        } else {
+                                            Self::width(line, content_span, target.start(), target.end()).max(1)
+                                        };
+
                                         let marker_char = marker_map
                                             .entry(annotation_target)
                                             .or_insert_with(|| marker.next().unwrap_or(marker.default()));
@@ -435,14 +432,8 @@ where
                                             .entry(annotation_target)
                                             .or_insert_with(|| style_iter.next().unwrap_or(default_style));
 
-                                        ' '.times(Self::display_width(line, content_span, rightmost_index, target.start()))
-                                            .sequence(
-                                                marker_char
-                                                    .times(Self::marker_width(line, content_span, target))
-                                                    .stylable()
-                                                    .styled(*style)
-                                                    .only_when(is_colored),
-                                            )
+                                        ' '.times(Self::width(line, content_span, rightmost_index, target.start()))
+                                            .sequence(marker_char.times(marker_width).stylable().styled(*style).only_when(is_colored))
                                             .print(sink)?;
 
                                         rightmost_index = target.end();
@@ -454,7 +445,7 @@ where
                                 for (target, v) in target_backup {
                                     let is_end = line_iter
                                         .peek()
-                                        .map(|snippet| !Self::line_relevant(target, snippet.id().span(), source_size))
+                                        .map(|snippet| !Self::relevant(target, snippet.id().span(), source_size))
                                         .unwrap_or(true);
 
                                     if is_end {
