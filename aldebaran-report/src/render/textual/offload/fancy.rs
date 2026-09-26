@@ -64,6 +64,7 @@ pub struct Fancy<T = DefaultTheme>
 where
     T: Theme,
 {
+    /// Associates this renderer with its selected theme type.
     _marker: marker::PhantomData<T>,
 }
 

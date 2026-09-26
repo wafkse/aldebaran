@@ -97,16 +97,23 @@ pub struct FancySettings<T = DefaultTheme>
 where
     T: Theme,
 {
+    /// Whether rendered output uses terminal color.
     colored: Colored,
+
+    /// Optional layout policy for source and line-number presentation.
     layout: Option<LayoutSettings>,
+
+    /// Glyph collection used for structural and annotation markers.
     charset: Charset,
+
+    /// Theme that maps diagnostic roles to styles.
     theme: T,
 }
 
 impl FancySettings {
     /// The standard [`FancySettings`].
     ///
-    /// Uses the standard setting for each one of its respective parts.
+    /// Uses the standard setting for each component.
     ///
     /// # Remarks
     ///

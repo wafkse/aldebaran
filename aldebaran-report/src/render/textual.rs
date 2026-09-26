@@ -26,7 +26,10 @@ where
     O: Offload<'source, E> + ?Sized,
     E: SourceReport<'source>,
 {
+    /// Renderer-specific presentation input.
     input: O::Input<'input>,
+
+    /// Terminal viewport used to shape textual output.
     viewport: Viewport,
 }
 
@@ -69,7 +72,7 @@ where
 {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.input == other.input && self.viewport == other.viewport
+        self.input() == other.input() && self.viewport() == other.viewport()
     }
 }
 
@@ -81,8 +84,8 @@ where
 {
     #[inline]
     fn hash<H: hash::Hasher>(&self, state: &mut H) {
-        self.input.hash(state);
-        self.viewport.hash(state);
+        self.input().hash(state);
+        self.viewport().hash(state);
     }
 }
 
@@ -94,8 +97,8 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Present")
-            .field("input", &self.input)
-            .field("viewport", &self.viewport)
+            .field("input", self.input())
+            .field("viewport", self.viewport())
             .finish()
     }
 }

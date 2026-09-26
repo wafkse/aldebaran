@@ -14,6 +14,7 @@ use crate::render::textual::viewport::{self, Viewport, ViewportShape};
 /// [`Fancy`]: super::Fancy
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default)]
 pub struct LayoutSettings {
+    /// Horizontal padding around the rendered line-number column.
     line_no_col_padding: HorizontalPadding,
 }
 

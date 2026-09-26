@@ -14,7 +14,10 @@ use core::num::NonZero;
 /// Represents the area of the terminal that is suitable for rendering text.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct Viewport {
+    /// Physical width and height of the terminal viewport.
     viewport_extents: Extents,
+
+    /// Shape classification used to choose a rendering growth direction.
     viewport_shape: ViewportShape,
 }
 
@@ -26,7 +29,7 @@ impl Viewport {
 
     /// Create a new [`Viewport`] with the standard terminal size.
     ///
-    /// The current standard terminal size is `80x24`.
+    /// The current standard terminal size is `140x48`.
     #[inline]
     pub const fn standard() -> Self {
         let viewport_extents = Extents::tuple((
@@ -99,7 +102,7 @@ impl Viewport {
     /// Reinterpret this [`Viewport`] as a really wide viewport.
     ///
     /// This effectively changes the shape of the viewport to be rectangular
-    /// with a [`righwards growth trend`](Trend::Rightwards).
+    /// with a [`rightwards growth trend`](Trend::Rightwards).
     #[inline]
     pub const fn wide(self) -> Self {
         let Self {
@@ -156,7 +159,10 @@ pub enum ViewportShape {
     ///
     /// This contains a [`Trend`] that indicates the prefered growth trend of
     /// rendered text for the rectangular viewport.
-    Rectangular(Trend),
+    Rectangular(
+        /// Preferred direction for using the longer viewport axis.
+        Trend,
+    ),
 }
 
 impl Default for ViewportShape {
@@ -184,7 +190,10 @@ pub enum Trend {
 /// Represents the extents of a terminal window.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct Extents {
+    /// Nonzero viewport width in terminal cells.
     width: NonZero<u16>,
+
+    /// Nonzero viewport height in terminal cells.
     height: NonZero<u16>,
 }
 

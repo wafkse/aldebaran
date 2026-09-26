@@ -26,6 +26,7 @@ pub struct Header<T = DefaultTheme>
 where
     T: Theme,
 {
+    /// Associates this rendering stage with the selected theme type.
     _marker: core::marker::PhantomData<T>,
 }
 
@@ -60,7 +61,9 @@ where
     T: Theme,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Header").field("_marker", &self._marker).finish()
+        let Self { _marker, .. } = self;
+
+        f.debug_struct("Header").field("_marker", _marker).finish()
     }
 }
 

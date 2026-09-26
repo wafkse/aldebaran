@@ -2,7 +2,7 @@
 //!
 //! [`Theme`] supplies styles for headers, source lines, annotation markers, and
 //! related rendering roles. The renderer consumes these semantic styles without
-//! depending on one concrete color scheme, and [`DefaultTheme`] provides defaults.
+//! depending on a concrete color scheme, and [`DefaultTheme`] provides defaults.
 
 use aldebaran_ansi::{
     brush::style::{Attributes, TextAttribute},

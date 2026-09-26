@@ -257,7 +257,7 @@ impl Default for Delimit {
 /// the different intersection points of the box.
 ///
 /// This set serves a purely descriptive purpose, so, in the cases where the
-/// character cannot be used, it is recommented to use the one that is closest
+/// character cannot be used, it is recommended to use the nearest available
 /// to the desired character. A key example of this is the use of the `+` symbol
 /// when constrained to strictly *ASCII* characters.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
@@ -491,9 +491,16 @@ impl Join {
 /// See [`Delimit`] for further information.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct Corner {
+    /// Top-left corner glyph.
     top_left: char,
+
+    /// Top-right corner glyph.
     top_right: char,
+
+    /// Bottom-left corner glyph.
     bottom_left: char,
+
+    /// Bottom-right corner glyph.
     bottom_right: char,
 }
 

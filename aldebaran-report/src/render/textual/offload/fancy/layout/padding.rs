@@ -14,7 +14,9 @@ pub type PaddingPrimitive = u32;
 /// arbitrary element.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default)]
 pub struct HorizontalPadding {
+    /// Number of cells reserved on the left side.
     left: PaddingPrimitive,
+    /// Number of cells reserved on the right side.
     right: PaddingPrimitive,
 }
 
@@ -131,7 +133,9 @@ impl HorizontalPadding {
 /// arbitrary element.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default)]
 pub struct VerticalPadding {
+    /// Number of cells reserved above the element.
     top: PaddingPrimitive,
+    /// Number of cells reserved below the element.
     bottom: PaddingPrimitive,
 }
 
@@ -249,7 +253,9 @@ impl VerticalPadding {
 /// [`VerticalPadding`] structures, and provides accessors to both.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default)]
 pub struct Padding {
+    /// Left and right padding.
     horizontal: HorizontalPadding,
+    /// Top and bottom padding.
     vertical: VerticalPadding,
 }
 

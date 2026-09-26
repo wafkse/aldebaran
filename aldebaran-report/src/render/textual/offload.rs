@@ -63,7 +63,10 @@ where
     O: Offload<'source, E> + ?Sized,
     E: SourceReport<'source>,
 {
+    /// Destination receiving rendered text.
     sink: W,
+
+    /// Presentation state supplied to the active offload renderer.
     present: Present<'source, 'input, O, E>,
 }
 
@@ -144,7 +147,13 @@ where
     O::Input<'input>: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.sink == other.sink && self.present == other.present
+        let Self { sink, present } = self;
+        let Self {
+            sink: other_sink,
+            present: other_present,
+        } = other;
+
+        sink == other_sink && present == other_present
     }
 }
 

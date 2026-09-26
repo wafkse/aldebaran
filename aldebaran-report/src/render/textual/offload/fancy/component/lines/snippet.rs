@@ -12,11 +12,11 @@ use aldebaran_source::prelude::{LineId, SourceLines};
 
 use crate::{annotated::Annotations, report::SourceReport};
 
-/// One visible source segment classified by annotation relevance.
+/// Visible source segment classified by annotation relevance.
 ///
 /// Relevant segments carry the annotations that intersect the source interval.
 /// Irrelevant segments retain the intervening source text so the renderer can
-/// reconstruct the complete visible line in one ordered pass.
+/// reconstruct the visible line in source order.
 pub enum SnippetSegment<'source, 'borrow, E>
 where
     E: SourceReport<'source>,
@@ -24,10 +24,16 @@ where
     'source: 'borrow,
 {
     /// A variant that denotes a relevant source segment.
-    Relevant(RelevantSegment<'source, 'borrow, E>),
+    Relevant(
+        /// Source segment together with every annotation intersecting it.
+        RelevantSegment<'source, 'borrow, E>,
+    ),
 
     /// A variant that denotes an irrelevant source segment.
-    Irrelevant(IrrelevantSegment<'source, E>),
+    Irrelevant(
+        /// Unannotated source segment retained to preserve visible line order.
+        IrrelevantSegment<'source, E>,
+    ),
 }
 
 impl<'source, 'borrow, E> SnippetSegment<'source, 'borrow, E>
@@ -87,9 +93,11 @@ where
     <E::Source as SourceLines<'source>>::Line: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { line_id, annotations } = self;
+
         f.debug_struct("RelevantSegment")
-            .field("line_id", &self.line_id)
-            .field("annotations", &self.annotations)
+            .field("line_id", line_id)
+            .field("annotations", annotations)
             .finish()
     }
 }
@@ -121,7 +129,10 @@ where
 ///
 /// This is for the line segments that do not contain any annotations and
 /// can be safely ignored.
-pub struct IrrelevantSegment<'a, E>(pub(super) LineId<'a, E::Source>)
+pub struct IrrelevantSegment<'a, E>(
+    /// Line identifier retained for an unannotated source segment.
+    pub(super) LineId<'a, E::Source>,
+)
 where
     E: SourceReport<'a>,
     E::Source: SourceLines<'a>;
