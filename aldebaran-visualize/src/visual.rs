@@ -21,7 +21,7 @@ pub trait Visualize {
     /// Borrow this value through standard formatting traits.
     #[inline]
     #[must_use]
-    fn visual(&self) -> impl fmt::Display + fmt::Debug + '_ {
+    fn visual(&self) -> impl fmt::Display + fmt::Debug {
         Visual(self)
     }
 }
@@ -89,9 +89,9 @@ impl Visualize for [u8] {
     where
         W: fmt::Write,
     {
-        for byte in self.iter().copied() {
-            let target_char = if byte.is_ascii() {
-                byte as char
+        for target_byte in self.iter().copied() {
+            let target_char = if target_byte.is_ascii() {
+                target_byte as char
             } else {
                 char::REPLACEMENT_CHARACTER
             };
