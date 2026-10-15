@@ -33,6 +33,7 @@ members = [
 resolver = "3"
 
 [workspace.package]
+version = "0.1.0"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/wafkse/aldebaran"
 homepage = "https://github.com/wafkse/aldebaran"
