@@ -83,9 +83,6 @@ named_asm_labels = "allow"
 unsafe_code = "allow"
 unknown_lints = "allow"
 
-[workspace.lints.cargo]
-unused_workspace_package_fields = "allow"
-
 [workspace.lints.clippy]
 all = { level = "deny", priority = -1 }
 perf = { level = "deny", priority = -1 }
