@@ -18,6 +18,7 @@ use core::{
 ///
 /// This both [`Deref`]s and [`DerefMut`]s to a slice of `T`, so it can be used
 /// with the usual, well-known slice methods.
+// NOTE(invariant): `storage_len` never exceeds `N`, and exactly the first `storage_len` slots are initialized.
 pub struct StaticVec<T, const N: usize> {
     /// The backing storage array for this [`StaticVec`].
     ///
@@ -26,7 +27,6 @@ pub struct StaticVec<T, const N: usize> {
     storage_buffer: [MaybeUninit<T>; N],
 
     /// The amount of elements currently stored in this [`StaticVec`].
-    // NOTE(invariant): `storage_len` never exceeds `N`, and exactly the first `storage_len` slots are initialized.
     storage_len: usize,
 }
 
@@ -40,7 +40,6 @@ impl<T, const N: usize> StaticVec<T, N> {
     #[inline]
     pub const fn empty() -> Self {
         Self {
-            // FIXME: move to `MaybeUninit::uninit_array()` once it is stable.
             storage_buffer: [const { MaybeUninit::uninit() }; N],
             storage_len: 0,
         }
