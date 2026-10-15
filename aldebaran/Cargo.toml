@@ -13,12 +13,6 @@ edition = "2024"
 default = []
 report-codegen = ["aldebaran-report/codegen"]
 
-[[test]]
-name = "report_codegen"
-required-features = ["report-codegen"]
-
-
-
 [dependencies]
 aldebaran-ansi.workspace = true
 aldebaran-dsa.workspace = true
