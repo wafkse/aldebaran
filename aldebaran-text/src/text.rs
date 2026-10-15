@@ -218,10 +218,7 @@ where
         A: Assert<S::Component> + Clone,
         S::Component: Input,
     {
-        let &Self {
-            source_index,
-            ..
-        } = self;
+        let &Self { source_index, .. } = self;
 
         let target_assert = target_assert.as_assert();
 
@@ -489,7 +486,10 @@ impl<'source, S: Hash> Hash for Text<'source, S>
 where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
-    fn hash<H>(&self, state: &mut H) where H: Hasher {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
         let &Self { source_index, source_code } = self;
 
         source_index.hash(state);

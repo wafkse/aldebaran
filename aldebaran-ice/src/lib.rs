@@ -1,7 +1,7 @@
 #![no_std]
 #![doc = include_str!("../README.md")]
 
-use core::{fmt, marker::PhantomData};
+use core::{error::Error, fmt, marker::PhantomData};
 
 /// An uninhabited type to be used as the central type for raising `ICE`s.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -18,9 +18,9 @@ impl<T> Ice<T> {
     /// Raise a messaged `ICE` (internal compiler error).
     #[cold]
     #[inline(never)]
-    pub fn raise_for<E>(target_error: E) -> !
+    pub fn known<E>(target_error: E) -> !
     where
-        E: core::error::Error,
+        E: Error,
     {
         Err::<(), E>(target_error).expect("ICE: internal compiler error");
 

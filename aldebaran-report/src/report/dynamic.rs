@@ -139,7 +139,10 @@ where
     T: hash::Hash,
     K: hash::Hash,
 {
-    fn hash<H>(&self, state: &mut H) where H: hash::Hasher {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: hash::Hasher,
+    {
         let &Self {
             source,
             ref annotations,

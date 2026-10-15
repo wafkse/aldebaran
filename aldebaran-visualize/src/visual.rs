@@ -5,7 +5,7 @@
 //! write directly into a formatting sink and never allocate an intermediate
 //! string.
 
-use core::fmt;
+use core::{fmt, slice};
 
 /// A value with a human-readable, potentially lossy textual visualization.
 pub trait Visualize {
@@ -120,7 +120,7 @@ impl Visualize for u8 {
     where
         W: fmt::Write,
     {
-        core::slice::from_ref(self).visualize(writer)
+        slice::from_ref(self).visualize(writer)
     }
 }
 
@@ -137,7 +137,7 @@ mod tests {
         let input = [b'A', 0xff, b'Z'];
         let mut output = String::new();
 
-        input.as_slice().visualize(&mut output).unwrap();
+        assert!(input.as_slice().visualize(&mut output).is_ok());
 
         assert_eq!(output, "A�Z");
     }

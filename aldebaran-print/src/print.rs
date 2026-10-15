@@ -83,7 +83,10 @@ struct DisplayWith<'a, P>
 where
     P: Print + ?Sized,
 {
+    /// Value rendered using the borrowed context.
     target_value: &'a P,
+
+    /// Context used to customize the rendered value.
     context: &'a P::Context,
 }
 
@@ -320,6 +323,7 @@ impl Print for Infallible {
     }
 }
 
+/// Implement [`Print`] for primitive numeric types.
 macro_rules! impl_numeric {
     ($($target_type:ty),* $(,)?) => {
         $(
@@ -338,6 +342,7 @@ macro_rules! impl_numeric {
     };
 }
 
+/// Implement [`Print`] for non-zero numeric types.
 macro_rules! impl_nonzero {
     ($($target_type:ty),* $(,)?) => {
         $(

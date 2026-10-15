@@ -16,17 +16,21 @@ pub use allocator_api2::SliceExt;
 pub use allocator_api2::unsize_box;
 
 pub mod boxed {
+    use allocator_api2::boxed::Box as AllocBox;
+
     use crate::heap::Heap;
 
     /// A type alias to `allocator_api2::boxed::Box` with [`Heap`] as its
     /// default allocator.
-    pub type Box<T, A = Heap> = allocator_api2::boxed::Box<T, A>;
+    pub type Box<T, A = Heap> = AllocBox<T, A>;
 }
 
 pub mod vec {
+    use allocator_api2::vec::Vec as AllocVec;
+
     use crate::heap::Heap;
 
     /// A type alias to `allocator_api2::vec::Vec` with [`Heap`] as its default
     /// allocator.
-    pub type Vec<T, A = Heap> = allocator_api2::vec::Vec<T, A>;
+    pub type Vec<T, A = Heap> = AllocVec<T, A>;
 }

@@ -40,7 +40,8 @@ where
     #[inline]
     pub fn has<Q>(&self, id: Q) -> bool
     where
-        Q: Eq + Hash, Q: AsRef<I>,
+        Q: Eq + Hash,
+        Q: AsRef<I>,
     {
         let &Self { ref map, .. } = self;
 
@@ -114,7 +115,10 @@ where
     I: Id,
     S: BuildHasher,
 {
-    fn extend<T>(&mut self, iter: T) where T: IntoIterator<Item = I> {
+    fn extend<T>(&mut self, iter: T)
+    where
+        T: IntoIterator<Item = I>,
+    {
         let &mut Self { ref mut map, .. } = self;
 
         map.extend(iter.into_iter().map(|id| (id, id)));

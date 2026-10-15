@@ -200,7 +200,10 @@ where
     T::Type: hash::Hash,
 {
     #[inline]
-    fn hash<H>(&self, state: &mut H) where H: core::hash::Hasher {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: core::hash::Hasher,
+    {
         let &Self(ref inner) = self;
 
         inner.hash(state)

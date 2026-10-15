@@ -49,6 +49,7 @@ macro_rules! impl_unary_for {
 }
 
 /// Implements all unary operation traits for all primitive types.
+/// Implement each unary operation for the primitive types.
 macro_rules! impl_unary {
     (
         $(
@@ -61,6 +62,7 @@ macro_rules! impl_unary {
     };
 }
 
+/// Generate the combined unary-operation trait.
 macro_rules! impl_supertrait {
     (
         $(
@@ -97,6 +99,7 @@ unary_list!(impl_unary);
 
 unary_list!(impl_supertrait);
 
+/// Generate tests for each primitive unary operation.
 macro_rules! impl_tests {
     (
         ($target_type:ty as $target_operator:tt) as
@@ -145,6 +148,6 @@ macro_rules! impl_tests {
 }
 
 #[expect(unused_imports)]
- use impl_tests;
+pub(crate) use impl_tests;
 
 unary_list!(impl_tests);

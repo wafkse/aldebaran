@@ -13,6 +13,7 @@ pub trait Operable: Copy + Sized {}
 impl<T> Operate for T where T: BinOp + UnOp {}
 impl<T> Operable for T where T: Copy + Sized {}
 
+/// Define the primitive binary and unary operator set.
 macro_rules! operate_list {
     ($target_macro:path $(=> $lead_tt:tt)?) => {
         $target_macro!(
@@ -36,6 +37,7 @@ macro_rules! operate_list {
     };
 }
 
+/// Generate the binary and unary operator list macros.
 macro_rules! impl_list_macros {
     (
         Binary {
@@ -71,6 +73,3 @@ macro_rules! impl_list_macros {
 }
 
 operate_list!(impl_list_macros);
-
-#[expect(unused_imports)]
- use operate_list;

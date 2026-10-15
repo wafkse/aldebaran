@@ -6,7 +6,7 @@
 
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Attribute, Data, DeriveInput, Fields, Ident, LitStr, Member, Path, Type};
+use syn::{Attribute, Data, DeriveInput, Fields, Ident, LitStr, Member, Path, Type, token::Paren};
 
 /// Validated report derive input ready for policy expansion.
 ///
@@ -37,7 +37,7 @@ impl Report {
             ..
         } = input;
         let body = match data {
-            Data::Struct(data) => Body::Struct(Structure::new(attrs, data.fields, &ident)?),
+            Data::Struct(data) => Body::Struct(Box::new(Structure::new(attrs, data.fields, &ident)?)),
             Data::Enum(data) => data
                 .variants
                 .into_iter()
@@ -68,7 +68,7 @@ enum Body {
     /// Report structure generation state.
     Struct(
         /// Validated report structure policy.
-        Structure,
+        Box<Structure>,
     ),
 
     /// Per-alternative report policies.
@@ -538,7 +538,7 @@ impl Declarations {
 
                 match (is_transparent, is_title, is_title_with, is_message, is_message_with, is_annotations) {
                     (true, false, false, false, false, false) => {
-                        let selected = if meta.input.peek(syn::token::Paren) {
+                        let selected = if meta.input.peek(Paren) {
                             let content;
                             syn::parenthesized!(content in meta.input);
 

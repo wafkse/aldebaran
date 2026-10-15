@@ -124,7 +124,10 @@ where
     <E::Source as SourceMetadata<'a>>::Metadata: Location,
 {
     #[inline]
-    fn hash<H>(&self, state: &mut H) where H: hash::Hasher {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: hash::Hasher,
+    {
         let Self { _marker, .. } = self;
 
         _marker.hash(state);

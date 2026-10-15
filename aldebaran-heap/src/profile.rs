@@ -3,6 +3,7 @@
 //! Profiles provide compact allocator identities, while [`Profiler`] supplies
 //! optional human-readable names consumed by the heap allocator wrapper.
 
+use core::mem;
 use core::num::NonZero;
 
 /// The underlying storage type for a [`Profile`].
@@ -30,7 +31,7 @@ impl Profile {
         // optimizations are not applied, transmutation would result in a
         // compilation error due to mismatching sizes.
         // *NOTE[NOOP]: This should compile down to a no-op.
-        unsafe { core::mem::transmute::<Profile, Profiled>(self) }
+        unsafe { mem::transmute::<Profile, Profiled>(self) }
     }
 
     /// Reinterpret this [`Profiled`] as a [`Profile`].
@@ -41,7 +42,7 @@ impl Profile {
         // optimizations are not applied, transmutation would result in a
         // compilation error due to mismatching sizes.
         // *NOTE[NOOP]: This should compile down to a no-op.
-        unsafe { core::mem::transmute::<Profiled, Profile>(value) }
+        unsafe { mem::transmute::<Profiled, Profile>(value) }
     }
 
     /// The default, null-pointing [`Profiled`].

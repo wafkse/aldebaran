@@ -12,7 +12,9 @@ pub mod op;
 
 use cast::Cast;
 use op::Operate;
+use private::Sealed;
 
+/// Internal sealing for traits implemented only by the primitive types.
 mod private {
     /// A sealed trait.
     ///
@@ -64,10 +66,10 @@ macro_rules! marker {
 primitive_list!(impl_primitive => Primitive);
 
 /// Marker trait for signed types.
-pub trait Signed: crate::private::Sealed {}
+pub trait Signed: Sealed {}
 
 /// Marker trait for unsigned types.
-pub trait Unsigned: crate::private::Sealed {}
+pub trait Unsigned: Sealed {}
 
 signed_list!(marker => Signed);
 unsigned_list!(marker => Unsigned);
@@ -76,7 +78,7 @@ unsigned_list!(marker => Unsigned);
 ///
 /// This is a common interface for all primitive types that are integers, and
 /// provides a set of common operations that can be performed on them.
-pub trait Primitive: Operate + crate::private::Sealed
+pub trait Primitive: Operate + Sealed
 where
     Self: Copy,
 {

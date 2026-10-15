@@ -94,13 +94,13 @@ pub fn derive_assert(input: TokenStream) -> TokenStream {
                     None => break 'a Err(Error::new_spanned(&name_ident, "expected exactly one assertion attribute")),
                 };
 
-                Ok(Target::Struct(Struct {
+                Ok(Target::Struct(Box::new(Struct {
                     param,
                     generics,
                     attribute_list,
                     name_ident,
                     field_list,
-                }))
+                })))
             }
             Data::Enum(DataEnum { variants, .. }) => {
                 let variant_list = variants
@@ -166,7 +166,7 @@ pub fn derive_assert(input: TokenStream) -> TokenStream {
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Target {
     /// The target struct.
-    Struct(Struct),
+    Struct(Box<Struct>),
 
     /// The target enum.
     Enum(Enum),
@@ -206,6 +206,7 @@ struct Struct {
 }
 
 impl Struct {
+    /// Generate assertion implementations for the validated structure.
     pub fn expand(self) -> syn::Result<TokenStream2> {
         let Self {
             param,
@@ -396,7 +397,9 @@ impl Struct {
                     }
                 })
             }
-            Param::Expr(ParamExpr { expr_value, expr_ty }) => {
+            Param::Expr(param_expr) => {
+                let ParamExpr { expr_value, expr_ty } = *param_expr;
+
                 let tokens = quote! {
                     #[automatically_derived]
                     impl<__AssertTy: ::aldebaran_logic::prelude::Input, #(#ty_params),*> ::aldebaran_logic::prelude::Assert<__AssertTy> for #name_ident #ty_generics
@@ -452,6 +455,7 @@ struct Enum {
 }
 
 impl Enum {
+    /// Generate assertion implementations for the validated enum.
     pub fn expand(self) -> syn::Result<TokenStream2> {
         let Self {
             mut generics,
@@ -512,7 +516,9 @@ impl Enum {
             };
 
             match param {
-                Param::Expr(ParamExpr { expr_value, expr_ty }) => {
+                Param::Expr(param_expr) => {
+                    let ParamExpr { expr_value, expr_ty } = *param_expr;
+
                     evaluated_arms.push({
                         quote! {
                             Self::#name_ident #field_pat => {
@@ -757,7 +763,7 @@ struct Variant {
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Param {
     /// An assertion dictated by an arbitrary expression.
-    Expr(ParamExpr),
+    Expr(Box<ParamExpr>),
 
     /// A conjunctive assertion.
     Conjunctive,
@@ -779,7 +785,7 @@ impl Parse for Param {
                 _ => Err(Error::new_spanned(target_mode, "expected either `conjunctive` or `disjunctive`")),
             }
         } else if lookahead.peek(Token![use]) {
-            let _ = input.parse::<Token![use]>()?;
+            let _: Token![use] = input.parse()?;
 
             let expr_value = input.parse::<Expr>()?;
 
@@ -787,7 +793,7 @@ impl Parse for Param {
 
             let expr_ty = input.parse::<Type>()?;
 
-            Ok(Param::Expr(ParamExpr { expr_value, expr_ty }))
+            Ok(Param::Expr(Box::new(ParamExpr { expr_value, expr_ty })))
         } else {
             Err(lookahead.error())
         }

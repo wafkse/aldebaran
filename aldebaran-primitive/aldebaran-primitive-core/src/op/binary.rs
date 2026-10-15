@@ -52,6 +52,7 @@ macro_rules! impl_binary_for {
 }
 
 /// Implements all binary operation traits for all primitive types.
+/// Implement each binary operation for the primitive types.
 macro_rules! impl_binary {
     (
         $(
@@ -64,6 +65,7 @@ macro_rules! impl_binary {
     };
 }
 
+/// Generate the combined binary-operation trait.
 macro_rules! impl_supertrait {
     (
         $(
@@ -103,6 +105,7 @@ binary_list!(impl_binary);
 
 binary_list!(impl_supertrait);
 
+/// Generate boundary and panic-behavior tests for binary operations.
 macro_rules! impl_tests {
     (
         ($target_type:ty as $target_operator:tt) as
@@ -117,7 +120,8 @@ macro_rules! impl_tests {
                 // NOTE: We check both for panic-behavior and correctness.
                 #[test]
                 fn [< binop_ [< $target_type >]:case[[snake]] _impl_ [< $target_integer >]:case[[snake]] >]:to_string:flatten:concatenate:unstringify() {
-                    use std::{mem::discriminant, panic::catch_unwind};
+                    use core::mem::discriminant;
+                    use std::panic::catch_unwind;
 
                     let target_left: $target_integer = random!($target_integer);
                     let target_right: $target_integer = random!($target_integer);
@@ -162,6 +166,6 @@ macro_rules! impl_tests {
 }
 
 #[expect(unused_imports)]
- use impl_tests;
+pub(crate) use impl_tests;
 
 binary_list!(impl_tests);

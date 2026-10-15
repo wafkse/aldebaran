@@ -5,6 +5,7 @@
 //! This module also provides the [`LosslessCast`] trait,
 //! which is a subtrait of [`Cast`] that guarantees that the cast is lossless.
 
+/// Implement primitive `as` casts for each listed target type.
 macro_rules! impl_castable {
     (
         $target_type:ty as
@@ -15,6 +16,8 @@ macro_rules! impl_castable {
         $(,)?
     ) => {
         $(
+            #[expect(clippy::allow_attributes)]
+            #[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
             impl Cast<$target_out> for $target_type {
                 #[inline]
                 fn cast(self) -> $target_out {
@@ -103,6 +106,7 @@ macro_rules! impl_lossless_castable {
     };
 }
 
+/// Generate boundary tests for each primitive cast.
 macro_rules! impl_tests {
     (
         $target_type:ty as
@@ -115,6 +119,8 @@ macro_rules! impl_tests {
         ::tokel::stream! {
             $(
                 #[test]
+                #[expect(clippy::allow_attributes)]
+                #[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
                 fn [< cast_ [< $target_type >]:case[[snake]] _as_ [< $target_out >]:case[[snake]] _max >]:to_string:flatten:concatenate:unstringify() {
                     let target = <$target_type>::MAX;
                     let result: $target_out = target.cast();
@@ -123,6 +129,8 @@ macro_rules! impl_tests {
                 }
 
                 #[test]
+                #[expect(clippy::allow_attributes)]
+                #[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
                 fn [< cast_ [< $target_type >]:case[[snake]] _as_ [< $target_out >]:case[[snake]] _min >]:to_string:flatten:concatenate:unstringify() {
                     let target = <$target_type>::MIN;
                     let result: $target_out = target.cast();
@@ -150,10 +158,10 @@ macro_rules! impl_tests {
     };
 }
 
- use impl_castable;
+use impl_castable;
 
-#[expect(unused_imports)]
- use impl_tests;
+#[allow(unused_imports)]
+pub(crate) use impl_tests;
 
 use aldebaran_primitive_macro::sized_list;
 

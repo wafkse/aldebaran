@@ -16,7 +16,10 @@ use core::{fmt, hash};
 /// conjunction with the [`Profile`] system.
 #[derive(Clone, Copy)]
 pub struct Heap<A: Allocator = Global, const P: Profiled = { Profile::none() }> {
+    /// Optional profiler used to name allocations for the selected profile.
     profiler: Option<&'static dyn Profiler>,
+
+    /// Allocator that performs the underlying memory operations.
     alloc: A,
 }
 
@@ -40,7 +43,10 @@ impl<A: Allocator, const P: Profiled> hash::Hash for Heap<A, P>
 where
     A: hash::Hash,
 {
-    fn hash<H>(&self, state: &mut H) where H: hash::Hasher {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: hash::Hasher,
+    {
         let Self { alloc, .. } = self;
 
         alloc.hash(state);
@@ -51,7 +57,7 @@ impl<A: fmt::Debug, const P: Profiled> fmt::Debug for Heap<A, P>
 where
     A: Allocator,
 {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let Self { profiler, .. } = self;
 
         write!(f, "<heap allocator for")?;
@@ -77,6 +83,8 @@ impl<const P: Profiled> Heap<Global, P> {
     };
 }
 
+// SAFETY: Allocation and deallocation are forwarded unchanged to `A`, which
+// implements the `Allocator` contract. Heap stores no additional allocation state.
 unsafe impl<A: Allocator, const P: Profiled> Allocator for Heap<A, P> {
     #[inline]
     fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {

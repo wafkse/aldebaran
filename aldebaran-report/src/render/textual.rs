@@ -83,7 +83,10 @@ where
     O::Input<'input>: hash::Hash,
 {
     #[inline]
-    fn hash<H>(&self, state: &mut H) where H: hash::Hasher {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: hash::Hasher,
+    {
         self.input().hash(state);
         self.viewport().hash(state);
     }
