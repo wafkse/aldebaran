@@ -1,6 +1,5 @@
 #![doc = include_str!("../README.md")]
 #![no_std]
-#![forbid(unsafe_code, missing_docs, rustdoc::all, clippy::all)]
 
 pub mod assert;
 

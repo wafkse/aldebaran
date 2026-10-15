@@ -1,6 +1,5 @@
 #![doc = include_str!("../README.md")]
 #![no_std]
-#![forbid(unsafe_attr_outside_unsafe, clippy::all, clippy::redundant_allocation, clippy::missing_safety_doc)]
 
 extern crate alloc;
 

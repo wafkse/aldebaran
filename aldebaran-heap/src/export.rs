@@ -15,8 +15,6 @@ pub use allocator_api2::SliceExt;
 #[doc(inline)]
 pub use allocator_api2::unsize_box;
 
-/// Boxed allocation support with [`crate::heap::Heap`] as the default
-/// allocator.
 pub mod boxed {
     use crate::heap::Heap;
 
@@ -25,8 +23,6 @@ pub mod boxed {
     pub type Box<T, A = Heap> = allocator_api2::boxed::Box<T, A>;
 }
 
-/// Vector allocation support with [`crate::heap::Heap`] as the default
-/// allocator.
 pub mod vec {
     use crate::heap::Heap;
 

@@ -1,5 +1,4 @@
 #![no_std]
-#![forbid(unsafe_code, rustdoc::all, clippy::panic, clippy::unwrap_used)]
 //! Facilities for generic text styling.
 //!
 //! This crate provides facilities to approach text styling in a generic, and

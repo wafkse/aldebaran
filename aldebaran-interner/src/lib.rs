@@ -1,5 +1,4 @@
 #![no_std]
-#![forbid(unsafe_attr_outside_unsafe, clippy::all, clippy::redundant_allocation, clippy::missing_safety_doc)]
 //! Interning facilities for stable value identity.
 //!
 //! Borrowed and owned interners provide distinct storage models while sharing

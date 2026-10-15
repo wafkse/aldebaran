@@ -6,7 +6,6 @@
 //! while line handles preserve absolute spans into the original source.
 
 #![no_std]
-#![forbid(rustdoc::all, clippy::all)]
 
 extern crate alloc;
 

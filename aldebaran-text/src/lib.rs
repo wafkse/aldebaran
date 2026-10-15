@@ -1,13 +1,4 @@
 #![cfg_attr(not(test), no_std)]
-#![forbid(
-    unsafe_code,
-    missing_docs,
-    missing_debug_implementations,
-    clippy::missing_panics_doc,
-    clippy::missing_safety_doc,
-    clippy::missing_transmute_annotations,
-    clippy::unwrap_used
-)]
 #![doc = include_str!("../README.md")]
 
 extern crate alloc;

@@ -241,7 +241,7 @@ impl Struct {
                     let mut target_iter = field_list.iter().peekable();
 
                     if let Some(Field { ident: Some(..), .. }) = target_iter.peek() {
-                        let ident_iter = target_iter.map(|Field { ident, .. }| ident).cloned().flatten();
+                        let ident_iter = target_iter.map(|Field { ident, .. }| ident).flatten().cloned();
 
                         let field_iter = ident_iter.clone();
 

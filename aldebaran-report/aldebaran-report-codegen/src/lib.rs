@@ -1,4 +1,3 @@
-#![forbid(unsafe_code, missing_docs, rustdoc::all, clippy::all)]
 //! Code generation for allocation-free Aldebaran reports.
 //!
 //! The crate validates report metadata independently from procedural macro

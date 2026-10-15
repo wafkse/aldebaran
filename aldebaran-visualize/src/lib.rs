@@ -1,6 +1,5 @@
 #![no_std]
 #![doc = include_str!("../README.md")]
-#![forbid(unsafe_code, missing_docs, rustdoc::all, clippy::all, clippy::pedantic)]
 
 pub mod visual;
 

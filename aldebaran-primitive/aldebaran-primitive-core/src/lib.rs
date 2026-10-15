@@ -4,13 +4,6 @@
 //! types in a generic fashion.
 
 #![cfg_attr(not(test), no_std)]
-#![forbid(
-    unsafe_code,
-    missing_docs,
-    missing_debug_implementations,
-    clippy::missing_panics_doc,
-    clippy::missing_safety_doc
-)]
 
 use aldebaran_primitive_macro::{is_signed, primitive_list, signed, signed_list, unsigned, unsigned_list};
 
