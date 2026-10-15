@@ -38,9 +38,9 @@ where
     /// This operation is `O(1)` (amortized), i.e the same as
     /// [`IdMap::contains_key`].
     #[inline]
-    pub fn has<Q: AsRef<I>>(&self, id: Q) -> bool
+    pub fn has<Q>(&self, id: Q) -> bool
     where
-        Q: Eq + Hash,
+        Q: Eq + Hash, Q: AsRef<I>,
     {
         let &Self { ref map, .. } = self;
 
@@ -114,7 +114,7 @@ where
     I: Id,
     S: BuildHasher,
 {
-    fn extend<T: IntoIterator<Item = I>>(&mut self, iter: T) {
+    fn extend<T>(&mut self, iter: T) where T: IntoIterator<Item = I> {
         let &mut Self { ref mut map, .. } = self;
 
         map.extend(iter.into_iter().map(|id| (id, id)));

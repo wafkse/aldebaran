@@ -316,7 +316,7 @@ where
             value
         }
 
-        Self::expected(target_list, target_component, span, identity_ref::<K> as _)
+        Self::expected(target_list, target_component, span, identity_ref::<K> as for<'a> fn(&'a K) -> &'a K)
     }
 
     /// Construct a direct candidate failure for missing input.
@@ -328,7 +328,7 @@ where
             value
         }
 
-        Self::missed(target_list, target, identity_ref::<K> as _)
+        Self::missed(target_list, target, identity_ref::<K> as for<'a> fn(&'a K) -> &'a K)
     }
 }
 

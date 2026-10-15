@@ -220,7 +220,6 @@ where
     {
         let &Self {
             source_index,
-            source_code: _,
             ..
         } = self;
 
@@ -435,7 +434,7 @@ where
         for<'b> &'b T: AsAssert<S::Component, A>,
         S::Component: Input,
     {
-        while let Some(_) = self.optional(&target_assert) {}
+        while self.optional(&target_assert).is_some() {}
     }
 
     /// Counts the number of components that satisfy the target [`Assert`].
@@ -490,7 +489,7 @@ impl<'source, S: Hash> Hash for Text<'source, S>
 where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
-    fn hash<H: Hasher>(&self, state: &mut H) {
+    fn hash<H>(&self, state: &mut H) where H: Hasher {
         let &Self { source_index, source_code } = self;
 
         source_index.hash(state);
@@ -596,17 +595,17 @@ mod tests {
 
     #[test]
     fn a() {
-        let s = &"bb"[..];
+        let s = "bb";
 
         let mut t = Text::create(s);
 
         let err = t.expect_is_next(AsciiAlphanumeric.or('_').and(Digit)).expect_err("valid");
 
-        dbg!(err);
+        err;
 
         let err = t.expect_is_next(AsciiAlphanumeric.or('_').and(Digit)).expect_err("valid");
 
-        dbg!(&err);
+        &err;
 
         //let err = t.expect_is_next(Char('8')).expect_err("valid");
 

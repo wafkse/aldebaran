@@ -40,7 +40,7 @@ impl<A: Allocator, const P: Profiled> hash::Hash for Heap<A, P>
 where
     A: hash::Hash,
 {
-    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+    fn hash<H>(&self, state: &mut H) where H: hash::Hasher {
         let Self { alloc, .. } = self;
 
         alloc.hash(state);

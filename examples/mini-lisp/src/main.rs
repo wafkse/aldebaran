@@ -589,11 +589,11 @@ struct UnboundSymbol(Span);
 #[report(title = "wrong number of arguments", annotations = annotations)]
 struct WrongArity {
     /// Expected argument count retained as structured error state.
-    #[allow(dead_code)] // Retained for programmatic error inspection beyond this example.
+    #[expect(dead_code)] // Retained for programmatic error inspection beyond this example.
     expected: usize,
 
     /// Actual argument count retained as structured error state.
-    #[allow(dead_code)] // Retained for programmatic error inspection beyond this example.
+    #[expect(dead_code)] // Retained for programmatic error inspection beyond this example.
     actual: usize,
 
     /// Primary call annotation and operator annotation.

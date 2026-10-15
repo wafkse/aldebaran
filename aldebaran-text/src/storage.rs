@@ -178,10 +178,8 @@ where
                 let key_id: NonZeroed<I::BackingPrimitive> = storage_list
                     .len()
                     .checked_add(1)
-                    .map(|target_id| TryCast::<I::BackingPrimitive>::try_cast(target_id))
-                    .flatten()
-                    .map(NonZeroed::new)
-                    .flatten()?;
+                    .and_then(TryCast::<I::BackingPrimitive>::try_cast)
+                    .and_then(NonZeroed::new)?;
 
                 let key_id = I::raw(key_id);
 
@@ -400,7 +398,7 @@ where
 
             let target_exist: &S::Owned = &storage_list[key_id];
 
-            target_exist.borrow().same_as(&target_value)
+            target_exist.borrow().same_as(target_value)
         });
 
         match raw_entry {
@@ -414,10 +412,8 @@ where
                 let key_id: NonZeroed<I::BackingPrimitive> = storage_list
                     .len()
                     .checked_add(1)
-                    .map(|target_id| TryCast::<I::BackingPrimitive>::try_cast(target_id))
-                    .flatten()
-                    .map(NonZeroed::new)
-                    .flatten()?;
+                    .and_then(TryCast::<I::BackingPrimitive>::try_cast)
+                    .and_then(NonZeroed::new)?;
 
                 let key_id = I::raw(key_id);
 

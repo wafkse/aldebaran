@@ -120,7 +120,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::num::NonZero;
+    use core::num::NonZero;
 
     use crate::{
         prelude::{Label, oneshot},
@@ -182,7 +182,7 @@ mod tests {
             Label::new("you hate snickers?? so do I!!", Span::new(0, const { NonZero::<usize>::MAX })),
         );
 
-        dbg!(&err);
+        &err;
 
         let mut target_sink = String::new();
 

@@ -34,7 +34,7 @@ fn derives_error_and_report_for_struct() {
     assert_eq!(Annotated::target(&error), Span::MIN);
     assert_eq!(error.to_string(), "unexpected token");
 
-    fn assert_error<E: core::error::Error>(_error: &E) {}
+    fn assert_error<E>(_error: &E) where E: core::error::Error {}
 
     assert_error(&error);
 }

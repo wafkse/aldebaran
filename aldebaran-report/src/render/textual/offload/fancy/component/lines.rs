@@ -124,7 +124,7 @@ where
     <E::Source as SourceMetadata<'a>>::Metadata: Location,
 {
     #[inline]
-    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+    fn hash<H>(&self, state: &mut H) where H: hash::Hasher {
         let Self { _marker, .. } = self;
 
         _marker.hash(state);
@@ -247,7 +247,7 @@ where
             viewport,
         } = present;
 
-        let ref is_colored = Should::tuple((settings.colored_ref(), Colored::colored));
+        let is_colored = &Should::tuple((settings.colored_ref(), Colored::colored));
 
         let theme = settings.theme();
 
@@ -334,20 +334,18 @@ where
                             let content_span = line_content.span();
                             let line = line_content.value();
 
-                            let mut burst_iter = content_span
+                            let burst_iter = content_span
                                 .range()
-                                .step_by(view_extents.width() as _)
-                                .into_iter()
+                                .step_by(view_extents.width() as usize)
                                 .map(|start| Span::new(start, view_extents.width_raw().into()))
                                 .map(|span| span.intersect(content_span))
                                 .map(|span| span.map(|span| (span, line.window(span.normal()))))
                                 .map(|opt| opt.map(|(span, view)| view.map(|view| (span, view))))
-                                .map(Option::flatten)
-                                .flatten();
+                                .filter_map(Option::flatten);
 
                             let mut is_first = true;
 
-                            while let Some((phase_span, phase_view)) = burst_iter.next() {
+                            for (phase_span, phase_view) in burst_iter {
                                 if is_first {
                                     is_first = false;
 
@@ -366,7 +364,7 @@ where
                                 '\n'.print(sink)?;
 
                                 let mut target_list = {
-                                    let mut target_iter = target_list.iter().filter_map(|&annotation| {
+                                    let target_iter = target_list.iter().filter_map(|&annotation| {
                                         Self::project(annotation.target(), phase_span, content_span).map(|target| (target, annotation))
                                     });
 
@@ -374,7 +372,7 @@ where
 
                                     let mut target_list = Vec::with_capacity(capacity);
 
-                                    while let Some(target_value) = target_iter.next() {
+                                    for target_value in target_iter {
                                         target_list.push(target_value);
                                     }
 
@@ -391,7 +389,7 @@ where
                                 // Intermediate storage for printing operations.
                                 let mut target_storage = Vec::new();
 
-                                while let Some(_) = target_list.first() {
+                                while !target_list.is_empty() {
                                     (' '.times(line_col_width))
                                         .sequence(charset.delimit().left())
                                         .sequence(' ')

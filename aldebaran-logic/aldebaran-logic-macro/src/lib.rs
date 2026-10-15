@@ -113,9 +113,9 @@ pub fn derive_assert(input: TokenStream) -> TokenStream {
                              ..
                          }| {
                             let target_clause: Option<Attribute> = 'a: {
-                                let mut iter = attribute_list.iter().enumerate();
+                                let iter = attribute_list.iter().enumerate();
 
-                                while let Some((attr_index, attr)) = iter.next() {
+                                for (attr_index, attr) in iter {
                                     if attr.path().is_ident("assert") {
                                         break 'a Some(attribute_list.swap_remove(attr_index));
                                     }
@@ -241,7 +241,7 @@ impl Struct {
                     let mut target_iter = field_list.iter().peekable();
 
                     if let Some(Field { ident: Some(..), .. }) = target_iter.peek() {
-                        let ident_iter = target_iter.map(|Field { ident, .. }| ident).flatten().cloned();
+                        let ident_iter = target_iter.flat_map(|Field { ident, .. }| ident).cloned();
 
                         let field_iter = ident_iter.clone();
 
@@ -485,7 +485,7 @@ impl Enum {
                 let mut target_iter = field_list.iter().peekable();
 
                 if let Some(Field { ident: Some(..), .. }) = target_iter.peek() {
-                    let ident_iter = target_iter.map(|Field { ident, .. }| ident).cloned().flatten();
+                    let ident_iter = target_iter.flat_map(|Field { ident, .. }| ident).cloned();
 
                     quote! {
                         {
@@ -494,7 +494,7 @@ impl Enum {
                             ),*
                         }
                     }
-                } else if let None = target_iter.peek() {
+                } else if target_iter.peek().is_none() {
                     quote! {}
                 } else {
                     let ident_iter = target_iter
@@ -552,7 +552,7 @@ impl Enum {
                         let mut target_iter = field_list.iter().peekable();
 
                         if let Some(Field { ident: Some(..), .. }) = target_iter.peek() {
-                            let ident_iter = target_iter.map(|Field { ident, .. }| ident).cloned().flatten();
+                            let ident_iter = target_iter.flat_map(|Field { ident, .. }| ident).cloned();
 
                             let field_iter = ident_iter.clone();
 

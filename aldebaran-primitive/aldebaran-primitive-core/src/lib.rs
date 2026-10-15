@@ -41,7 +41,7 @@ macro_rules! impl_primitive {
 
                 const MIN: Self = <$target_type>::MIN;
                 const MAX: Self = <$target_type>::MAX;
-                const BITS: u8 = <$target_type>::BITS as _;
+                const BITS: u8 = <$target_type>::BITS as u8;
 
                 const ZERO: Self = 0;
                 const ONE: Self = 1;

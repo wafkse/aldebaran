@@ -161,7 +161,7 @@ macro_rules! impl_tests {
     };
 }
 
-#[allow(unused_imports)]
-pub(self) use impl_tests;
+#[expect(unused_imports)]
+ use impl_tests;
 
 binary_list!(impl_tests);

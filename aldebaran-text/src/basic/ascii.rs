@@ -52,7 +52,7 @@ macro_rules! ascii {
 
                         assert!(target_value.is_ascii(), "the character is not ASCII");
 
-                        target_value as _
+                        target_value as isize
                     }
                 ),*
             }

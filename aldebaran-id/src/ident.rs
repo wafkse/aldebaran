@@ -237,7 +237,7 @@ impl<T: ?Sized, I: hash::Hash> hash::Hash for TaggedId<T, I>
 where
     I: Id,
 {
-    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+    fn hash<H>(&self, state: &mut H) where H: hash::Hasher {
         let Self { target_id, .. } = self;
 
         target_id.hash(state);

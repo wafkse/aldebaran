@@ -127,7 +127,7 @@ where
         Self: Sized,
     {
         for _ in 0..N {
-            let _ = text.skip();
+            text.skip();
         }
 
         Ok(self)

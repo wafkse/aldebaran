@@ -326,7 +326,7 @@ where
     {
         let &Self { ref map, ref storage, .. } = self;
 
-        map.get(id.as_ref()).map(|&index| storage.get(index)).flatten()
+        map.get(id.as_ref()).and_then(|&index| storage.get(index))
     }
 
     /// Retrieve a mutable reference to the value corresponding to the given
@@ -345,7 +345,7 @@ where
             ref map, ref mut storage, ..
         } = self;
 
-        map.get(id.as_ref()).map(move |&index| storage.get_mut(index)).flatten()
+        map.get(id.as_ref()).and_then(move |&index| storage.get_mut(index))
     }
 
     /// Insert a new entry into this [`IdMap`], potentially replacing an
@@ -362,7 +362,7 @@ where
             ..
         } = self;
 
-        let target_index = map.get(&id).map(|&i| i);
+        let target_index = map.get(&id).copied();
 
         if let Some(target_index) = target_index {
             let (target_key, target_value) = storage.swap_at(target_index, (id, value));
@@ -466,6 +466,6 @@ mod tests {
 
         map.insert(TestId::MAX, "nignag");
 
-        dbg!(map);
+        drop(map);
     }
 }

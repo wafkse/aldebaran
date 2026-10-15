@@ -150,10 +150,10 @@ macro_rules! impl_tests {
     };
 }
 
-pub(self) use impl_castable;
+ use impl_castable;
 
-#[allow(unused_imports)]
-pub(self) use impl_tests;
+#[expect(unused_imports)]
+ use impl_tests;
 
 use aldebaran_primitive_macro::sized_list;
 
@@ -172,7 +172,7 @@ pub trait LosslessCast<O>: Cast<O> {
     fn lossless_cast(self) -> O;
 }
 
-impl<'a, I, O> Cast<O> for &'a I
+impl<I, O> Cast<O> for &I
 where
     I: Cast<O> + Copy,
 {
@@ -182,7 +182,7 @@ where
     }
 }
 
-impl<'a, I, O> LosslessCast<O> for &'a I
+impl<I, O> LosslessCast<O> for &I
 where
     I: LosslessCast<O> + Copy,
 {

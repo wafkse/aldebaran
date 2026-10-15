@@ -104,7 +104,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::num::NonZero;
+    use core::num::NonZero;
 
     use crate::{
         prelude::{Label, oneshot},
@@ -130,7 +130,7 @@ mod tests {
             ),
         );
 
-        dbg!(&err);
+        &err;
 
         let mut target_sink = String::new();
 

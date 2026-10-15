@@ -49,7 +49,7 @@ where
     T: Theme,
 {
     #[inline]
-    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+    fn hash<H>(&self, state: &mut H) where H: hash::Hasher {
         let Self { _marker, .. } = self;
 
         _marker.hash(state);
@@ -92,7 +92,7 @@ where
 
         let &settings = present.input();
 
-        let ref is_colored = Should::tuple((settings.colored_ref(), Colored::colored));
+        let is_colored = &Should::tuple((settings.colored_ref(), Colored::colored));
 
         let kind = error.kind();
 

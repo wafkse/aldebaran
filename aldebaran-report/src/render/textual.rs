@@ -83,7 +83,7 @@ where
     O::Input<'input>: hash::Hash,
 {
     #[inline]
-    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+    fn hash<H>(&self, state: &mut H) where H: hash::Hasher {
         self.input().hash(state);
         self.viewport().hash(state);
     }
@@ -252,7 +252,7 @@ where
             write_sink: ref mut sink, ..
         } = self;
 
-        let ref mut ctx = OffloadContext::from_raw_parts(sink, input);
+        let ctx = &mut OffloadContext::from_raw_parts(sink, input);
 
         O::offload(error, ctx)
     }

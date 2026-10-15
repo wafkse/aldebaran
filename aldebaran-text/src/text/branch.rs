@@ -35,7 +35,7 @@ where
 {
     #[inline]
     fn from(source_text: &'borrow mut Text<'source, S>) -> Self {
-        let branch_text = source_text.clone();
+        let branch_text = *source_text;
 
         let &mut Text { ref mut source_index, .. } = source_text;
 

@@ -102,7 +102,7 @@ mod tests {
     #[test]
     fn stream_reuses_one_context_and_stops_at_source_exhaustion() {
         let source = b"ab".as_slice();
-        let mut count = 0usize;
+        let mut count = 0_usize;
 
         {
             let internment = Internment::new(source, &mut count);

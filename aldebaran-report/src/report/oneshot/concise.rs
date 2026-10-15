@@ -58,7 +58,7 @@ where
     pub const fn annotation(&self) -> &A {
         let &Self { ref annotation, .. } = self;
 
-        &annotation
+        annotation
     }
 }
 

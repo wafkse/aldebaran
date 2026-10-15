@@ -85,7 +85,7 @@ mod tests {
 
     #[test]
     fn skips_selected_tokens_for_consumption_and_lookahead() {
-        let tokens = [0u8, 1, 0, 2];
+        let tokens = [0_u8, 1, 0, 2];
         let stream = Slice::new(&tokens);
         let mut stream = Skipping::new(stream, |token: &u8| *token == 0);
 

@@ -65,12 +65,12 @@ macro_rules! impl_list_macros {
             };
         }
 
-        pub(self) use binary_list;
-        pub(self) use unary_list;
+         use binary_list;
+         use unary_list;
     };
 }
 
 operate_list!(impl_list_macros);
 
-#[allow(unused_imports)]
-pub(self) use operate_list;
+#[expect(unused_imports)]
+ use operate_list;
