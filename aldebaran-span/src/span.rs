@@ -165,6 +165,10 @@ impl Span {
 
     /// Retrieve the superset, i.e, the smallest span that contains both the
     /// current and target [`Span`]s.
+    ///
+    /// # Panics
+    ///
+    /// This function cannot panic under any circumstances.
     #[inline]
     #[must_use]
     #[doc(alias = "join")]
