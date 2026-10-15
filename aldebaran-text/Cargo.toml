@@ -23,3 +23,6 @@ aldebaran-source.workspace = true
 aldebaran-span.workspace = true
 aldebaran-visualize.workspace = true
 aldebaran-interner.workspace = true
+
+[lints]
+workspace = true

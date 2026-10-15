@@ -17,3 +17,6 @@ aldebaran-dsa.workspace = true
 aldebaran-hash.workspace = true
 aldebaran-heap.workspace = true
 aldebaran-primitive.workspace = true
+
+[lints]
+workspace = true

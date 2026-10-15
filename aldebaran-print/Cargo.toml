@@ -7,3 +7,6 @@ repository.workspace = true
 homepage.workspace = true
 documentation = "https://docs.rs/aldebaran-print"
 edition = "2024"
+
+[lints]
+workspace = true

@@ -11,3 +11,6 @@ edition = "2024"
 [dependencies]
 aldebaran-logic-macro.workspace = true
 aldebaran-print.workspace = true
+
+[lints]
+workspace = true

@@ -12,3 +12,6 @@ edition = "2024"
 tokel.workspace = true
 aldebaran-print.workspace = true
 aldebaran-style.workspace = true
+
+[lints]
+workspace = true

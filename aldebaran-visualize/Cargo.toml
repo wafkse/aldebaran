@@ -9,3 +9,6 @@ documentation = "https://docs.rs/aldebaran-visualize"
 edition = "2024"
 
 [dependencies]
+
+[lints]
+workspace = true

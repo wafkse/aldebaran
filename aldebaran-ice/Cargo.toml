@@ -9,3 +9,6 @@ documentation = "https://docs.rs/aldebaran-ice"
 edition = "2024"
 
 [dependencies]
+
+[lints]
+workspace = true

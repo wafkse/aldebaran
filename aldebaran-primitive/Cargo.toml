@@ -11,3 +11,6 @@ edition = "2024"
 [dependencies]
 aldebaran-primitive-core.workspace = true
 aldebaran-primitive-macro.workspace = true
+
+[lints]
+workspace = true

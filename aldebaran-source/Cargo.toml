@@ -14,3 +14,6 @@ aldebaran-primitive.workspace = true
 aldebaran-print.workspace = true
 aldebaran-span.workspace = true
 aldebaran-visualize.workspace = true
+
+[lints]
+workspace = true

@@ -14,3 +14,6 @@ aldebaran-primitive-macro.workspace = true
 
 [dev-dependencies]
 const-random.workspace = true
+
+[lints]
+workspace = true

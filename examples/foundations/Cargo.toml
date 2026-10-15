@@ -12,3 +12,6 @@ aldebaran-ice.workspace = true
 aldebaran-id.workspace = true
 aldebaran-primitive.workspace = true
 aldebaran-span.workspace = true
+
+[lints]
+workspace = true

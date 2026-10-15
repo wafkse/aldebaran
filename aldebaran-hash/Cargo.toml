@@ -12,3 +12,6 @@ edition = "2024"
 ahash.workspace = true
 fnv.workspace = true
 rustc-hash.workspace = true
+
+[lints]
+workspace = true

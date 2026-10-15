@@ -7,3 +7,6 @@ publish = false
 [dependencies]
 aldebaran = { workspace = true, features = ["report-codegen"] }
 aldebaran-logic.workspace = true
+
+[lints]
+workspace = true

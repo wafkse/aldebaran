@@ -17,3 +17,6 @@ tokel.workspace = true
 hashbrown.workspace = true
 smallvec.workspace = true
 aldebaran-primitive.workspace = true
+
+[lints]
+workspace = true

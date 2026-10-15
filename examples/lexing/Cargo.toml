@@ -9,3 +9,6 @@ aldebaran-grammar.workspace = true
 aldebaran-logic.workspace = true
 aldebaran-source.workspace = true
 aldebaran-text.workspace = true
+
+[lints]
+workspace = true

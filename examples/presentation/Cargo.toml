@@ -9,3 +9,6 @@ aldebaran-ansi.workspace = true
 aldebaran-print.workspace = true
 aldebaran-style.workspace = true
 aldebaran-visualize.workspace = true
+
+[lints]
+workspace = true

@@ -10,3 +10,6 @@ edition = "2024"
 
 [dependencies]
 aldebaran-print.workspace = true
+
+[lints]
+workspace = true

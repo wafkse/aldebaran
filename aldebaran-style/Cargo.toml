@@ -9,3 +9,6 @@ documentation = "https://docs.rs/aldebaran-style"
 edition = "2024"
 
 [dependencies]
+
+[lints]
+workspace = true
