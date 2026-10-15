@@ -91,6 +91,7 @@ impl Visualize for [u8] {
     {
         for target_byte in self.iter().copied() {
             let target_char = if target_byte.is_ascii() {
+                // NOTE: The byte range is inside the ASCII (0..128) ange
                 target_byte as char
             } else {
                 char::REPLACEMENT_CHARACTER
