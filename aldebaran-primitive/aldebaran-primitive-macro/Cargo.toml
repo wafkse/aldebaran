@@ -1,6 +1,6 @@
 [package]
 name = "aldebaran-primitive-macro"
-version = "0.1.0"
+version.workspace = true
 description = "Macros for enumerating and classifying Rust primitive types"
 license.workspace = true
 repository.workspace = true

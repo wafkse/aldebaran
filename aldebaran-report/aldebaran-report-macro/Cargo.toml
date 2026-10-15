@@ -1,6 +1,6 @@
 [package]
 name = "aldebaran-report-macro"
-version = "0.1.0"
+version.workspace = true
 description = "Procedural derive macro for Aldebaran diagnostic reports"
 license.workspace = true
 repository.workspace = true

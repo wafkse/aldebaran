@@ -1,6 +1,6 @@
 [package]
 name = "aldebaran-ice"
-version = "0.1.0"
+version.workspace = true
 description = "Internal compiler error utilities for Aldebaran"
 license.workspace = true
 repository.workspace = true

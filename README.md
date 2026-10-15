@@ -1,5 +1,7 @@
 # Aldebaran Compiler Framework
 
+![Development status](https://img.shields.io/badge/status-very%20pre--alpha-red)
+
 Aldebaran is a set of Rust crates for source processing and compiler frontends.
 
 The workspace currently covers source and span handling, lexing, token streams,
@@ -8,8 +10,17 @@ be used either through the top-level `aldebaran` crate or as individual
 `aldebaran-*` crates.
 
 > [!WARNING]
-> Aldebaran is pre-1.0 and under active development. Public APIs are not stable
-> yet.
+> Aldebaran is **very pre-alpha**. Expect breaking changes, incomplete features,
+> and bugs. Releases are intended for experimentation.
+
+## crates.io releases
+
+Aldebaran is available on [crates.io](https://crates.io/crates/aldebaran).
+
+```toml
+[dependencies]
+aldebaran = "=0.1.0"
+```
 
 ## What exists today
 
@@ -32,7 +43,7 @@ can live in the consuming project.
 
 ## mini-lisp
 
-[`mini-lisp`](./examples/mini-lisp) is the best place to see the
+[`mini-lisp`](https://github.com/wafkse/aldebaran/tree/development/examples/mini-lisp) is the best place to see the
 pieces working together. It has a lexer, persistent symbol internment, a live
 token stream, a recursive-descent parser, a spanned AST, an evaluator, and
 diagnostics for lexing, parsing, and evaluation errors.
@@ -48,24 +59,24 @@ The example also uses derived reports and multi-span annotations.
 Use `aldebaran` if you want the whole framework. The individual crates are
 also public and can be depended on directly.
 
-- **Facade:** [`aldebaran`](./aldebaran)
-- **Source/core:** [`aldebaran-span`](./aldebaran-span),
-  [`aldebaran-source`](./aldebaran-source),
-  [`aldebaran-id`](./aldebaran-id),
-  [`aldebaran-interner`](./aldebaran-interner),
-  [`aldebaran-primitive`](./aldebaran-primitive),
-  [`aldebaran-dsa`](./aldebaran-dsa)
-- **Language processing:** [`aldebaran-logic`](./aldebaran-logic),
-  [`aldebaran-text`](./aldebaran-text),
-  [`aldebaran-grammar`](./aldebaran-grammar)
-- **Diagnostics:** [`aldebaran-report`](./aldebaran-report)
-- **Presentation:** [`aldebaran-print`](./aldebaran-print),
-  [`aldebaran-style`](./aldebaran-style),
-  [`aldebaran-ansi`](./aldebaran-ansi),
-  [`aldebaran-visualize`](./aldebaran-visualize)
-- **Support:** [`aldebaran-heap`](./aldebaran-heap),
-  [`aldebaran-hash`](./aldebaran-hash),
-  [`aldebaran-ice`](./aldebaran-ice)
+- **Facade:** [`aldebaran`](https://github.com/wafkse/aldebaran/tree/development/aldebaran)
+- **Source/core:** [`aldebaran-span`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-span),
+  [`aldebaran-source`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-source),
+  [`aldebaran-id`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-id),
+  [`aldebaran-interner`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-interner),
+  [`aldebaran-primitive`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-primitive),
+  [`aldebaran-dsa`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-dsa)
+- **Language processing:** [`aldebaran-logic`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-logic),
+  [`aldebaran-text`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-text),
+  [`aldebaran-grammar`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-grammar)
+- **Diagnostics:** [`aldebaran-report`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-report)
+- **Presentation:** [`aldebaran-print`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-print),
+  [`aldebaran-style`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-style),
+  [`aldebaran-ansi`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-ansi),
+  [`aldebaran-visualize`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-visualize)
+- **Support:** [`aldebaran-heap`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-heap),
+  [`aldebaran-hash`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-hash),
+  [`aldebaran-ice`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-ice)
 
 The proc-macro/codegen crates are implementation details for the public crates
 above.
@@ -75,7 +86,7 @@ above.
 The lower-level text API keeps track of source position while assertions decide
 what can be consumed:
 
-```rust
+```rust,ignore
 use aldebaran::text::prelude::{AsciiAlphabetic, AsciiAlphanumeric, Text};
 
 let mut text = Text::create("aldebaran42");
@@ -91,14 +102,14 @@ assert_eq!(text.peek(), None);
 ```
 
 For the full lexing path, including internment and `LexStream`, see
-[`lexing`](./examples/lexing).
+[`lexing`](https://github.com/wafkse/aldebaran/tree/development/examples/lexing).
 
 ## Diagnostics
 
 Reports carry their source locations separately from rendering. The
 `report-codegen` feature adds the derive macro:
 
-```rust
+```rust,ignore
 use aldebaran::{report::codegen::Report, span::prelude::Span};
 
 #[derive(Debug, Report)]
@@ -108,13 +119,13 @@ struct Unexpected(Span);
 ```
 
 The renderers can add source context, annotations, multiple spans, and terminal
-styling. See [`diagnostics`](./examples/diagnostics) and
-[`mini-lisp`](./examples/mini-lisp) for complete examples.
+styling. See [`diagnostics`](https://github.com/wafkse/aldebaran/tree/development/examples/diagnostics) and
+[`mini-lisp`](https://github.com/wafkse/aldebaran/tree/development/examples/mini-lisp) for complete examples.
 
 The diagnostics example uses UTF-8 identifiers and deliberately overlapping
 annotations. By default it uses Unicode framing with ANSI color:
 
-![ANSI-colored duplicate-binding diagnostic with overlapping UTF-8 spans](./docs/diagnostics-ansi.svg)
+![ANSI-colored duplicate-binding diagnostic with overlapping UTF-8 spans](https://raw.githubusercontent.com/wafkse/aldebaran/development/docs/diagnostics-ansi.svg)
 
 <details>
 <summary>Plain-text rendering (<code>--no-ansi</code>)</summary>
@@ -163,16 +174,16 @@ repeated, the last value wins. Use `--help` for the full CLI usage.
 
 ## More examples
 
-The [`examples`](./examples) directory also contains:
+The [`examples`](https://github.com/wafkse/aldebaran/tree/development/examples) directory also contains:
 
 | Example | Covers |
 | --- | --- |
-| [`lexing`](./examples/lexing) | Source traversal, assertions, lexing, internment, token streams, lookahead |
-| [`diagnostics`](./examples/diagnostics) | UTF-8 source, overlapping annotations, multi-span reports, diagnostic rendering |
-| [`presentation`](./examples/presentation) | Printing, styles, ANSI output, visualization |
-| [`foundations`](./examples/foundations) | IDs, spans, primitives, collections, hashing, heap support |
+| [`lexing`](https://github.com/wafkse/aldebaran/tree/development/examples/lexing) | Source traversal, assertions, lexing, internment, token streams, lookahead |
+| [`diagnostics`](https://github.com/wafkse/aldebaran/tree/development/examples/diagnostics) | UTF-8 source, overlapping annotations, multi-span reports, diagnostic rendering |
+| [`presentation`](https://github.com/wafkse/aldebaran/tree/development/examples/presentation) | Printing, styles, ANSI output, visualization |
+| [`foundations`](https://github.com/wafkse/aldebaran/tree/development/examples/foundations) | IDs, spans, primitives, collections, hashing, heap support |
 
-See [`examples/README.md`](./examples/README.md) for the full coverage map.
+See [`examples/README.md`](https://github.com/wafkse/aldebaran/blob/development/examples/README.md) for the full coverage map.
 
 ## Compatibility
 
@@ -185,8 +196,9 @@ the moment.
 
 ## Project status
 
-The source-processing, parsing, diagnostic, and presentation pieces are usable
-today, but the APIs are still changing.
+The source-processing, parsing, diagnostic, and presentation pieces can be
+tried today. Aldebaran is still very pre-alpha, with no stable API or migration
+guarantee between experimental releases.
 
 There is no shared IR, optimizer, or backend layer in the workspace currently.
 Those are not required for using Aldebaran as frontend infrastructure.
@@ -206,4 +218,4 @@ the terms of the GNU Affero General Public License as published by the Free
 Software Foundation, either version 3 of the License, or (at your option) any
 later version.
 
-See [the full license agreement](./LICENSE) for further information.
+See [the full license agreement](https://github.com/wafkse/aldebaran/blob/development/LICENSE) for further information.

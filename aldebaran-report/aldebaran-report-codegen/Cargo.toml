@@ -1,6 +1,6 @@
 [package]
 name = "aldebaran-report-codegen"
-version = "0.1.0"
+version.workspace = true
 description = "Code generation for Aldebaran diagnostic report derives"
 license.workspace = true
 repository.workspace = true

@@ -1,6 +1,6 @@
 [package]
 name = "aldebaran-visualize"
-version = "0.1.0"
+version.workspace = true
 description = "Lossy human-readable rendering for source-shaped values"
 license.workspace = true
 repository.workspace = true

@@ -1,6 +1,6 @@
 [package]
 name = "aldebaran-primitive-core"
-version = "0.1.0"
+version.workspace = true
 description = "Generic traits and operations over Rust primitive types"
 license.workspace = true
 repository.workspace = true

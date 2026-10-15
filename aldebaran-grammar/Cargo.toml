@@ -1,6 +1,6 @@
 [package]
 name = "aldebaran-grammar"
-version = "0.1.0"
+version.workspace = true
 description = "Token stream primitives for hand-written parsers"
 license.workspace = true
 repository.workspace = true

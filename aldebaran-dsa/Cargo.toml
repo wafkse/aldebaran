@@ -1,6 +1,6 @@
 [package]
 name = "aldebaran-dsa"
-version = "0.1.0"
+version.workspace = true
 description = "Data structures and algorithms for Aldebaran compiler infrastructure"
 license.workspace = true
 repository.workspace = true
