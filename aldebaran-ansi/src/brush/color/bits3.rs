@@ -223,13 +223,7 @@ impl AnsiSequence<Surface> for Ansi3Bit {
     {
         let target_code = self.surface(target_surface);
 
-        '\x1B'
-            .sequence('[')
-            .sequence(TextAttribute::RESET_ALL_CODE)
-            .sequence(';')
-            .sequence(target_code)
-            .sequence('m')
-            .print(writer)
+        '\x1B'.sequence('[').sequence(target_code).sequence('m').print(writer)
     }
 }
 

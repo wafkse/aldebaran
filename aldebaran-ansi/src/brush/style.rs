@@ -240,3 +240,66 @@ where
         '\x1B'.sequence('[').sequence(0).sequence('m').print(writer)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        brush::{
+            color::{Color, bits3::Ansi3Bit, rgb::AnsiRgb},
+            style::{Attributes, TextAttribute},
+        },
+        prelude::AnsiSequence,
+    };
+
+    use aldebaran_print::prelude::Print;
+
+    use crate::prelude::Paintable;
+
+    use super::Style;
+
+    #[test]
+    fn painted_attributes_survive_color_until_final_reset() {
+        let mut output = String::new();
+        "subject".red().bold().underline().print(&mut output).expect("paint succeeds");
+
+        assert_eq!(output, "\x1b[4m\x1b[1m\x1b[31msubject\x1b[0m");
+    }
+
+    #[test]
+    fn colors_preserve_active_attributes() {
+        let cases = [
+            (Some(Color::Bits3(Ansi3Bit::Red)), None, "\x1b[4m\x1b[1m\x1b[31m"),
+            (None, Some(Color::Bits3(Ansi3Bit::Blue)), "\x1b[4m\x1b[1m\x1b[44m"),
+            (
+                Some(Color::Bits3(Ansi3Bit::Red)),
+                Some(Color::Bits3(Ansi3Bit::Blue)),
+                "\x1b[4;1;31;44m",
+            ),
+            (
+                Some(Color::Rgb(AnsiRgb::RED)),
+                Some(Color::Bits3(Ansi3Bit::Blue)),
+                "\x1b[4m\x1b[1m\x1b[38;2;255;0;0m\x1b[44m",
+            ),
+            (
+                Some(Color::Bits3(Ansi3Bit::Red)),
+                Some(Color::Rgb(AnsiRgb::BLUE)),
+                "\x1b[4m\x1b[1m\x1b[31m\x1b[48;2;0;0;255m",
+            ),
+        ];
+
+        for (foreground, background, expected) in cases {
+            let mut attribute = Attributes::single(TextAttribute::Bold);
+            attribute.force(TextAttribute::Underline);
+
+            let style = Style {
+                foreground,
+                background,
+                attribute,
+            };
+            let mut output = String::new();
+            style.emit(&mut output).expect("style emission succeeds");
+
+            assert_eq!(output, expected, "color activation must not reset attributes");
+        }
+    }
+}

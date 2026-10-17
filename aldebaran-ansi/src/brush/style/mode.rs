@@ -55,9 +55,6 @@ impl TextAttribute {
     /// value.
     pub const RESET_ALL_CODE: u8 = 0;
 
-    /// The offset between a regular activation sequence and a reset sequence.
-    const RESET_CODE_OFFSET: u8 = 20;
-
     /// Retrieve the ANSI code to activate the current attribute.
     #[inline]
     pub const fn active_code(&self) -> u8 {
@@ -65,9 +62,19 @@ impl TextAttribute {
     }
 
     /// Retrieve the ANSI code to reset the current attribute.
+    ///
+    /// Bold and dim share SGR 22, which resets both intensity attributes.
     #[inline]
     pub const fn reset_code(&self) -> u8 {
-        *self as u8 + Self::RESET_CODE_OFFSET
+        match self {
+            Self::Bold | Self::Dim => 22,
+            Self::Italic => 23,
+            Self::Underline => 24,
+            Self::Blink => 25,
+            Self::Inverse => 27,
+            Self::Invisible => 28,
+            Self::Strikethrough => 29,
+        }
     }
 
     /// Determine the corresponding [`TextAttribute`] variant for the given
@@ -295,5 +302,43 @@ impl Resettable<()> for Attributes {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::reset::Resettable;
+
+    use super::{Attributes, TextAttribute};
+
+    #[test]
+    fn attribute_resets_use_selective_sgr_codes() {
+        let cases = [
+            (TextAttribute::Bold, 22),
+            (TextAttribute::Dim, 22),
+            (TextAttribute::Italic, 23),
+            (TextAttribute::Underline, 24),
+            (TextAttribute::Blink, 25),
+            (TextAttribute::Inverse, 27),
+            (TextAttribute::Invisible, 28),
+            (TextAttribute::Strikethrough, 29),
+        ];
+
+        for (attribute, expected) in cases {
+            assert_eq!(attribute.reset_code(), expected, "incorrect reset for {attribute:?}");
+
+            let mut output = String::new();
+            attribute.reset(&mut output).expect("attribute reset succeeds");
+            assert_eq!(output, format!("\x1b[{expected}m"));
+        }
+    }
+
+    #[test]
+    fn bold_attribute_set_resets_intensity() {
+        let attributes = Attributes::single(TextAttribute::Bold);
+        let mut output = String::new();
+        attributes.reset(&mut output).expect("attribute set reset succeeds");
+
+        assert_eq!(output, "\x1b[22m");
     }
 }
