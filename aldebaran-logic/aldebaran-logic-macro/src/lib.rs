@@ -11,7 +11,6 @@ use proc_macro2::{Span as Span2, TokenStream as TokenStream2};
 use quote::quote;
 use syn::{
     Attribute, Data, DataEnum, DataStruct, DeriveInput, Error, Expr, Field, Fields, Generics, Ident, Meta, MetaNameValue, Token, Type,
-    WhereClause,
     parse::{Parse, ParseStream},
     parse_quote,
     spanned::Spanned,
@@ -29,16 +28,20 @@ pub fn derive_choose(input: TokenStream) -> TokenStream {
         ident: name_ident,
         generics,
         ..
-    } = syn::parse_macro_input!(input as _);
+    } = syn::parse_macro_input!(input as DeriveInput);
+
     let (.., ty_generics, _) = generics.split_for_impl();
+
     let mut choose_generics = generics.clone();
     choose_generics
         .params
-        .insert(0, parse_quote!(__ChooseTy: ::aldebaran_logic::prelude::Input));
+        .push(parse_quote!(__ChooseTy: ::aldebaran_logic::prelude::Input));
+
     choose_generics
         .make_where_clause()
         .predicates
         .push(parse_quote!(Self: ::aldebaran_logic::prelude::Assert<__ChooseTy> + ::core::clone::Clone));
+
     let (impl_generics, _, where_clause) = choose_generics.split_for_impl();
 
     TokenStream::from(quote! {
@@ -58,13 +61,12 @@ pub fn derive_choose(input: TokenStream) -> TokenStream {
     })
 }
 
-#[proc_macro_derive(Assert, attributes(assert))]
 /// Derive composable assertion behavior from `assert` attributes.
 ///
 /// Struct metadata defines one assertion composition. Enum metadata defines one
 /// assertion per variant and expands the corresponding predicate and formatter
 /// implementations.
-// Procedural macro expansion is substantial and is intentionally not inlined.
+#[proc_macro_derive(Assert, attributes(assert))]
 #[inline]
 pub fn derive_assert(input: TokenStream) -> TokenStream {
     let DeriveInput {
@@ -210,19 +212,17 @@ impl Struct {
     pub fn expand(self) -> syn::Result<TokenStream2> {
         let Self {
             param,
-            mut generics,
+            generics,
             name_ident,
             field_list,
             ..
         } = self;
 
-        let WhereClause { predicates, .. } = generics.make_where_clause().clone();
-
-        let predicates = predicates.iter();
-
         let (.., ty_generics, _) = generics.split_for_impl();
-
-        let ty_params = generics.type_params();
+        let mut assert_generics = generics.clone();
+        assert_generics
+            .params
+            .push(parse_quote!(__AssertTy: ::aldebaran_logic::prelude::Input));
 
         match param {
             Param::Conjunctive | Param::Disjunctive => {
@@ -239,9 +239,9 @@ impl Struct {
                 };
 
                 let (field_pat, assert_expr, output_expr) = {
-                    let mut target_iter = field_list.iter().peekable();
+                    let target_iter = field_list.iter();
 
-                    if let Some(Field { ident: Some(..), .. }) = target_iter.peek() {
+                    if matches!(&field_list, Fields::Named(_)) {
                         let ident_iter = target_iter.flat_map(|Field { ident, .. }| ident).cloned();
 
                         let field_iter = ident_iter.clone();
@@ -292,10 +292,9 @@ impl Struct {
 
                                 #(
                                     ::aldebaran_logic::prelude::Assert::<__AssertTy>::output_with::<W, F>(#last_output, writer, #precedence)?;
-
-                                    F::end(writer, #connective, target_precedence)?;
                                 )*
 
+                                F::end(writer, #connective, target_precedence)?;
 
                                 Ok(())
                             },
@@ -328,12 +327,15 @@ impl Struct {
                         let output_ident = output_iter.rev();
 
                         (
-                            quote! {
-                                Self(
-                                    #(
-                                        #field_iter
-                                    ),*
-                                )
+                            match &field_list {
+                                Fields::Unit => quote! { Self },
+                                _ => quote! {
+                                    Self(
+                                        #(
+                                            #field_iter
+                                        ),*
+                                    )
+                                },
                             },
                             quote! {
                                 #(
@@ -353,10 +355,9 @@ impl Struct {
 
                                 #(
                                     ::aldebaran_logic::prelude::Assert::<__AssertTy>::output_with::<W, F>(#last_output, writer, #precedence)?;
-
-                                    F::end(writer, #connective, target_precedence)?;
                                 )*
 
+                                F::end(writer, #connective, target_precedence)?;
 
                                 Ok(())
                             },
@@ -364,18 +365,17 @@ impl Struct {
                     }
                 };
 
-                let field_ty = field_list.iter().map(|Field { ty, .. }| ty);
+                for Field { ty, .. } in &field_list {
+                    assert_generics
+                        .make_where_clause()
+                        .predicates
+                        .push(parse_quote!(#ty: ::aldebaran_logic::prelude::Assert<__AssertTy>));
+                }
+                let (impl_generics, _, where_clause) = assert_generics.split_for_impl();
 
                 Ok(quote! {
                     #[automatically_derived]
-                    impl<__AssertTy: ::aldebaran_logic::prelude::Input, #(#ty_params),*> ::aldebaran_logic::prelude::Assert<__AssertTy> for #name_ident #ty_generics
-                    where
-                        #(
-                            #field_ty: ::aldebaran_logic::prelude::Assert<__AssertTy>,
-                        )*
-                        #(
-                            #predicates
-                        ),*
+                    impl #impl_generics ::aldebaran_logic::prelude::Assert<__AssertTy> for #name_ident #ty_generics #where_clause
                     {
                         #[inline]
                         fn assert(&self, input: __AssertTy) -> bool {
@@ -400,14 +400,15 @@ impl Struct {
             Param::Expr(param_expr) => {
                 let ParamExpr { expr_value, expr_ty } = *param_expr;
 
+                assert_generics
+                    .make_where_clause()
+                    .predicates
+                    .push(parse_quote!(#expr_ty: ::aldebaran_logic::prelude::Assert<__AssertTy>));
+                let (impl_generics, _, where_clause) = assert_generics.split_for_impl();
+
                 let tokens = quote! {
                     #[automatically_derived]
-                    impl<__AssertTy: ::aldebaran_logic::prelude::Input, #(#ty_params),*> ::aldebaran_logic::prelude::Assert<__AssertTy> for #name_ident #ty_generics
-                    where
-                        #expr_ty: ::aldebaran_logic::prelude::Assert<__AssertTy>,
-                        #(
-                            #predicates
-                        ),*
+                    impl #impl_generics ::aldebaran_logic::prelude::Assert<__AssertTy> for #name_ident #ty_generics #where_clause
                     {
                         #[inline]
                         fn assert(&self, input: __AssertTy) -> bool {
@@ -458,19 +459,17 @@ impl Enum {
     /// Generate assertion implementations for the validated enum.
     pub fn expand(self) -> syn::Result<TokenStream2> {
         let Self {
-            mut generics,
+            generics,
             name_ident,
             variant_list,
             ..
         } = self;
 
-        let WhereClause { predicates, .. } = generics.make_where_clause().clone();
-
-        let predicates = predicates.iter();
-
         let (.., ty_generics, _) = generics.split_for_impl();
-
-        let ty_params = generics.type_params();
+        let mut assert_generics = generics.clone();
+        assert_generics
+            .params
+            .push(parse_quote!(__AssertTy: ::aldebaran_logic::prelude::Input));
 
         let mut evaluated_arms = Vec::with_capacity(variant_list.len());
 
@@ -486,9 +485,9 @@ impl Enum {
         } in variant_list
         {
             let field_pat = {
-                let mut target_iter = field_list.iter().peekable();
+                let target_iter = field_list.iter();
 
-                if let Some(Field { ident: Some(..), .. }) = target_iter.peek() {
+                if matches!(&field_list, Fields::Named(_)) {
                     let ident_iter = target_iter.flat_map(|Field { ident, .. }| ident).cloned();
 
                     quote! {
@@ -498,7 +497,7 @@ impl Enum {
                             ),*
                         }
                     }
-                } else if target_iter.peek().is_none() {
+                } else if matches!(&field_list, Fields::Unit) {
                     quote! {}
                 } else {
                     let ident_iter = target_iter
@@ -555,9 +554,9 @@ impl Enum {
                     };
 
                     let (field_pat, assert_expr, output_expr) = {
-                        let mut target_iter = field_list.iter().peekable();
+                        let target_iter = field_list.iter();
 
-                        if let Some(Field { ident: Some(..), .. }) = target_iter.peek() {
+                        if matches!(&field_list, Fields::Named(_)) {
                             let ident_iter = target_iter.flat_map(|Field { ident, .. }| ident).cloned();
 
                             let field_iter = ident_iter.clone();
@@ -608,10 +607,9 @@ impl Enum {
 
                                     #(
                                         ::aldebaran_logic::prelude::Assert::<__AssertTy>::output_with::<W, F>(#last_output, writer, #precedence)?;
-
-                                        F::end(writer, #connective, target_precedence)?;
                                     )*
 
+                                    F::end(writer, #connective, target_precedence)?;
 
                                     Ok(())
                                 },
@@ -644,12 +642,15 @@ impl Enum {
                             let output_ident = output_iter.rev();
 
                             (
-                                quote! {
-                                    (
-                                        #(
-                                            #field_iter
-                                        ),*
-                                    )
+                                match &field_list {
+                                    Fields::Unit => quote! {},
+                                    _ => quote! {
+                                        (
+                                            #(
+                                                #field_iter
+                                            ),*
+                                        )
+                                    },
                                 },
                                 quote! {
                                     #(
@@ -669,10 +670,9 @@ impl Enum {
 
                                     #(
                                         ::aldebaran_logic::prelude::Assert::<__AssertTy>::output_with::<W, F>(#last_output, writer, #precedence)?;
-
-                                        F::end(writer, #connective, target_precedence)?;
                                     )*
 
+                                    F::end(writer, #connective, target_precedence)?;
 
                                     Ok(())
                                 },
@@ -703,16 +703,17 @@ impl Enum {
             }
         }
 
+        for ty in assert_tys {
+            assert_generics
+                .make_where_clause()
+                .predicates
+                .push(parse_quote!(#ty: ::aldebaran_logic::prelude::Assert<__AssertTy>));
+        }
+        let (impl_generics, _, where_clause) = assert_generics.split_for_impl();
+
         Ok(quote! {
             #[automatically_derived]
-            impl<__AssertTy: ::aldebaran_logic::prelude::Input, #(#ty_params),*> ::aldebaran_logic::prelude::Assert<__AssertTy> for #name_ident #ty_generics
-            where
-                #(
-                    #assert_tys: ::aldebaran_logic::prelude::Assert<__AssertTy>,
-                )*
-                #(
-                    #predicates,
-                )*
+            impl #impl_generics ::aldebaran_logic::prelude::Assert<__AssertTy> for #name_ident #ty_generics #where_clause
             {
                 #[inline]
                 fn assert(&self, input: __AssertTy) -> bool {
