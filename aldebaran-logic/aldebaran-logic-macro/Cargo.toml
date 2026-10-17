@@ -1,6 +1,8 @@
 [package]
 name = "aldebaran-logic-macro"
 version.workspace = true
+keywords.workspace = true
+categories.workspace = true
 description = "Derive macros for Aldebaran logical assertions and classifications"
 license.workspace = true
 repository.workspace = true

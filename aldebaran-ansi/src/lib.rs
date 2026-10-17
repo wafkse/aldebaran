@@ -46,7 +46,7 @@ mod tests {
     pub use crate::prelude::Paintable;
 
     #[test]
-    fn test_color() {
+    fn color() {
         let mut s = String::new();
 
         "fake and gay"

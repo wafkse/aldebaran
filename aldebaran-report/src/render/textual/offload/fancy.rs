@@ -174,15 +174,13 @@ mod tests {
     }
 
     #[test]
-    fn test_fancy_offload() {
-        let target_source: &'static str = "snicker\n dog bone\n";
+    fn fancy_offload() {
+        let target_source = "snicker\n dog bone\n";
 
         let err = oneshot::single(
             target_source,
             Label::new("you hate snickers?? so do I!!", Span::new(0, const { NonZero::<usize>::MAX })),
         );
-
-        &err;
 
         let mut target_sink = String::new();
 

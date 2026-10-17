@@ -1,6 +1,8 @@
 [package]
 name = "aldebaran-id"
 version.workspace = true
+keywords.workspace = true
+categories.workspace = true
 description = "Strongly typed object identities and ID-indexed collections"
 license.workspace = true
 repository.workspace = true

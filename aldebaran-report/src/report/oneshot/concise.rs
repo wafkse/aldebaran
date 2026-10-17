@@ -10,6 +10,7 @@ use aldebaran_source::prelude::{SourceLines, SourceMetadata};
 use crate::{
     annotated::Annotations,
     prelude::{Annotated, Report, Simple},
+    report::SourceReport,
 };
 
 /// A simple, concise one-shot error type.
@@ -91,7 +92,7 @@ where
     }
 }
 
-impl<'source, A, S> crate::report::SourceReport<'source> for OneshotConcise<'source, A, S>
+impl<'source, A, S> SourceReport<'source> for OneshotConcise<'source, A, S>
 where
     A: Annotated,
     S: SourceLines<'source> + SourceMetadata<'source> + ?Sized,

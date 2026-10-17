@@ -46,7 +46,10 @@ where
     S: SourceLines<'a> + ?Sized,
     S::Line: hash::Hash,
 {
-    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: hash::Hasher,
+    {
         let &Self { ref line_break, ref span } = self;
 
         line_break.hash(state);
@@ -161,7 +164,6 @@ where
     S: SourceLines<'a> + ?Sized,
 {
     #[inline]
-
     fn span(&self) -> Span {
         let &Self { span, .. } = self;
 

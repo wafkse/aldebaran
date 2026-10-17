@@ -25,6 +25,7 @@ use aldebaran_source::prelude::{Source, SourceLines, SourceMetadata};
 use crate::{
     annotated::Annotations,
     prelude::{Annotated, ErrorKind, Report, Simple, Title},
+    report::SourceReport,
 };
 
 /// A dynamic [`Report`] type.
@@ -314,7 +315,7 @@ where
     }
 }
 
-impl<'a, S, A, T, K> crate::report::SourceReport<'a> for DynamicError<'a, S, A, T, K>
+impl<'a, S, A, T, K> SourceReport<'a> for DynamicError<'a, S, A, T, K>
 where
     S: SourceLines<'a> + SourceMetadata<'a>,
     A: Annotated,

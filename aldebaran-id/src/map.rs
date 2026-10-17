@@ -125,6 +125,17 @@ where
     }
 }
 
+impl<I, V, S> Default for IdMap<I, V, S>
+where
+    I: Id,
+    S: BuildHasher + Default,
+{
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<I, V, S> IdMap<I, V, S>
 where
     I: Id,
@@ -368,7 +379,7 @@ where
             let (target_key, target_value) = storage.swap_at(target_index, (id, value));
 
             // Update the map to reflect the new index of the target key
-            let _ = map.insert(target_key, target_index);
+            let _: Option<usize> = map.insert(target_key, target_index);
 
             Some(target_value)
         } else {
@@ -376,7 +387,7 @@ where
 
             storage.push(id, value);
 
-            let _ = map.insert(id, target_index);
+            let _: Option<usize> = map.insert(id, target_index);
 
             None
         }
@@ -401,18 +412,16 @@ where
 
         let target_index = map.remove(id.as_ref());
 
-        target_index
-            .map(|target_index: usize| -> Option<(I, V)> {
-                let (target_key, target_value) = storage.swap_remove(target_index);
+        target_index.map(|target_index: usize| -> (I, V) {
+            let (target_key, target_value) = storage.swap_remove(target_index);
 
-                let target_id = storage.get_key(target_index).expect("index removed from storage");
+            let target_id = storage.get_key(target_index).expect("index removed from storage");
 
-                // Update the map to reflect the new index of the target key
-                map.insert(*target_id, target_index);
+            // Update the map to reflect the new index of the target key
+            map.insert(*target_id, target_index);
 
-                Some((target_key, target_value))
-            })
-            .flatten()
+            (target_key, target_value)
+        })
     }
 }
 
@@ -427,7 +436,7 @@ where
         T: IntoIterator<Item = (I, V)>,
     {
         for (id, value) in iter {
-            let _ = self.insert(id, value);
+            let _: Option<V> = self.insert(id, value);
         }
     }
 }
@@ -457,7 +466,7 @@ mod tests {
     TestId!(8 become);
 
     #[test]
-    fn test_id_map() {
+    fn id_map() {
         let mut map: IdMap<TestId8, &str, BuildHasherDefault<FxHasher>> = IdMap::new();
 
         assert_eq!(map.len(), 0);

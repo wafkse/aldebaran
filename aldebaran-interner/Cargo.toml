@@ -1,6 +1,8 @@
 [package]
 name = "aldebaran-interner"
 version.workspace = true
+keywords.workspace = true
+categories.workspace = true
 description = "Borrowed and owned value interning for stable identities"
 license.workspace = true
 repository.workspace = true

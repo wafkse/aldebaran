@@ -13,6 +13,7 @@ pub mod hexdump;
 pub mod nothing;
 pub mod summarized;
 
+use core::convert;
 use core::fmt;
 use core::hash;
 
@@ -234,7 +235,7 @@ where
         O::Input<'input>: 'borrow,
         U: Offload<'source, E, Input<'borrow> = &'borrow O::Input<'input>> + ?Sized,
     {
-        self.referenced_with(core::convert::identity)
+        self.referenced_with(convert::identity)
     }
 
     /// Map in a new [`OffloadContext`] whose [`Offload::Input`] can be directly sourced from the current [`O::Input`] using an

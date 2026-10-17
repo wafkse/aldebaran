@@ -27,8 +27,13 @@ pub struct Painted<T>
 where
     T: Paintable,
 {
+    /// The printable value receiving deferred styling.
     subject: T,
+
+    /// The terminal settings applied around the subject.
     style: Style,
+
+    /// Whether printing applies the stored style.
     enabled: bool,
 }
 
@@ -106,13 +111,23 @@ where
 /// modifiers. Other modifiers such as unsafeness are kept intact.
 macro_rules! Normalize {
     () => {};
+    (@attributes [$($target_kept:tt)*] [] [$($target_item:tt)*]) => {
+        $($target_kept)*
+        $($target_item)*
+    };
+    (@attributes [$($target_kept:tt)*] [#[inline $($target_args:tt)*] $($target_rest:tt)*] [$($target_item:tt)*]) => {
+        Normalize!(@attributes [$($target_kept)*] [$($target_rest)*] [$($target_item)*]);
+    };
+    (@attributes [$($target_kept:tt)*] [#[$($target_meta:tt)*] $($target_rest:tt)*] [$($target_item:tt)*]) => {
+        Normalize!(@attributes [$($target_kept)* #[$($target_meta)*]] [$($target_rest)*] [$($target_item)*]);
+    };
     // Base case.
     (return become for $target_trait_ident:ident use $target_type_ident:ident:) => {};
     (
         return become for $target_trait_ident:ident use $target_type_ident:ident:
 
         $(
-            #[$target_meta:meta]
+            #[$($target_meta:tt)*]
         )*
         $target_vis:vis const fn $target_name:ident(
             $(
@@ -122,15 +137,14 @@ macro_rules! Normalize {
 
         $($target_rest:tt)*
     ) => {
-        $(
-            #[$target_meta]
-        )*
-        // Strip the visibility modifier (if any), the constness modifier, and the function body.
+        Normalize!(@attributes [] [$(#[$($target_meta)*])*] [
+        // Strip visibility, constness, the body, and implementation-only inline attributes.
         fn $target_name(
             $(
                 $target_arg_tt
             )*
         ) $(-> <$target_type_ident as $target_trait_ident>::Parametrized<$target_ret>)? where Self: Sized;
+        ]);
 
         Normalize!(return become for $target_trait_ident use $target_type_ident: $($target_rest)*);
     };
@@ -138,7 +152,7 @@ macro_rules! Normalize {
         return become for $target_trait_ident:ident use $target_type_ident:ident:
 
         $(
-            #[$target_meta:meta]
+            #[$($target_meta:tt)*]
         )*
         $target_vis:vis const unsafe fn $target_name:ident(
             $(
@@ -148,15 +162,14 @@ macro_rules! Normalize {
 
         $($target_rest:tt)*
     ) => {
-        $(
-            #[$target_meta]
-        )*
-        // Strip the visibility modifier (if any), the constness modifier, and the function body.
+        Normalize!(@attributes [] [$(#[$($target_meta)*])*] [
+        // Preserve unsafety while stripping implementation-only syntax and attributes.
         unsafe fn $target_name(
             $(
                 $target_arg_tt
             )*
         ) $(-> <$target_type_ident as $target_trait_ident>::Parametrized<$target_ret>)? where Self: Sized;
+        ]);
 
         Normalize!(return become for $target_trait_ident use $target_type_ident: $($target_rest)*);
     };
@@ -164,7 +177,7 @@ macro_rules! Normalize {
         return become for $target_trait_ident:ident use $target_type_ident:ident:
 
         $(
-            #[$target_meta:meta]
+            #[$($target_meta:tt)*]
         )*
         $target_vis:vis unsafe fn $target_name:ident(
             $(
@@ -174,15 +187,14 @@ macro_rules! Normalize {
 
         $($target_rest:tt)*
     ) => {
-        $(
-            #[$target_meta]
-        )*
-        // Strip the visibility modifier (if any), and the function body.
+        Normalize!(@attributes [] [$(#[$($target_meta)*])*] [
+        // Preserve unsafety while stripping implementation-only syntax and attributes.
         unsafe fn $target_name(
             $(
                 $target_arg_tt
             )*
         ) $(-> <$target_type_ident as $target_trait_ident>::Parametrized<$target_ret>)? where Self: Sized;
+        ]);
 
         Normalize!(return become for $target_trait_ident use $target_type_ident: $($target_rest)*);
     };
@@ -190,7 +202,7 @@ macro_rules! Normalize {
         return become for $target_trait_ident:ident use $target_type_ident:ident:
 
         $(
-            #[$target_meta:meta]
+            #[$($target_meta:tt)*]
         )*
         $target_vis:vis fn $target_name:ident(
             $(
@@ -200,15 +212,14 @@ macro_rules! Normalize {
 
         $($target_rest:tt)*
     ) => {
-        $(
-            #[$target_meta]
-        )*
-        // Strip the visibility modifier (if any), and the function body.
+        Normalize!(@attributes [] [$(#[$($target_meta)*])*] [
+        // Strip visibility, the body, and implementation-only inline attributes.
         fn $target_name(
             $(
                 $target_arg_tt
             )*
         ) $(-> <$target_type_ident as $target_trait_ident>::Parametrized<$target_ret>)? where Self: Sized;
+        ]);
 
         Normalize!(return become for $target_trait_ident use $target_type_ident: $($target_rest)*);
     };
@@ -251,7 +262,6 @@ macro_rules! Bridge {
         $(
             #[$target_meta]
         )*
-        #[allow(unused_attributes)] /* supress #[inline] in trait methods */
         $target_trait_vis trait $target_trait
         $(where $($target_trait_where)*)?
         {
@@ -402,6 +412,7 @@ trait Blanketable {
     fn instantiate_for(_: Self::For) -> Self::Output;
 }
 
+/// Forward painting methods through the blanket instantiation boundary.
 macro_rules! Blanket {
     () => {};
     (fn for $target_type:ty:) => {};
@@ -576,7 +587,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.foreground_replace(Color::RED);
+            let _: Option<Color> = style.foreground_replace(Color::RED);
 
             target_value
         }
@@ -593,7 +604,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.foreground_replace(Color::BRIGHT_RED);
+            let _: Option<Color> = style.foreground_replace(Color::BRIGHT_RED);
 
             target_value
         }
@@ -610,7 +621,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.foreground_replace(Color::GREEN);
+            let _: Option<Color> = style.foreground_replace(Color::GREEN);
 
             target_value
         }
@@ -627,7 +638,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.foreground_replace(Color::BRIGHT_GREEN);
+            let _: Option<Color> = style.foreground_replace(Color::BRIGHT_GREEN);
 
             target_value
         }
@@ -643,7 +654,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.foreground_replace(Color::BLUE);
+            let _: Option<Color> = style.foreground_replace(Color::BLUE);
 
             target_value
         }
@@ -659,7 +670,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.foreground_replace(Color::BRIGHT_BLUE);
+            let _: Option<Color> = style.foreground_replace(Color::BRIGHT_BLUE);
 
             target_value
         }
@@ -676,7 +687,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.foreground_replace(Color::YELLOW);
+            let _: Option<Color> = style.foreground_replace(Color::YELLOW);
 
             target_value
         }
@@ -693,7 +704,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.foreground_replace(Color::BRIGHT_YELLOW);
+            let _: Option<Color> = style.foreground_replace(Color::BRIGHT_YELLOW);
 
             target_value
         }
@@ -710,7 +721,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.foreground_replace(Color::MAGENTA);
+            let _: Option<Color> = style.foreground_replace(Color::MAGENTA);
 
             target_value
         }
@@ -727,7 +738,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.foreground_replace(Color::BRIGHT_MAGENTA);
+            let _: Option<Color> = style.foreground_replace(Color::BRIGHT_MAGENTA);
 
             target_value
         }
@@ -744,7 +755,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.foreground_replace(Color::CYAN);
+            let _: Option<Color> = style.foreground_replace(Color::CYAN);
 
             target_value
         }
@@ -761,7 +772,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.foreground_replace(Color::BRIGHT_CYAN);
+            let _: Option<Color> = style.foreground_replace(Color::BRIGHT_CYAN);
 
             target_value
         }
@@ -778,7 +789,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.foreground_replace(Color::WHITE);
+            let _: Option<Color> = style.foreground_replace(Color::WHITE);
 
             target_value
         }
@@ -795,7 +806,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.foreground_replace(Color::BRIGHT_WHITE);
+            let _: Option<Color> = style.foreground_replace(Color::BRIGHT_WHITE);
 
             target_value
         }
@@ -812,7 +823,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.foreground_replace(Color::BLACK);
+            let _: Option<Color> = style.foreground_replace(Color::BLACK);
 
             target_value
         }
@@ -829,7 +840,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.foreground_replace(Color::BRIGHT_BLACK);
+            let _: Option<Color> = style.foreground_replace(Color::BRIGHT_BLACK);
 
             target_value
         }
@@ -846,7 +857,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.background_replace(Color::RED);
+            let _: Option<Color> = style.background_replace(Color::RED);
 
             target_value
         }
@@ -863,7 +874,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.background_replace(Color::BRIGHT_RED);
+            let _: Option<Color> = style.background_replace(Color::BRIGHT_RED);
 
             target_value
         }
@@ -880,7 +891,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.background_replace(Color::GREEN);
+            let _: Option<Color> = style.background_replace(Color::GREEN);
 
             target_value
         }
@@ -897,7 +908,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.background_replace(Color::BRIGHT_GREEN);
+            let _: Option<Color> = style.background_replace(Color::BRIGHT_GREEN);
 
             target_value
         }
@@ -914,7 +925,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.background_replace(Color::BLUE);
+            let _: Option<Color> = style.background_replace(Color::BLUE);
 
             target_value
         }
@@ -931,7 +942,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.background_replace(Color::BRIGHT_BLUE);
+            let _: Option<Color> = style.background_replace(Color::BRIGHT_BLUE);
 
             target_value
         }
@@ -948,7 +959,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.background_replace(Color::YELLOW);
+            let _: Option<Color> = style.background_replace(Color::YELLOW);
 
             target_value
         }
@@ -965,7 +976,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.background_replace(Color::BRIGHT_YELLOW);
+            let _: Option<Color> = style.background_replace(Color::BRIGHT_YELLOW);
 
             target_value
         }
@@ -982,7 +993,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.background_replace(Color::MAGENTA);
+            let _: Option<Color> = style.background_replace(Color::MAGENTA);
 
             target_value
         }
@@ -999,7 +1010,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.background_replace(Color::BRIGHT_MAGENTA);
+            let _: Option<Color> = style.background_replace(Color::BRIGHT_MAGENTA);
 
             target_value
         }
@@ -1016,7 +1027,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.background_replace(Color::CYAN);
+            let _: Option<Color> = style.background_replace(Color::CYAN);
 
             target_value
         }
@@ -1033,7 +1044,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.background_replace(Color::BRIGHT_CYAN);
+            let _: Option<Color> = style.background_replace(Color::BRIGHT_CYAN);
 
             target_value
         }
@@ -1050,7 +1061,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.background_replace(Color::WHITE);
+            let _: Option<Color> = style.background_replace(Color::WHITE);
 
             target_value
         }
@@ -1067,7 +1078,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.background_replace(Color::BRIGHT_WHITE);
+            let _: Option<Color> = style.background_replace(Color::BRIGHT_WHITE);
 
             target_value
         }
@@ -1084,7 +1095,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.background_replace(Color::BLACK);
+            let _: Option<Color> = style.background_replace(Color::BLACK);
 
             target_value
         }
@@ -1101,7 +1112,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.background_replace(Color::BRIGHT_BLACK);
+            let _: Option<Color> = style.background_replace(Color::BRIGHT_BLACK);
 
             target_value
         }
@@ -1118,7 +1129,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.attribute_mut().force(TextAttribute::Bold);
+            style.attribute_mut().force(TextAttribute::Bold);
 
             target_value
         }
@@ -1135,7 +1146,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.attribute_mut().force(TextAttribute::Dim);
+            style.attribute_mut().force(TextAttribute::Dim);
 
             target_value
         }
@@ -1152,7 +1163,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.attribute_mut().force(TextAttribute::Italic);
+            style.attribute_mut().force(TextAttribute::Italic);
 
             target_value
         }
@@ -1169,7 +1180,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.attribute_mut().force(TextAttribute::Underline);
+            style.attribute_mut().force(TextAttribute::Underline);
 
             target_value
         }
@@ -1186,7 +1197,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.attribute_mut().force(TextAttribute::Blink);
+            style.attribute_mut().force(TextAttribute::Blink);
 
             target_value
         }
@@ -1203,7 +1214,7 @@ Bridge!(
                 ..
             } = &mut target_value;
 
-            let _ = style.attribute_mut().force(TextAttribute::Inverse);
+            style.attribute_mut().force(TextAttribute::Inverse);
 
             target_value
         }

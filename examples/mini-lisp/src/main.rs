@@ -222,7 +222,7 @@ impl<'source> Lex<'source, str> for Token {
         let target_source = text.source();
         let (fragment, first) = text
             .expected_is_next_spanned(FRAGMENTS)
-            .map_err(|_| LexError::UnexpectedCharacter(UnexpectedCharacter(Span::unit(index))))?;
+            .map_err(|_expected| LexError::UnexpectedCharacter(UnexpectedCharacter(Span::unit(index))))?;
         let rest = match fragment {
             Fragment::Trivia | Fragment::Integer => text.ignore_while_spanned(fragment),
             Fragment::Symbol => text.ignore_while_spanned(SymbolRest),
@@ -243,7 +243,7 @@ impl<'source> Lex<'source, str> for Token {
             Fragment::Integer => {
                 let value = spelling
                     .parse::<i64>()
-                    .map_err(|_| LexError::IntegerOutOfRange(IntegerOutOfRange(span)))?;
+                    .map_err(|_parse_error| LexError::IntegerOutOfRange(IntegerOutOfRange(span)))?;
 
                 Ok(Self::Integer(value, span))
             }

@@ -4,8 +4,9 @@
 //! unknown location metadata. Dissection preserves borrowed slice views, while
 //! line segmentation projects spanned data back onto byte-oriented line windows.
 
-use core::iter::FusedIterator;
+use core::iter::{Copied, FusedIterator};
 use core::num::NonZero;
+use core::slice::Iter;
 
 use crate::diff::SourceDiff;
 use crate::dissect::SourceDissect;
@@ -33,7 +34,7 @@ impl<'a> Terminated<'a, Self> for [u8] {
 }
 
 impl<'source> SourceIter<'source> for [u8] {
-    type Iterator<'borrow> = core::iter::Copied<core::slice::Iter<'borrow, u8>>;
+    type Iterator<'borrow> = Copied<Iter<'borrow, u8>>;
 
     #[inline]
     fn iter(&self) -> Self::Iterator<'_> {
@@ -56,14 +57,10 @@ impl<'source> SourceDissect<'source> for [u8] {
     #[inline]
     fn dissect<'borrow>(&'borrow self, s0: Span) -> Self::View<'borrow> {
         match self.footprint() {
-            Some(s1) => {
-                let target_slice = match s1.intersect(s0).as_ref().map(Span::range) {
-                    Some(target_range) => &self[target_range],
-                    None => &self[s1.end()..],
-                };
-
-                target_slice
-            }
+            Some(s1) => match s1.intersect(s0).as_ref().map(Span::range) {
+                Some(target_range) => &self[target_range],
+                None => &self[s1.end()..],
+            },
             _ => self,
         }
     }

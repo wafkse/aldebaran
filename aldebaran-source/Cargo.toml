@@ -1,6 +1,8 @@
 [package]
 name = "aldebaran-source"
 version.workspace = true
+keywords.workspace = true
+categories.workspace = true
 description = "Generic source capabilities and line-oriented source metadata"
 license.workspace = true
 repository.workspace = true

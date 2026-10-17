@@ -4,7 +4,7 @@
 //! snippets are rendered. Styling comes from the active theme and presentation
 //! settings, keeping header layout independent from concrete diagnostic types.
 
-use core::{fmt, hash};
+use core::{fmt, hash, marker::PhantomData};
 
 use aldebaran_ansi::{brush::Paintable, predicate::Should};
 use aldebaran_print::prelude::{Combine, Print};
@@ -27,7 +27,7 @@ where
     T: Theme,
 {
     /// Associates this rendering stage with the selected theme type.
-    _marker: core::marker::PhantomData<T>,
+    _marker: PhantomData<T>,
 }
 
 impl<T> Copy for Header<T> where T: Theme {}
@@ -38,9 +38,7 @@ where
 {
     #[inline]
     fn clone(&self) -> Self {
-        Self {
-            _marker: core::marker::PhantomData,
-        }
+        *self
     }
 }
 

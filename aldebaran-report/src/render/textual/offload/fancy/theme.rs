@@ -4,6 +4,8 @@
 //! related rendering roles. The renderer consumes these semantic styles without
 //! depending on a concrete color scheme, and [`DefaultTheme`] provides defaults.
 
+use core::iter;
+
 use aldebaran_ansi::{
     brush::style::{Attributes, TextAttribute},
     prelude::{Color, Style},
@@ -59,7 +61,7 @@ pub trait Theme: Copy + 'static {
     /// default to the first style if the iterator yields no more.
     #[inline]
     fn arrow(&self) -> (Style, impl Iterator<Item = Style>) {
-        (Style::default(), core::iter::empty())
+        (Style::default(), iter::empty())
     }
 
     /// Determine the style to use for the line number indicators
@@ -94,8 +96,8 @@ impl Theme for DefaultTheme {
 
             let mut style = Style::empty();
 
-            let _ = style.foreground_replace(fg);
-            let _ = style.attribute_replace(Attributes::single(attr));
+            _ = style.foreground_replace(fg);
+            _ = style.attribute_replace(Attributes::single(attr));
 
             style
         };
@@ -109,8 +111,8 @@ impl Theme for DefaultTheme {
 
             let mut style = Style::empty();
 
-            let _ = style.foreground_replace(fg);
-            let _ = style.attribute_replace(Attributes::single(attr));
+            _ = style.foreground_replace(fg);
+            _ = style.attribute_replace(Attributes::single(attr));
 
             style
         };
@@ -122,7 +124,7 @@ impl Theme for DefaultTheme {
         let default = {
             let mut style = Style::empty();
 
-            let _ = style.foreground_replace(Color::BRIGHT_WHITE);
+            let _: Option<Color> = style.foreground_replace(Color::BRIGHT_WHITE);
 
             style
         };
@@ -141,7 +143,7 @@ impl Theme for DefaultTheme {
             colors.iter().map(|&color| {
                 let mut style = Style::empty();
 
-                let _ = style.foreground_replace(color);
+                let _: Option<Color> = style.foreground_replace(color);
 
                 style
             }),

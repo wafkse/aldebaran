@@ -284,9 +284,7 @@ where
 {
     #[inline]
     fn clone(&self) -> Self {
-        let &Self { target_id, _marker } = self;
-
-        Self { target_id, _marker }
+        *self
     }
 }
 

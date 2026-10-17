@@ -369,21 +369,24 @@ mod tests {
     extern crate alloc;
 
     use alloc::{format, string::String};
+    use core::fmt;
 
     use crate::combine::Combine as _;
 
     use super::Print as _;
 
+    /// External names resolved by contextual print fixtures.
     struct Names(&'static [&'static str]);
 
+    /// An index into the external name table.
     struct Name(usize);
 
     impl super::Print for Name {
         type Context = Names;
 
-        fn print_with_ctx<W>(&self, writer: &mut W, context: &Self::Context) -> core::fmt::Result
+        fn print_with_ctx<W>(&self, writer: &mut W, context: &Self::Context) -> fmt::Result
         where
-            W: core::fmt::Write,
+            W: fmt::Write,
         {
             let Self(target_index) = self;
             let Names(target_names) = context;
@@ -396,7 +399,10 @@ mod tests {
     fn composition_writes_directly_in_order() {
         let mut output = String::new();
 
-        "ab".sequence('-').sequence('x'.times(3)).print(&mut output).unwrap();
+        "ab".sequence('-')
+            .sequence('x'.times(3))
+            .print(&mut output)
+            .expect("writing to a String succeeds");
 
         assert_eq!(output, "ab-xxx");
     }
@@ -406,7 +412,10 @@ mod tests {
         let mut output = String::new();
         let context = Names(&["left", "right"]);
 
-        Name(0).aggregate(Name(1)).print_with_ctx(&mut output, &context).unwrap();
+        Name(0)
+            .aggregate(Name(1))
+            .print_with_ctx(&mut output, &context)
+            .expect("writing to a String succeeds");
 
         assert_eq!(output, "leftright");
     }
@@ -432,7 +441,7 @@ mod tests {
     fn slices_keep_delimiter_order() {
         let mut output = String::new();
 
-        [1_u8, 2, 3].print(&mut output).unwrap();
+        [1_u8, 2, 3].print(&mut output).expect("writing to a String succeeds");
 
         assert_eq!(output, "[1, 2, 3]");
     }

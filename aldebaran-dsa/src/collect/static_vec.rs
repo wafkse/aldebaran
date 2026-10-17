@@ -8,6 +8,7 @@ use core::{
     fmt,
     mem::{self, MaybeUninit},
     ops::{Deref, DerefMut},
+    slice,
 };
 
 /// Fixed-capacity vector backed by inline uninitialized storage.
@@ -110,6 +111,12 @@ impl<T, const N: usize> StaticVec<T, N> {
         storage_len
     }
 
+    /// Determine whether this [`StaticVec`] contains no initialized elements.
+    #[inline]
+    pub const fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Determine the capacity of this [`StaticVec`].
     #[inline]
     pub const fn capacity(&self) -> usize {
@@ -136,7 +143,7 @@ impl<T, const N: usize> StaticVec<T, N> {
 
         // SAFETY: The pointer is valid, since it was obtained from a valid
         // slice of `MaybeUninit<T>`, which has the same representation as `T`.
-        unsafe { core::slice::from_raw_parts(storage_addr, len) }
+        unsafe { slice::from_raw_parts(storage_addr, len) }
     }
 
     /// Reinterpret this [`StaticVec`] as an immutable slice of `T`.
@@ -154,7 +161,7 @@ impl<T, const N: usize> StaticVec<T, N> {
 
         // SAFETY: The pointer is valid, since it was obtained from a valid
         // slice of `MaybeUninit<T>`, which has the same representation as `T`.
-        unsafe { core::slice::from_raw_parts_mut(storage_addr, len) }
+        unsafe { slice::from_raw_parts_mut(storage_addr, len) }
     }
 }
 
@@ -197,5 +204,31 @@ impl<T, const N: usize> Drop for StaticVec<T, N> {
 impl<T: fmt::Debug, const N: usize> fmt::Debug for StaticVec<T, N> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_list().entries(self.iter()).finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::StaticVec;
+
+    #[test]
+    fn emptiness_tracks_push_and_pop() {
+        let mut values = StaticVec::<u32, 1>::empty();
+
+        assert!(values.is_empty(), "new storage must be empty");
+        assert_eq!(values.push(7), Ok(()));
+        assert!(!values.is_empty(), "a stored element makes the vector nonempty");
+        assert_eq!(values.push(8), Err(8));
+        assert_eq!(values.pop(), Some(7));
+        assert!(values.is_empty(), "popping the last element empties the vector");
+    }
+
+    #[test]
+    fn zero_capacity_stays_empty() {
+        let mut values = StaticVec::<u32, 0>::empty();
+
+        assert_eq!(values.push(7), Err(7));
+        assert_eq!(values.pop(), None);
+        assert!(values.is_empty(), "zero-capacity storage cannot contain elements");
     }
 }

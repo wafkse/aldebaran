@@ -29,8 +29,13 @@ pub use mode::{Attributes, TextAttribute};
 /// - `strike` setting (strike-through text)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct Style {
+    /// The foreground override, or the terminal default when absent.
     foreground: Option<Color>,
+
+    /// The background override, or the terminal default when absent.
     background: Option<Color>,
+
+    /// Text attributes enabled while the styled subject is emitted.
     attribute: Attributes,
 }
 

@@ -1,6 +1,8 @@
 [package]
 name = "aldebaran-style"
 version.workspace = true
+keywords.workspace = true
+categories.workspace = true
 description = "Generic text styling abstractions"
 license.workspace = true
 repository.workspace = true

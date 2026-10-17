@@ -4,6 +4,8 @@
 //! component visualization rules. Callers may use the source default terminator
 //! or provide an explicit terminator without allocating a temporary string.
 
+use crate::dissect::SourceDissect;
+
 use aldebaran_visualize::visual::Visualize;
 use core::fmt;
 
@@ -21,11 +23,11 @@ use super::{LineId, LineIter, SourceLines};
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct PreviewWith<'a, S, T = <S as Terminated<'a, S>>::TerminatedBy>(&'a S, T)
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized;
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized;
 
 impl<'a, S, T> PreviewWith<'a, S, T>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
 {
     /// Preview the target source `S` using the default terminator `T`.
     #[inline]
@@ -47,7 +49,7 @@ where
 
 impl<'a, S, T> fmt::Debug for PreviewWith<'a, S, T>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     T: Terminator<'a, S>,
 {
     #[inline]
@@ -60,7 +62,7 @@ where
 
         let first_line = line_iter.next();
 
-        match first_line.as_ref().map(LineId::<'a>::content).flatten() {
+        match first_line.as_ref().and_then(LineId::<'a>::content) {
             Some(target_content) => {
                 let target_content: &'a S = target_content.value();
 
@@ -83,7 +85,7 @@ where
 
 impl<'a, S, T> fmt::Display for PreviewWith<'a, S, T>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     T: Terminator<'a, S>,
 {
     #[inline]
@@ -100,11 +102,11 @@ where
 #[repr(transparent)]
 pub struct Preview<'a, S>(&'a S)
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized;
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized;
 
 impl<'a, S> Preview<'a, S>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
 {
     /// Preview the target source `S`.
     #[inline]
@@ -115,7 +117,7 @@ where
 
 impl<'a, S> fmt::Display for Preview<'a, S>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
 {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -125,7 +127,7 @@ where
 
 impl<'a, S> fmt::Debug for Preview<'a, S>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let &Self(target_source) = self;

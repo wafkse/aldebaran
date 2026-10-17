@@ -25,6 +25,7 @@ pub struct LineId<'a, S>
 where
     S: SourceLines<'a> + ?Sized,
 {
+    /// The content and break shape associated with this line identity.
     line_inner: LineIdInner<'a, S>,
 }
 
@@ -55,7 +56,10 @@ where
     S: SourceLines<'a> + ?Sized,
     S::Line: hash::Hash,
 {
-    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: hash::Hasher,
+    {
         let &Self { ref line_inner } = self;
 
         line_inner.hash(state);
@@ -252,20 +256,31 @@ where
     /// A standalone line, i.e, a line without a line break. Found in
     /// single-line sources.
     Standalone {
+        /// The one-based line number in the original source.
         line_number: NonZero<usize>,
+
+        /// The source content preceding the optional line break.
         line_content: LineContent<'a, S>,
     },
 
     /// A line with content and a line break.
     WithBreak {
+        /// The one-based line number in the original source.
         line_number: NonZero<usize>,
+
+        /// The source content preceding the optional line break.
         line_content: LineContent<'a, S>,
+
+        /// The terminator view and its absolute source extent.
         line_break: LineBreak<'a, S>,
     },
 
     /// A line with no content, but with a line break.
     BreakOnly {
+        /// The one-based line number in the original source.
         line_number: NonZero<usize>,
+
+        /// The terminator view and its absolute source extent.
         line_break: LineBreak<'a, S>,
     },
 }
@@ -308,7 +323,10 @@ where
     S: SourceLines<'a> + ?Sized,
     S::Line: hash::Hash,
 {
-    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: hash::Hasher,
+    {
         let (number, content, content_break) = (self.number(), self.content(), self.content_break());
 
         number.hash(state);
@@ -376,7 +394,7 @@ where
     fn clone(&self) -> Self {
         match self {
             Self::Standalone { line_number, line_content } => Self::Standalone {
-                line_number: line_number.clone(),
+                line_number: *line_number,
                 line_content: line_content.clone(),
             },
             Self::WithBreak {
@@ -384,12 +402,12 @@ where
                 line_content,
                 line_break,
             } => Self::WithBreak {
-                line_number: line_number.clone(),
+                line_number: *line_number,
                 line_content: line_content.clone(),
                 line_break: line_break.clone(),
             },
             Self::BreakOnly { line_number, line_break } => Self::BreakOnly {
-                line_number: line_number.clone(),
+                line_number: *line_number,
                 line_break: line_break.clone(),
             },
         }

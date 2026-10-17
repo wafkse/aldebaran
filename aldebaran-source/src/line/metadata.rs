@@ -30,6 +30,7 @@ where
 {
     /// The minimum value recorded.
     min: T,
+
     /// The maximum value recorded.
     max: T,
 }
@@ -146,7 +147,10 @@ where
 /// This is an inclusive range specialized for [`NonZero`] line indices.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Copy)]
 pub struct LineRange {
+    /// The inclusive first line number.
     start: NonZero<usize>,
+
+    /// The inclusive final line number.
     end: NonZero<usize>,
 }
 
@@ -204,7 +208,10 @@ impl IntoIterator for LineRange {
 /// See [`LineRange`] for more information.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Copy)]
 pub struct LineRangeIter {
+    /// The line-number cursor advanced by iteration.
     current: NonZero<usize>,
+
+    /// The inclusive final line number.
     end: NonZero<usize>,
 }
 

@@ -20,7 +20,10 @@ pub use hashbrown::{
     hash_set::{self, HashSet},
 };
 
-use core::{iter::Zip, ops::IndexMut, slice::SliceIndex};
+use core::{iter::Zip, mem, ops::IndexMut, slice::SliceIndex};
+
+/// Borrowed keys and values selected by the same element or range index.
+type IndexedKeyValue<'a, K, V, I> = (&'a <I as SliceIndex<[K]>>::Output, &'a <I as SliceIndex<[V]>>::Output);
 
 /// A map that has a reverse mapping from values to keys.
 ///
@@ -66,7 +69,7 @@ impl<K, V> ReverseMap<K, V> {
     pub fn len(&self) -> usize {
         let &Self { ref keys, ref values, .. } = self;
 
-        assert_eq!(keys.len(), values.len());
+        assert_eq!(keys.len(), values.len(), "each reverse-map key must have a corresponding value");
 
         // FIXME: make this a const fn after this stabilizes
         keys.len()
@@ -155,7 +158,7 @@ impl<K, V> ReverseMap<K, V> {
     ///
     /// Time complexity: `O(1)` with a constant factor of `2`.
     #[inline]
-    pub fn get_key_value<I>(&self, index: I) -> Option<(&<I as SliceIndex<[K]>>::Output, &<I as SliceIndex<[V]>>::Output)>
+    pub fn get_key_value<I>(&self, index: I) -> Option<IndexedKeyValue<'_, K, V, I>>
     where
         I: SliceIndex<[K]> + SliceIndex<[V]> + Copy,
     {
@@ -226,8 +229,8 @@ impl<K, V> ReverseMap<K, V> {
 
         let (k, v) = kv;
 
-        let key = core::mem::replace(keys.index_mut(index), k);
-        let value = core::mem::replace(values.index_mut(index), v);
+        let key = mem::replace(keys.index_mut(index), k);
+        let value = mem::replace(values.index_mut(index), v);
 
         (key, value)
     }
@@ -273,7 +276,7 @@ impl<K, V> IntoIterator for ReverseMap<K, V> {
     fn into_iter(self) -> Self::IntoIter {
         let Self { keys, values, .. } = self;
 
-        keys.into_iter().zip(values.into_iter())
+        keys.into_iter().zip(values)
     }
 }
 
@@ -304,7 +307,7 @@ mod tests {
     use super::ReverseMap;
 
     #[test]
-    fn test_clear() {
+    fn clear() {
         let mut map: ReverseMap<u32, u32> = ReverseMap::new();
         map.push(1, 10);
         map.push(2, 20);
@@ -318,7 +321,7 @@ mod tests {
     }
 
     #[test]
-    fn test_swap_remove_last() {
+    fn swap_remove_last() {
         let mut map: ReverseMap<u32, u32> = ReverseMap::new();
         map.push(1, 10);
         map.push(2, 20);
@@ -331,7 +334,7 @@ mod tests {
     }
 
     #[test]
-    fn test_swap_at_same_index() {
+    fn swap_at_same_index() {
         let mut map: ReverseMap<u32, u32> = ReverseMap::new();
         map.push(1, 10);
         map.push(2, 20);
@@ -344,7 +347,7 @@ mod tests {
     }
 
     #[test]
-    fn test_extend() {
+    fn extend() {
         let mut map: ReverseMap<u32, u32> = ReverseMap::new();
         map.push(1, 10);
         map.push(2, 20);
@@ -358,7 +361,7 @@ mod tests {
     }
 
     #[test]
-    fn test_push() {
+    fn push() {
         let mut map: ReverseMap<u32, u32> = ReverseMap::new();
         map.push(1, 10);
         map.push(2, 20);
@@ -370,7 +373,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get() {
+    fn get() {
         let mut map: ReverseMap<u32, u32> = ReverseMap::new();
         map.push(1, 10);
         map.push(2, 20);
@@ -383,7 +386,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_mut() {
+    fn get_mut() {
         let mut map: ReverseMap<u32, u32> = ReverseMap::new();
         map.push(1, 10);
         map.push(2, 20);
@@ -397,7 +400,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_key() {
+    fn get_key() {
         let mut map: ReverseMap<u32, u32> = ReverseMap::new();
         map.push(1, 10);
         map.push(2, 20);
@@ -410,7 +413,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_key_value() {
+    fn get_key_value() {
         let mut map: ReverseMap<u32, u32> = ReverseMap::new();
         map.push(1, 10);
         map.push(2, 20);
@@ -423,7 +426,7 @@ mod tests {
     }
 
     #[test]
-    fn test_iter() {
+    fn iter() {
         let mut map: ReverseMap<u32, u32> = ReverseMap::new();
         map.push(1, 10);
         map.push(2, 20);
@@ -437,7 +440,7 @@ mod tests {
     }
 
     #[test]
-    fn test_iter_mut() {
+    fn iter_mut() {
         let mut map: ReverseMap<u32, u32> = ReverseMap::new();
         map.push(1, 10);
         map.push(2, 20);

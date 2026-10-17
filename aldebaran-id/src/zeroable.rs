@@ -11,6 +11,7 @@
 //! information.
 
 use core::{
+    cmp::Ordering,
     fmt, hash,
     num::NonZero,
     ops::{Deref, DerefMut},
@@ -18,6 +19,7 @@ use core::{
 
 use aldebaran_primitive::macros::primitive_list;
 
+/// Seals the primitive and nonzero operations to supported integer types.
 mod private {
     /// A sealed trait to prevent external implementations for
     /// non-[`NonZero<T>`] types.
@@ -37,6 +39,7 @@ pub trait NonZeroable: private::Sealed + Sized {
     type Type: OperateNonZero<Self>;
 }
 
+/// Implements the nonzero abstraction for the supplied primitive integer types.
 macro_rules! nonzeroable {
     () => {};
     (
@@ -71,6 +74,7 @@ macro_rules! nonzeroable {
 
                 #[inline]
                 unsafe fn new_unchecked(value: $target_type) -> Self {
+                    // SAFETY: The caller guarantees that value is nonzero.
                     unsafe {
                         NonZero::new_unchecked(value)
                     }
@@ -172,7 +176,7 @@ where
     T::Type: PartialOrd,
 {
     #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         let &Self(ref lhs) = self;
         let &Self(ref rhs) = other;
 
@@ -186,7 +190,7 @@ where
     T::Type: Ord,
 {
     #[inline]
-    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> Ordering {
         let &Self(ref lhs) = self;
         let &Self(ref rhs) = other;
 
@@ -202,7 +206,7 @@ where
     #[inline]
     fn hash<H>(&self, state: &mut H)
     where
-        H: core::hash::Hasher,
+        H: hash::Hasher,
     {
         let &Self(ref inner) = self;
 

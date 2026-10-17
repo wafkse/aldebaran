@@ -69,7 +69,7 @@ macro_rules! impl_lossless_castable {
                     fn lossless_cast(
                         self,
                     ) -> [< u $target_out >]:to_string:flatten:concatenate:unstringify {
-                        self as [< u $target_out >]:to_string:flatten:concatenate:unstringify
+                        <[< u $target_out >]:to_string:flatten:concatenate:unstringify>::from(self)
                     }
                 }
 
@@ -80,7 +80,7 @@ macro_rules! impl_lossless_castable {
                     fn lossless_cast(
                         self,
                     ) -> [< i $target_out >]:to_string:flatten:concatenate:unstringify {
-                        self as [< i $target_out >]:to_string:flatten:concatenate:unstringify
+                        <[< i $target_out >]:to_string:flatten:concatenate:unstringify>::from(self)
                     }
                 }
             )*
@@ -149,7 +149,25 @@ macro_rules! impl_tests {
     ) => {
         #[cfg(test)]
         mod tests {
-            use super::Cast;
+            use super::{Cast, LosslessCast};
+
+            #[test]
+            fn lossless_unsigned_boundaries() {
+                for value in [u8::MIN, u8::MAX] {
+                    let widened: u128 = value.lossless_cast();
+
+                    assert_eq!(widened, u128::from(value));
+                }
+            }
+
+            #[test]
+            fn lossless_signed_boundaries() {
+                for value in [i8::MIN, -1, 0, i8::MAX] {
+                    let widened: i128 = value.lossless_cast();
+
+                    assert_eq!(widened, i128::from(value));
+                }
+            }
 
             $(
                 $crate::primitive_list!($crate::cast::impl_tests => $target_type);
@@ -160,7 +178,7 @@ macro_rules! impl_tests {
 
 use impl_castable;
 
-#[allow(unused_imports)]
+#[cfg(test)]
 pub(crate) use impl_tests;
 
 use aldebaran_primitive_macro::sized_list;

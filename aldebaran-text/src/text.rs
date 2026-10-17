@@ -52,7 +52,7 @@ impl<'source, S> Text<'source, S>
 where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
-    /// Create a new [`Text`] from the specified [`Source `S`.
+    /// Create a new [`Text`] at the beginning of the borrowed source.
     #[inline]
     pub const fn create(source_code: &'source S) -> Self {
         Self::at(source_code, 0)
@@ -179,7 +179,7 @@ where
     /// Skip the next [`Component`] from the source text.
     #[inline]
     pub fn skip(&mut self) {
-        let _ = self.any();
+        let _: Option<S::Component> = self.any();
     }
 }
 
@@ -253,11 +253,7 @@ where
         A: Assert<S::Component> + Clone,
         S::Component: Input,
     {
-        let &Self {
-            source_code: _,
-            source_index,
-            ..
-        } = self;
+        let &Self { source_index, .. } = self;
 
         let target_assert = target_assert.as_assert();
 
@@ -445,7 +441,7 @@ where
         let mut target_count = usize::MIN;
 
         while self.is_next(&target_assert) {
-            let _ = self.any();
+            let _: Option<S::Component> = self.any();
 
             target_count += 1;
         }
@@ -522,9 +518,7 @@ where
 {
     #[inline]
     fn clone(&self) -> Self {
-        let &Self { source_index, source_code } = self;
-
-        Self { source_index, source_code }
+        *self
     }
 }
 
@@ -544,6 +538,7 @@ where
 #[cfg(test)]
 mod tests {
     use alloc::string::String;
+    use core::num::NonZero;
 
     use aldebaran_logic::prelude::Connective as _;
     use aldebaran_report::{
@@ -575,7 +570,7 @@ mod tests {
         let target = Annotated::target(&error);
 
         assert_eq!(target.start(), source.len());
-        assert_eq!(target.length(), core::num::NonZero::<usize>::MIN);
+        assert_eq!(target.length(), NonZero::<usize>::MIN);
         assert_eq!(target.end(), source.len() + 1);
     }
 
@@ -585,10 +580,7 @@ mod tests {
 
         assert_eq!(text.peek_at::<0>(), Some('α'));
         assert_eq!(text.peek_at::<1>(), Some('b'));
-        assert_eq!(
-            text.any_spanned(),
-            Some(('α', Span::new(0, core::num::NonZero::new(2).expect("width"))))
-        );
+        assert_eq!(text.any_spanned(), Some(('α', Span::new(0, NonZero::new(2).expect("width")))));
         assert_eq!(text.index(), 2);
         assert_eq!(text.peek(), Some('b'));
     }
@@ -599,13 +591,13 @@ mod tests {
 
         let mut t = Text::create(s);
 
-        let err = t.expect_is_next(AsciiAlphanumeric.or('_').and(Digit)).expect_err("valid");
-
-        err;
+        let first_error = t.expect_is_next(AsciiAlphanumeric.or('_').and(Digit)).expect_err("valid");
 
         let err = t.expect_is_next(AsciiAlphanumeric.or('_').and(Digit)).expect_err("valid");
 
-        &err;
+        assert_eq!(Annotated::target(&first_error), Span::unit(0));
+        assert_eq!(Annotated::target(&err), Span::unit(1));
+        assert_eq!(t.index(), s.len());
 
         //let err = t.expect_is_next(Char('8')).expect_err("valid");
 

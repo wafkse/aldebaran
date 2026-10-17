@@ -68,7 +68,7 @@ where
     {
         let &Self(ref target_value, ..) = self;
 
-        R::reset(&target_value, writer)
+        R::reset(target_value, writer)
     }
 }
 

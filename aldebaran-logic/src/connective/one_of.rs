@@ -62,7 +62,7 @@ where
             F::middle(writer, BinaryConnective::OR, target_precedence)?;
         }
 
-        let _ = target_list
+        let _: Option<()> = target_list
             .last()
             .map(|target_value| Assert::output_with::<W, F>(target_value, writer, Precedence::OR))
             .transpose()?;
@@ -142,7 +142,7 @@ where
             F::middle(writer, BinaryConnective::OR, target_precedence)?;
         }
 
-        let _ = target_list
+        let _: Option<()> = target_list
             .last()
             .map(|target_value| Assert::output_with::<W, F>(target_value, writer, Precedence::OR))
             .transpose()?;

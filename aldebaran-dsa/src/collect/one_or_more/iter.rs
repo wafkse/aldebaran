@@ -10,6 +10,7 @@ use super::{OneOrMore, reference::RefOneOrMore};
 /// Procedent from the [`RefOneOrMore`] type.
 #[derive(Debug)]
 pub struct OnceOrMore<'borrow, T> {
+    /// Remaining shared references, with the required first element before the tail.
     inner: iter::Chain<iter::Once<&'borrow T>, slice::Iter<'borrow, T>>,
 }
 
@@ -43,10 +44,13 @@ impl<'borrow, T> OnceOrMore<'borrow, T> {
 /// reference.
 #[derive(Debug)]
 pub struct OnceOrMoreMut<'borrow, T> {
+    /// Remaining disjoint mutable references in first-element and tail order.
     inner: iter::Chain<iter::Once<&'borrow mut T>, slice::IterMut<'borrow, T>>,
 }
 
 impl<'borrow, T> OnceOrMoreMut<'borrow, T> {
+    /// Borrow the required first element and tail exclusively for traversal.
+    #[inline]
     pub fn from_mut_ref(value: &'borrow mut OneOrMore<T>) -> Self {
         let (a0, a_n) = value.tuple_mut();
 

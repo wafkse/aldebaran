@@ -1,6 +1,8 @@
 [package]
 name = "aldebaran-primitive"
 version.workspace = true
+keywords.workspace = true
+categories.workspace = true
 description = "Facade for Aldebaran primitive-type traits and macros"
 license.workspace = true
 repository.workspace = true

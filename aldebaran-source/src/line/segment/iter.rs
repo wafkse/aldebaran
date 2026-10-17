@@ -136,7 +136,10 @@ where
     I: hash::Hash,
     D: hash::Hash,
 {
-    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: hash::Hasher,
+    {
         let &Self { line, ref spans, .. } = self;
 
         line.hash(state);

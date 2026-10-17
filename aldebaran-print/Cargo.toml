@@ -1,6 +1,8 @@
 [package]
 name = "aldebaran-print"
 version.workspace = true
+keywords.workspace = true
+categories.workspace = true
 description = "Sink-oriented no_std printing with optional external context"
 license.workspace = true
 repository.workspace = true

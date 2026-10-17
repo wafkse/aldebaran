@@ -1,6 +1,8 @@
 [package]
 name = "aldebaran-logic"
 version.workspace = true
+keywords.workspace = true
+categories.workspace = true
 description = "Composable assertions, predicates, and classification for arbitrary inputs"
 license.workspace = true
 repository.workspace = true

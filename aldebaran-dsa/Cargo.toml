@@ -1,6 +1,8 @@
 [package]
 name = "aldebaran-dsa"
 version.workspace = true
+keywords.workspace = true
+categories.workspace = true
 description = "Data structures and algorithms for Aldebaran compiler infrastructure"
 license.workspace = true
 repository.workspace = true

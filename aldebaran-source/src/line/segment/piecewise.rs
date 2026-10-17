@@ -138,7 +138,10 @@ where
     <S::Line as LineSegmented<'source, S>>::View: hash::Hash,
     D: hash::Hash,
 {
-    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: hash::Hasher,
+    {
         match self {
             Self::Relevant(segment) => segment.hash(state),
             Self::Irrelevant(segment) => segment.hash(state),

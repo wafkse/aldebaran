@@ -18,13 +18,10 @@ use aldebaran_hash::rustc_hash::FxHasher;
 /// This is a set of identifiers, where each identifier is unique.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[repr(transparent)]
-pub struct IdSet<I, S = BuildHasherDefault<FxHasher>>
+pub struct IdSet<I, S = BuildHasherDefault<FxHasher>>(IdMap<I, I, S>)
 where
     I: Id,
-    S: BuildHasher,
-{
-    map: IdMap<I, I, S>,
-}
+    S: BuildHasher;
 
 impl<I, S> IdSet<I, S>
 where
@@ -43,7 +40,7 @@ where
         Q: Eq + Hash,
         Q: AsRef<I>,
     {
-        let &Self { ref map, .. } = self;
+        let &Self(ref map, ..) = self;
 
         map.contains_key(id)
     }
@@ -58,7 +55,7 @@ where
     /// This operation is `O(1)` (amortized), i.e the same as [`IdMap::insert`].
     #[inline]
     pub fn insert(&mut self, id: I) -> Option<I> {
-        let &mut Self { ref mut map, .. } = self;
+        let &mut Self(ref mut map, ..) = self;
 
         map.insert(id, id)
     }
@@ -77,7 +74,7 @@ where
         Q: AsRef<I>,
         Q: Eq + Hash,
     {
-        let &mut Self { ref mut map, .. } = self;
+        let &mut Self(ref mut map, ..) = self;
 
         map.remove(id).map(|(id, _)| id)
     }
@@ -89,7 +86,7 @@ where
     /// This operation is `O(1)`.
     #[inline]
     pub fn as_slice(&self) -> &[I] {
-        let &Self { ref map, .. } = self;
+        let &Self(ref map, ..) = self;
 
         map.as_values()
     }
@@ -104,7 +101,7 @@ where
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        let &Self { ref map, .. } = self;
+        let &Self(ref map, ..) = self;
 
         map.as_values()
     }
@@ -119,7 +116,7 @@ where
     where
         T: IntoIterator<Item = I>,
     {
-        let &mut Self { ref mut map, .. } = self;
+        let &mut Self(ref mut map, ..) = self;
 
         map.extend(iter.into_iter().map(|id| (id, id)));
     }

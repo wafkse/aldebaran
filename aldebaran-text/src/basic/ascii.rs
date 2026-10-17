@@ -25,6 +25,7 @@ pub struct AlwaysAscii<const C: char>
 where
     Self: Assert<char>;
 
+/// Generate the ASCII enum and assertions for its known character values.
 macro_rules! ascii {
     () => {};
     (
@@ -45,7 +46,7 @@ macro_rules! ascii {
             )*
             $target_vis enum $target_name {
                 $(
-                    #[doc = concat!("The `", stringify!($target_variant), "` `", stringify!($target_literal), "` ASCII character.\n")]
+                    #[doc = concat!("The `", stringify!($target_variant), "` ASCII character, represented by ``", stringify!($target_literal), "``.\n")]
                     $(#[$variant_meta])*
                     $target_variant = const {
                         let target_value = $target_literal;
@@ -100,7 +101,7 @@ macro_rules! ascii {
                 {
                     #[inline]
                     fn assert(&self, input: I) -> bool {
-                        let ref target_variant = Ascii::$target_variant;
+                        let target_variant = &Ascii::$target_variant;
 
                         Assert::<I>::assert(target_variant, input)
                     }
@@ -111,7 +112,7 @@ macro_rules! ascii {
                         W: fmt::Write,
                         F: Formatter,
                     {
-                        let ref target_variant = Ascii::$target_variant;
+                        let target_variant = &Ascii::$target_variant;
 
 
                         Assert::<I>::output_with::<W, F>(target_variant, writer, precedence)

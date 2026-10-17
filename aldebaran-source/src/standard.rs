@@ -43,7 +43,7 @@ mod tests {
     where
         S: Standard<'source> + ?Sized,
     {
-        let _ = source;
+        let _: &'source S = source;
     }
 
     #[test]

@@ -139,7 +139,10 @@ where
     <S::Line as LineSegmented<'a, S>>::View: hash::Hash,
     D: hash::Hash,
 {
-    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: hash::Hasher,
+    {
         let &Self { ref line_view, ref data } = self;
 
         line_view.hash(state);
@@ -163,7 +166,7 @@ where
         } = other;
 
         match line_view.cmp(other_line) {
-            cmp::Ordering::Equal => data.cmp(&other_data),
+            cmp::Ordering::Equal => data.cmp(other_data),
             target_value => target_value,
         }
     }
@@ -185,7 +188,7 @@ where
         } = other;
 
         match line_view.partial_cmp(other_line) {
-            Some(cmp::Ordering::Equal) => data.partial_cmp(&other_data),
+            Some(cmp::Ordering::Equal) => data.partial_cmp(other_data),
             target_value => target_value,
         }
     }

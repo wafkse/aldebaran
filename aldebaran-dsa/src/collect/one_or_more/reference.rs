@@ -15,7 +15,10 @@ use super::iter::OnceOrMore;
 /// counterpart to [`super::OneOrMore`].
 #[derive(Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct RefOneOrMore<'a, T> {
+    /// The required shared first element that guarantees a nonempty view.
     pub(crate) a0: &'a T,
+
+    /// Shared elements following the required first element.
     pub(crate) a_n: &'a [T],
 }
 
@@ -24,9 +27,7 @@ impl<'a, T> Copy for RefOneOrMore<'a, T> {}
 impl<'a, T> Clone for RefOneOrMore<'a, T> {
     #[inline]
     fn clone(&self) -> Self {
-        let &Self { a0, a_n } = self;
-
-        Self { a0, a_n }
+        *self
     }
 }
 

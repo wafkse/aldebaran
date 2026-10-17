@@ -4,6 +4,7 @@
 //! Borrowed views and iterators preserve that nonempty guarantee while exposing
 //! ordinary traversal and mutation over the complete logical collection.
 
+/// Shared and exclusive traversal over the required first element and tail.
 mod iter;
 mod reference;
 
@@ -19,7 +20,10 @@ use iter::{OnceOrMore, OnceOrMoreMut};
 /// For a reference-based version, see [`RefOneOrMore`].
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OneOrMore<T> {
+    /// The required first element that makes the collection nonempty.
     a0: T,
+
+    /// Owned elements following the required first element.
     a_n: Vec<T>,
 }
 
@@ -27,7 +31,6 @@ impl<T> OneOrMore<T> {
     /// Create a [`OneOrMore`] of references to some type.
     #[inline]
     pub fn references<'a>((a0, a_n): (&'a T, &'a [T])) -> OneOrMore<&'a T> {
-        let a0 = a0;
         let a_n = Vec::with_capacity(a_n.len());
 
         OneOrMore { a0, a_n }
@@ -181,12 +184,40 @@ impl<T> OneOrMore<T> {
     /// the is not kept in any way or shape.
     #[inline]
     pub fn from_vec(mut vec: Vec<T>) -> Option<Self> {
-        match vec.first() {
-            Some(_) => Some(Self {
-                a0: vec.swap_remove(0),
-                a_n: vec,
-            }),
-            None => None,
+        if vec.is_empty() {
+            None
+        } else {
+            let a0 = vec.swap_remove(0);
+            let a_n = vec;
+
+            Some(Self { a0, a_n })
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::{vec, vec::Vec};
+
+    use super::OneOrMore;
+
+    #[test]
+    fn from_vec_rejects_empty() {
+        assert_eq!(OneOrMore::<u32>::from_vec(Vec::new()), None);
+    }
+
+    #[test]
+    fn from_vec_preserves_singleton() {
+        let values = OneOrMore::from_vec(vec![7]);
+
+        assert_eq!(values, Some(OneOrMore::single(7)));
+    }
+
+    #[test]
+    fn from_vec_preserves_swap_remove_order() {
+        let values = OneOrMore::from_vec(vec![1, 2, 3, 4]);
+        let expected = OneOrMore::from_raw_parts((1, vec![4, 2, 3]));
+
+        assert_eq!(values, Some(expected));
     }
 }

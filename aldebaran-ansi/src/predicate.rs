@@ -11,7 +11,10 @@ pub struct Should<'a, C, P>
 where
     P: Fn(&'a C) -> bool,
 {
+    /// Borrowed context supplied to the predicate.
     context: &'a C,
+
+    /// The condition evaluated against the borrowed context.
     predicate: P,
 }
 

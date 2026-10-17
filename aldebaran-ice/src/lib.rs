@@ -1,7 +1,7 @@
 #![no_std]
 #![doc = include_str!("../README.md")]
 
-use core::{error::Error, fmt, marker::PhantomData};
+use core::{error::Error, fmt, hint::black_box, marker::PhantomData};
 
 /// An uninhabited type to be used as the central type for raising `ICE`s.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -10,19 +10,21 @@ pub struct Ice<T>(PhantomData<fn() -> T>);
 impl<T> Ice<T> {
     /// Raise a message-less `ICE` (internal compiler error).
     #[cold]
+    #[expect(clippy::panic, reason = "this is intended for internal compiler errors")]
     #[inline(never)]
     pub const fn raise() -> ! {
         panic!("ICE: internal compiler error");
     }
 
-    /// Raise a messaged `ICE` (internal compiler error).
+    /// Raise a messaged `ICE` (internal compiler error) for a specific [`Error`] `E`.
     #[cold]
     #[inline(never)]
     pub fn known<E>(target_error: E) -> !
     where
         E: Error,
     {
-        Err::<(), E>(target_error).expect("ICE: internal compiler error");
+        // NOTE: Don't want the compiler
+        black_box(Err::<(), E>(target_error)).expect("ICE: internal compiler error");
 
         unreachable!()
     }

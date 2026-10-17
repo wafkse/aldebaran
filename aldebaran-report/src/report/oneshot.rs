@@ -19,6 +19,7 @@ pub use many::OneshotMany;
 use crate::{
     annotated::Annotations,
     prelude::{Annotated, ErrorKind, Label, Report, Simple, Title},
+    report::SourceReport,
 };
 
 /// A simple, one-shot error type.
@@ -113,7 +114,7 @@ where
     }
 }
 
-impl<'source, T, A, S> crate::report::SourceReport<'source> for Oneshot<'source, T, A, S>
+impl<'source, T, A, S> SourceReport<'source> for Oneshot<'source, T, A, S>
 where
     T: Title,
     A: Annotated,

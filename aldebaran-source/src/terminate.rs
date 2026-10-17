@@ -4,6 +4,8 @@
 //! break has been completed. Single and two-component machines can be composed,
 //! with arity ensuring longer valid terminators take precedence over prefixes.
 
+use crate::dissect::SourceDissect;
+
 use core::num::NonZero;
 use core::ops::ControlFlow;
 use core::{cmp::Ordering, marker::PhantomData};
@@ -149,7 +151,7 @@ pub trait TerminatorCompose: TerminatorArity {
         R: TerminatorArity;
 }
 
-impl<'a, T> TerminatorCompose for T
+impl<T> TerminatorCompose for T
 where
     T: TerminatorArity,
 {
@@ -202,7 +204,7 @@ where
 
 impl<'a, S, L, R> Terminator<'a, S> for TerminateEither<S::Component, L, R>
 where
-    S: SourceLines<'a, Line = &'a S> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     L: Terminator<'a, S> + TerminatorArity,
     R: Terminator<'a, S> + TerminatorArity,
 {
@@ -316,7 +318,7 @@ where
 
 impl<'a, S> Terminator<'a, S> for Single<S::Component>
 where
-    S: SourceLines<'a, Line = &'a S> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
 {
     #[inline]
     fn state(&mut self, ctx: &TerminatorContext<'a, S>) -> Outcome<'a, S> {
@@ -351,6 +353,7 @@ where
     First {
         /// The storage for the two components to match.
         target_storage: [C; 2],
+
         /// The span of the first component.
         s0: Span,
     },
@@ -403,7 +406,7 @@ where
 
 impl<'a, S> Terminator<'a, S> for Two<S::Component>
 where
-    S: SourceLines<'a, Line = &'a S> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
 {
     #[inline]
     fn state(&mut self, ctx: &TerminatorContext<'a, S>) -> Outcome<'a, S> {
@@ -518,9 +521,23 @@ impl Standard<u8> {
     }
 }
 
+impl Default for Standard<char> {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Default for Standard<u8> {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'a, S> Terminator<'a, S> for Standard<S::Component>
 where
-    S: SourceLines<'a, Line = &'a S> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
 {
     #[inline]
     fn state(&mut self, ctx: &TerminatorContext<'a, S>) -> Outcome<'a, S> {
@@ -559,7 +576,7 @@ impl<const N: usize> Every<N> {
 
 impl<'a, S, const N: usize> Terminator<'a, S> for Every<N>
 where
-    S: SourceLines<'a, Line = &'a S> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
 {
     #[inline]
     fn state(&mut self, ctx: &TerminatorContext<'a, S>) -> Outcome<'a, S> {

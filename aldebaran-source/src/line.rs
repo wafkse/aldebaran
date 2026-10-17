@@ -92,7 +92,7 @@ pub trait SourceLines<'a>: Source<'a> + SourceDissect<'a> + Terminated<'a, Self>
     where
         T: Terminator<'a, Self>,
     {
-        self.footprint().map(|span| self.segment_with::<T>(terminator, span)).flatten()
+        self.footprint().and_then(|span| self.segment_with::<T>(terminator, span))
     }
 
     /// Segment the source into lines that overlap the target [`span`].
@@ -147,12 +147,10 @@ where
         let mut line_size_minmax = MinMax::initial(start_id.span().length().get());
 
         let end_id: Option<LineId<'a, S>> = line_iter
-            .map(|target_line: LineId<'_, _>| {
+            .inspect(|target_line| {
                 let line_span: Span = target_line.span();
 
                 line_size_minmax.record(line_span.length().get());
-
-                target_line
             })
             .take_while(is_relevant)
             .last();

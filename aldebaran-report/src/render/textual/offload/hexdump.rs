@@ -4,7 +4,7 @@
 //! places annotation markers beneath intersecting rows. Terminal source-boundary
 //! diagnostics are rendered as insertion points after the final byte cell.
 
-use core::{fmt, num::NonZero};
+use core::{cmp, fmt, num::NonZero};
 
 use aldebaran_print::prelude::{Combine, Print};
 use aldebaran_span::span::Span;
@@ -307,8 +307,8 @@ where
                                 .sequence('\n')
                                 .print(sink)?;
                         } else {
-                            let annotation_start = core::cmp::max(annotation_span.start(), row_start_offset);
-                            let annotation_end = core::cmp::min(annotation_span.end(), row_end_offset);
+                            let annotation_start = cmp::max(annotation_span.start(), row_start_offset);
+                            let annotation_end = cmp::min(annotation_span.end(), row_end_offset);
 
                             if annotation_start < annotation_end {
                                 ' '.times(10).print(sink)?;

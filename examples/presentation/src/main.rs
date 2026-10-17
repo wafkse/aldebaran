@@ -11,11 +11,11 @@ fn main() {
     let message = "Aldebaran".aggregate(" compiler framework");
     let mut plain = String::new();
     message.print(&mut plain).expect("string formatting is infallible");
-    assert_eq!(plain, "Aldebaran compiler framework");
+    assert_eq!(plain, "Aldebaran compiler framework", "aggregation preserves message order");
 
     let bytes = [b'A', b'B', 0xff, b'C'];
     let visualized = format!("{}", bytes.as_slice().visual());
-    assert_eq!(visualized, "AB�C");
+    assert_eq!(visualized, "AB�C", "invalid UTF-8 is rendered with a replacement character");
 
     let mut ansi = String::new();
     "warning"
@@ -25,7 +25,7 @@ fn main() {
         .expect("string formatting is infallible");
 
     let mut style = Style::empty();
-    let _ = style.foreground_replace(Color::CYAN);
+    let _: Option<Color> = style.foreground_replace(Color::CYAN);
 
     let mut direct = String::new();
     style

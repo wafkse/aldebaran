@@ -55,7 +55,10 @@ where
     I: Iterator<Item = C>,
     C: Component,
 {
+    /// The remaining source components.
     iter: I,
+
+    /// The absolute offset of the next component.
     target_index: usize,
 }
 

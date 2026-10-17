@@ -19,6 +19,7 @@ where
 {
     /// The content of the line, excluding the line break.
     line_content: S::Line,
+
     /// The span that arches over the line's content.
     span: Span,
 }
@@ -105,7 +106,10 @@ where
     S: SourceLines<'a> + ?Sized,
     S::Line: hash::Hash,
 {
-    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: hash::Hasher,
+    {
         let &Self {
             ref line_content,
             ref span,

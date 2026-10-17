@@ -1,7 +1,7 @@
 //! Multi-span diagnostic report construction and rendering.
 
 use core::num::NonZero;
-use std::process::ExitCode;
+use std::{env, process::ExitCode};
 
 use aldebaran_report::{
     codegen::Report,
@@ -10,6 +10,7 @@ use aldebaran_report::{
 };
 use aldebaran_span::prelude::Span;
 
+/// Command-line options accepted by the diagnostic demonstration.
 const USAGE: &str = "\
 Usage: aldebaran-example-diagnostics [OPTIONS]\n\
 \n\
@@ -22,9 +23,13 @@ Options:\n\
     --no-unicode    use ASCII-only diagnostic framing\n\
     -h, --help      print this help\n";
 
+/// Independent color and glyph policies selected by the command line.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Config {
+    /// Whether output includes ANSI styling escapes.
     ansi: bool,
+
+    /// Whether diagnostic framing uses Unicode glyphs.
     unicode: bool,
 }
 
@@ -34,12 +39,17 @@ impl Default for Config {
     }
 }
 
+/// The requested action after parsing command-line options.
+#[derive(Debug, PartialEq, Eq)]
 enum Cli {
+    /// Render the demonstration with the selected presentation settings.
     Run(Config),
+    /// Display usage without rendering a diagnostic.
     Help,
 }
 
 impl Config {
+    /// Parse presentation switches, rejecting unknown options.
     fn parse(args: impl IntoIterator<Item = String>) -> Result<Cli, String> {
         let mut config = Self::default();
 
@@ -57,23 +67,28 @@ impl Config {
         Ok(Cli::Run(config))
     }
 
+    /// Project the ANSI switch into the renderer's color policy.
     const fn colored(self) -> Colored {
         if self.ansi { Colored::Yes } else { Colored::No }
     }
 
+    /// Select framing glyphs independently of the ANSI color policy.
     const fn charset(self) -> Charset {
         if self.unicode { Charset::UNICODE } else { Charset::ASCII }
     }
 }
 
+/// A duplicate-binding report with primary and related source annotations.
 #[derive(Debug, Report)]
 #[error("duplicate binding")]
 #[report(title = "duplicate binding", annotations = annotations)]
 struct DuplicateBinding {
+    /// The redeclaration target and five related source labels.
     annotations: InlineAnnotations<Label<&'static str>, 5>,
 }
 
 impl DuplicateBinding {
+    /// Label the redeclaration and the source locations explaining its effects.
     fn new(current: Span, previous: Span, statement: Span, initializer: Span, shadowed_read: Span, later_use: Span) -> Self {
         let primary = Label::new("`résumé` is declared again here", current);
         let related = [
@@ -89,6 +104,7 @@ impl DuplicateBinding {
     }
 }
 
+/// Locate a nonempty fragment known to occur in the example source.
 fn span_of(source: &str, needle: &str) -> Span {
     let start = source.find(needle).expect("example source contains the requested fragment");
     let length = NonZero::new(needle.len()).expect("example fragment is nonempty");
@@ -96,6 +112,7 @@ fn span_of(source: &str, needle: &str) -> Span {
     Span::new(start, length)
 }
 
+/// Locate a nonempty fragment after a known UTF-8 source boundary.
 fn span_of_after(source: &str, needle: &str, after: usize) -> Span {
     let tail = source.get(after..).expect("search starts at a UTF-8 boundary");
     let relative = tail.find(needle).expect("example source contains the requested fragment");
@@ -104,6 +121,7 @@ fn span_of_after(source: &str, needle: &str, after: usize) -> Span {
     Span::new(after + relative, length)
 }
 
+/// Render the fixed multi-span diagnostic using the selected presentation policy.
 fn render(config: Config) -> String {
     let source = "let résumé = \"draft\";\nlet résumé = résumé + \" final\";\nemit(résumé);\n";
     let previous = span_of(source, "résumé");
@@ -127,7 +145,7 @@ fn render(config: Config) -> String {
 }
 
 fn main() -> ExitCode {
-    let config = match Config::parse(std::env::args().skip(1)) {
+    let config = match Config::parse(env::args().skip(1)) {
         Ok(Cli::Run(config)) => config,
         Ok(Cli::Help) => {
             print!("{USAGE}");
@@ -150,9 +168,9 @@ mod tests {
 
     #[test]
     fn defaults_to_unicode_with_ansi() {
-        let Cli::Run(config) = Config::parse([]).expect("default CLI parses") else {
-            panic!("default CLI unexpectedly requested help");
-        };
+        let parsed = Config::parse([]).expect("default CLI parses");
+        assert_eq!(parsed, Cli::Run(Config::default()));
+        let Cli::Run(config) = parsed else { return };
 
         assert_eq!(config, Config::default());
 
@@ -164,9 +182,15 @@ mod tests {
 
     #[test]
     fn ansi_and_unicode_can_be_toggled_independently() {
-        let Cli::Run(config) = Config::parse(["--ansi".into(), "--no-unicode".into()]).expect("CLI parses") else {
-            panic!("CLI unexpectedly requested help");
-        };
+        let parsed = Config::parse(["--ansi".into(), "--no-unicode".into()]).expect("CLI parses");
+        assert_eq!(
+            parsed,
+            Cli::Run(Config {
+                ansi: true,
+                unicode: false
+            })
+        );
+        let Cli::Run(config) = parsed else { return };
 
         let output = render(config);
 
@@ -177,11 +201,9 @@ mod tests {
 
     #[test]
     fn later_toggle_overrides_earlier_toggle() {
-        let Cli::Run(config) =
-            Config::parse(["--no-ansi".into(), "--ansi".into(), "--no-unicode".into(), "--unicode".into()]).expect("CLI parses")
-        else {
-            panic!("CLI unexpectedly requested help");
-        };
+        let parsed = Config::parse(["--no-ansi".into(), "--ansi".into(), "--no-unicode".into(), "--unicode".into()]).expect("CLI parses");
+        assert_eq!(parsed, Cli::Run(Config::default()));
+        let Cli::Run(config) = parsed else { return };
 
         assert_eq!(config, Config::default());
     }

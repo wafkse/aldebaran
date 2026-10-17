@@ -1,6 +1,8 @@
 [package]
 name = "aldebaran"
 version.workspace = true
+keywords.workspace = true
+categories.workspace = true
 description = "Compiler framework for source processing, parsing, diagnostics, and supporting infrastructure"
 license.workspace = true
 repository.workspace = true

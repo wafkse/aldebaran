@@ -4,6 +4,8 @@
 //! yields absolute [`LineId`] values as breaks are recognized. The iterator tracks
 //! both byte offset and one-based line number across successive source views.
 
+use crate::dissect::SourceDissect;
+
 use core::{cmp::Ordering, fmt, num::NonZero};
 
 use aldebaran_span::prelude::{Span, Spanned};
@@ -22,7 +24,7 @@ use crate::{
 /// number and offset advance only after a complete line identity is produced.
 pub struct LineIter<'a, S, T>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     T: Terminator<'a, S>,
 {
     /// The source sequence.
@@ -40,7 +42,7 @@ where
 
 impl<'a, S, T> Ord for LineIter<'a, S, T>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     T: Terminator<'a, S>,
     S: Ord,
     T: Ord,
@@ -76,7 +78,7 @@ where
 
 impl<'a, S, T> PartialOrd for LineIter<'a, S, T>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     T: Terminator<'a, S>,
     S: PartialOrd,
     T: PartialOrd,
@@ -112,7 +114,7 @@ where
 
 impl<'a, S, T> Eq for LineIter<'a, S, T>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     T: Terminator<'a, S>,
     S: Eq,
     T: Eq,
@@ -121,7 +123,7 @@ where
 
 impl<'a, S, T> PartialEq for LineIter<'a, S, T>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     T: Terminator<'a, S>,
     S: PartialEq,
     T: PartialEq,
@@ -151,7 +153,7 @@ where
 
 impl<'a, S, T> fmt::Debug for LineIter<'a, S, T>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     T: Terminator<'a, S>,
     S: fmt::Debug,
     T: fmt::Debug,
@@ -176,7 +178,7 @@ where
 
 impl<'a, S, T> Iterator for LineIter<'a, S, T>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     T: Terminator<'a, S>,
 {
     type Item = LineId<'a, S>;
@@ -256,7 +258,7 @@ where
 
 impl<'a, S, T> LineIter<'a, S, T>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     T: Terminator<'a, S>,
 {
     /// Create a new [`LineIter`] from a source, starting at the beginning.
@@ -374,34 +376,19 @@ where
 
 impl<'a, S, T> Clone for LineIter<'a, S, T>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     T: Terminator<'a, S>,
     T: Clone,
 {
     #[inline]
     fn clone(&self) -> Self {
-        let &Self {
-            target_index,
-            target_slice,
-            target_offset,
-            ref terminator,
-            ..
-        } = self;
-
-        let terminator = terminator.clone();
-
-        Self {
-            target_index,
-            target_offset,
-            target_slice,
-            terminator,
-        }
+        *self
     }
 }
 
 impl<'a, S, T> Copy for LineIter<'a, S, T>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     T: Terminator<'a, S>,
     T: Copy,
 {

@@ -9,27 +9,35 @@ use aldebaran_text::prelude::{
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Assert, Choose)]
 #[assert(disjunctive)]
+/// Accept an ASCII letter or the configured identifier prefix character.
 struct IdentifierStart(AsciiAlphabetic, char);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Assert, Choose)]
 #[assert(disjunctive)]
+/// Accept an ASCII letter, digit, or the configured continuation character.
 struct IdentifierContinue(AsciiAlphanumeric, char);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Assert, Choose)]
+/// Recognize the first component of each supported lexical category.
 enum LexemeHead {
+    /// The first character of an identifier.
     #[assert(use IdentifierStart(AsciiAlphabetic, '_') type IdentifierStart)]
     Identifier,
 
+    /// The first digit of an unsigned integer.
     #[assert(use AsciiDigit type AsciiDigit)]
     Integer,
 
+    /// Whitespace omitted from the parser stream.
     #[assert(use AsciiWhitespace type AsciiWhitespace)]
     Trivia,
 
+    /// Any configured punctuation character.
     #[assert(disjunctive)]
     Punctuation(char, char, char, char, char),
 }
 
+/// Ordered recognition policies for the example's lexical categories.
 const LEXEME_HEADS: OneOf<LexemeHead, 4> = OneOf::these([
     LexemeHead::Identifier,
     LexemeHead::Integer,
@@ -38,32 +46,57 @@ const LEXEME_HEADS: OneOf<LexemeHead, 4> = OneOf::these([
 ]);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Borrowed lexical spelling passed to token construction.
 enum LexemeInput<'source> {
+    /// Identifier spelling awaiting internment.
     Identifier(&'source str),
+    /// Decimal digits awaiting numeric conversion.
     Integer(&'source str),
+    /// Consumed whitespace with no retained spelling.
     Trivia,
+    /// A recognized punctuation character.
     Punctuation(char),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Semantic tokens emitted after lexical conversion and internment.
 enum Token {
+    /// The stable identity of an interned identifier.
     Identifier(StorageId),
+    /// A representable unsigned integer value.
     Integer(u64),
+    /// Whitespace retained until the skipping adapter removes it.
     Trivia,
+    /// A recognized punctuation character.
     Punctuation(char),
 }
 
 impl Token {
+    /// Identify whitespace tokens skipped before parsing.
     const fn is_trivia(&self) -> bool {
         matches!(self, Self::Trivia)
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Failures from lexical recognition, conversion, or identifier storage.
 enum LexError {
-    UnexpectedCharacter { found: char, index: usize },
-    UnexpectedEnd { index: usize },
+    /// The next component does not begin a supported lexeme.
+    UnexpectedCharacter {
+        /// The unrecognized source character.
+        found: char,
+
+        /// Its absolute byte offset in the source.
+        index: usize,
+    },
+    /// Source exhaustion before a required component.
+    UnexpectedEnd {
+        /// The source boundary where a component was required.
+        index: usize,
+    },
+    /// Decimal digits cannot be represented by the token's integer type.
     IntegerOverflow,
+    /// Identifier storage cannot assign another stable identity.
     InternmentFull,
 }
 
@@ -121,7 +154,10 @@ impl<'source> Lex<'source, str> for Token {
     {
         match input {
             LexemeInput::Identifier(source) => context.try_store(source).map(Self::Identifier).ok_or(LexError::InternmentFull),
-            LexemeInput::Integer(source) => source.parse::<u64>().map(Self::Integer).map_err(|_| LexError::IntegerOverflow),
+            LexemeInput::Integer(source) => source
+                .parse::<u64>()
+                .map(Self::Integer)
+                .map_err(|_parse_error| LexError::IntegerOverflow),
             LexemeInput::Trivia => Ok(Self::Trivia),
             LexemeInput::Punctuation(punctuation) => Ok(Self::Punctuation(punctuation)),
         }
@@ -133,8 +169,8 @@ fn main() {
     let footprint = Source::footprint(source).expect("source is nonempty");
     let reconstructed: String = SourceIter::iter(source).collect();
 
-    assert_eq!(footprint.range(), 0..source.len());
-    assert_eq!(reconstructed, source);
+    assert_eq!(footprint.range(), 0..source.len(), "the footprint covers the entire source");
+    assert_eq!(reconstructed, source, "source iteration preserves every component");
 
     let mut storage: OwnedStorage<str> = OwnedStorage::empty();
     let tokens = {
@@ -150,29 +186,39 @@ fn main() {
         tokens
     };
 
-    assert_eq!(tokens.len(), 9);
+    assert_eq!(tokens.len(), 9, "trivia filtering preserves the nine semantic tokens");
 
     let first_identifier = match tokens[0] {
-        Token::Identifier(identifier) => identifier,
-        _ => panic!("first token should be an identifier"),
-    };
+        Token::Identifier(identifier) => Some(identifier),
+        _ => None,
+    }
+    .expect("first token should be an identifier");
     let repeated_identifier = match tokens[7] {
-        Token::Identifier(identifier) => identifier,
-        _ => panic!("eighth token should be the repeated identifier"),
-    };
+        Token::Identifier(identifier) => Some(identifier),
+        _ => None,
+    }
+    .expect("eighth token should be the repeated identifier");
 
-    assert_eq!(first_identifier, repeated_identifier);
-    assert_eq!(storage.try_resolve(first_identifier), Some("sum_2"));
-    assert_eq!(tokens[4], Token::Integer(17));
-    assert_eq!(tokens[5], Token::Punctuation('*'));
+    assert_eq!(first_identifier, repeated_identifier, "equal spellings share an interned identity");
+    assert_eq!(
+        storage.try_resolve(first_identifier),
+        Some("sum_2"),
+        "internment retains the identifier spelling"
+    );
+    assert_eq!(tokens[4], Token::Integer(17), "decimal digits produce their integer value");
+    assert_eq!(tokens[5], Token::Punctuation('*'), "punctuation is preserved");
 
     let mut parser_stream = Slice::new(tokens.as_slice());
     let first = parser_stream.lookahead::<0>().expect("slice streams are infallible");
     let third = parser_stream.lookahead::<2>().expect("slice streams are infallible");
 
-    assert_eq!(first, Some(tokens[0]));
-    assert_eq!(third, Some(tokens[2]));
-    assert_eq!(parser_stream.next().expect("slice streams are infallible"), Some(tokens[0]));
+    assert_eq!(first, Some(tokens[0]), "immediate lookahead sees the first token");
+    assert_eq!(third, Some(tokens[2]), "indexed lookahead sees the requested token");
+    assert_eq!(
+        parser_stream.next().expect("slice streams are infallible"),
+        Some(tokens[0]),
+        "lookahead does not consume tokens"
+    );
 
     println!("source footprint {footprint:?}");
     println!("visible tokens {tokens:?}");

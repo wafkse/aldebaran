@@ -11,6 +11,7 @@ use aldebaran_source::prelude::{SourceLines, SourceMetadata};
 use crate::{
     annotated::Annotations,
     prelude::{Annotated, Report, Simple, Title},
+    report::SourceReport,
 };
 
 /// A simple, concise one-shot error type.
@@ -100,7 +101,7 @@ where
     }
 }
 
-impl<'source, 'borrow, S, T, A> crate::report::SourceReport<'source> for OneshotMany<'source, 'borrow, S, T, A>
+impl<'source, 'borrow, S, T, A> SourceReport<'source> for OneshotMany<'source, 'borrow, S, T, A>
 where
     A: Annotated,
     T: Title,

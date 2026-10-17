@@ -119,8 +119,8 @@ mod tests {
     use super::Summarized;
 
     #[test]
-    fn test_fancy_offload() {
-        let target_source: &'static str = "snicker";
+    fn fancy_offload() {
+        let target_source = "snicker";
 
         let err = oneshot::single(
             target_source,
@@ -129,8 +129,6 @@ mod tests {
                 Span::new(0, NonZero::<usize>::MIN.saturating_add(10)),
             ),
         );
-
-        &err;
 
         let mut target_sink = String::new();
 

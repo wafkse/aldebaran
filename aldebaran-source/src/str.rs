@@ -6,6 +6,7 @@
 
 use core::iter::FusedIterator;
 use core::num::NonZero;
+use core::str::Chars;
 
 use aldebaran_span::prelude::{Span, Spanned};
 
@@ -40,21 +41,17 @@ impl<'source> SourceDissect<'source> for str {
     #[inline]
     fn dissect<'borrow>(&'borrow self, s0: Span) -> Self::View<'borrow> {
         match self.footprint() {
-            Some(s1) => {
-                let target_slice = match s1.intersect(s0).as_ref().map(Span::range) {
-                    Some(target_range) => &self[target_range],
-                    None => &self[s1.end()..],
-                };
-
-                target_slice
-            }
+            Some(s1) => match s1.intersect(s0).as_ref().map(Span::range) {
+                Some(target_range) => &self[target_range],
+                None => &self[s1.end()..],
+            },
             _ => self,
         }
     }
 }
 
 impl<'source> SourceIter<'source> for str {
-    type Iterator<'borrow> = core::str::Chars<'borrow>;
+    type Iterator<'borrow> = Chars<'borrow>;
 
     #[inline]
     fn iter(&self) -> Self::Iterator<'_> {
@@ -108,7 +105,7 @@ impl<'a> SourceDiff<'a> for str {
 
 #[cfg(test)]
 mod test {
-    use core::{num::NonZero, ops::Deref};
+    use core::{iter::once, num::NonZero, ops::Deref};
 
     use aldebaran_span::prelude::Span;
 
@@ -128,7 +125,7 @@ mod test {
         let source = "Hello, World!\r\n";
         let span = source.footprint();
 
-        assert_eq!(span, Some(Span::new(0, NonZero::new(15).unwrap())));
+        assert_eq!(span, Some(Span::new(0, NonZero::new(15).expect("15 is nonzero"))));
 
         let source = "";
 
@@ -238,11 +235,11 @@ mod test {
 
         let target_line = source_lines.next().expect("line exists");
 
-        let target_segments: &str = target_line.content().expect("line content exists").value().as_ref();
+        let target_segments: &str = target_line.content().expect("line content exists").value();
 
         assert_eq!(target_segments, "Hello, World!");
 
-        let spans = core::iter::once(Span::new(0, NonZero::<usize>::MIN));
+        let spans = once(Span::new(0, NonZero::<usize>::MIN));
 
         let mut t = LineSegmented::segmented(&target_line, spans.into_iter());
 

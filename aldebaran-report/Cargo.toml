@@ -1,6 +1,8 @@
 [package]
 name = "aldebaran-report"
 version.workspace = true
+keywords.workspace = true
+categories.workspace = true
 description = "Allocation-free diagnostic reports and source annotations"
 license.workspace = true
 repository.workspace = true

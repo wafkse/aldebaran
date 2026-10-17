@@ -4,6 +4,8 @@
 //! and aggregate metadata needed to recreate line iteration. Absolute source
 //! coordinates remain valid because the handle never substitutes a relative slice.
 
+use crate::dissect::SourceDissect;
+
 use core::{fmt, hash};
 
 use aldebaran_span::prelude::Spanned;
@@ -20,18 +22,25 @@ use crate::{
 /// well as iterate over them.
 pub struct LineHandle<'a, S, T>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     T: Terminator<'a, S> + 'a,
 {
+    /// The original source backing the absolute line spans.
     source: &'a S,
+
+    /// Aggregate extents and length statistics for the selected lines.
     metadata: Metadata,
+
+    /// The first line identity used to resume iteration.
     start_id: LineId<'a, S>,
+
+    /// The line termination policy used by the handle.
     terminator: T,
 }
 
 impl<'a, S, T> LineHandle<'a, S, T>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     T: Terminator<'a, S> + 'a,
 {
     /// Create a new [`LineHandle`] from its raw parts: the source, the
@@ -49,7 +58,7 @@ where
 
 impl<'a, S, T> LineExtent<'a, S> for LineHandle<'a, S, T>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     T: Terminator<'a, S> + 'a,
 {
     type Iterator = LineIter<'a, S, T>;
@@ -78,7 +87,7 @@ where
 
 impl<'a, S, T> LineHandle<'a, S, T>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     T: Terminator<'a, S> + 'a,
 {
     /// Retrieve the [`source`](crate::source::Source) that this handle represents.
@@ -108,14 +117,17 @@ where
 
 impl<'a, S, T> hash::Hash for LineHandle<'a, S, T>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     T: Terminator<'a, S> + 'a,
     S: hash::Hash,
     S::Line: hash::Hash,
     T: hash::Hash,
 {
     #[inline]
-    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: hash::Hasher,
+    {
         let Self {
             source,
             metadata,
@@ -132,7 +144,7 @@ where
 
 impl<'a, S, T> Eq for LineHandle<'a, S, T>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     T: Terminator<'a, S> + 'a,
     S: Eq,
     S::Line: Eq,
@@ -142,7 +154,7 @@ where
 
 impl<'a, S, T> PartialEq for LineHandle<'a, S, T>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     T: Terminator<'a, S> + 'a,
     S: PartialEq,
     S::Line: PartialEq,
@@ -170,7 +182,7 @@ where
 
 impl<'a, S, T> Clone for LineHandle<'a, S, T>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S>,
     T: Terminator<'a, S> + 'a,
     S: Clone,
     S::Line: Clone,
@@ -186,8 +198,8 @@ where
         } = self;
 
         let metadata = metadata.clone();
-        let line_start_id = line_start_id.clone();
-        let terminator = terminator.clone();
+        let line_start_id = *line_start_id;
+        let terminator = *terminator;
 
         Self {
             source,
@@ -200,7 +212,7 @@ where
 
 impl<'a, S, T> fmt::Debug for LineHandle<'a, S, T>
 where
-    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + crate::dissect::SourceDissect<'a, View<'a> = &'a S> + ?Sized,
+    S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     T: Terminator<'a, S> + 'a,
     S: fmt::Debug,
     S::Line: fmt::Debug,

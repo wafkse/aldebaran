@@ -165,7 +165,7 @@ macro_rules! impl_tests {
     };
 }
 
-#[expect(unused_imports)]
+#[cfg(test)]
 pub(crate) use impl_tests;
 
 binary_list!(impl_tests);
