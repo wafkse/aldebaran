@@ -1,8 +1,4 @@
-//! Sink backend that intentionally emits no diagnostic output.
-//!
-//! [`Nothing`] satisfies the textual offload interface while discarding the
-//! report. It is useful when callers need to preserve the rendering pipeline but
-//! select suppression as an explicit backend policy.
+//! Output suppression as a textual backend policy.
 
 use core::convert::Infallible;
 
@@ -12,10 +8,7 @@ use crate::report::SourceReport;
 
 use super::{Offload, OffloadContext};
 
-/// Offload backend that deliberately produces no output.
-///
-/// The empty enum carries no state. Its implementation exists only to represent
-/// suppression as a normal renderer choice rather than a special caller branch.
+/// Uninhabited backend that returns success without writing to the sink.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum Nothing {}
 

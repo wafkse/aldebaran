@@ -1,8 +1,4 @@
-//! Styled source-aware textual diagnostics intended for human readers.
-//!
-//! [`Fancy`] composes header rendering, line segmentation, viewport layout,
-//! annotation lanes, character sets, and theme policy. Source attachment remains
-//! external through `SourceReport`, so this backend only borrows report inputs.
+//! Styled diagnostics with annotated source excerpts.
 
 pub mod charset;
 pub mod component;
@@ -34,52 +30,43 @@ use aldebaran_source::prelude::{LineSegmented, Location, Source, SourceLines, So
 
 use crate::render::textual::{Offload, OffloadContext};
 
-/// A fancy, styled offload renderer for humans.
+/// Renders a report heading and source lines intersecting its annotations.
 ///
-/// # Formatting Behavior
+/// For `str` sources, annotation coordinates and phase widths use UTF-8 bytes.
+/// Because a phase must retain each multibyte character, its byte budget extends
+/// to a valid source-view boundary. Marker placement, however, counts Unicode
+/// scalar values rather than terminal display cells, so wide or combining
+/// characters can misalign markers.
 ///
-/// This renderer attempts to keep everything as per the [`FancySettings`]
-/// provided on a best-effort basis. However, *some aspects* must be noted:
+/// To represent an insertion at EOF, a unit span marks the boundary after the
+/// final content when the source is unterminated. If the source instead ends in
+/// a line terminator (including LF and CRLF), that boundary appears at column
+/// one of the next display row. This adds a rendering position without creating
+/// a selectable source line or changing the annotation's coordinates.
 ///
-/// ## Inline Annotations and viewport extents
-///
-/// The renderer will constantly attempt to maintain the following goals:
-///
-/// - Each inline annotation will be rendered on the same line, without being cut off by the viewport \[*\].
-///
-/// - Lines will be wrapped at the viewport's width, and any excess text will be cut off and moved to the next line. This line wrapping has
-///   no underlying logic: if it does not fit, it will be cut off.
-///
-/// ## Line Wrapping
-///
-/// This has no support for line wrapping, and thus will cut off any excess text
-/// that does not fit inside the target viewport to the next line.
-///
-/// # Panics
-///
-/// This renderer is not expected to panic under any circumstances. If it does,
-/// it is a bug.
+/// Targets overlapping source bytes are clipped to visible content, whereas
+/// empty sources and wholly out-of-bounds targets emit only the heading. The
+/// EOF insertion rule applies only to unit spans, so longer spans starting at
+/// EOF do not produce an insertion marker.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-pub struct Fancy<T = DefaultTheme>
+// NOTE(invariant): None.
+pub struct Fancy<T = DefaultTheme>(marker::PhantomData<T>)
 where
-    T: Theme,
-{
-    /// Associates this renderer with its selected theme type.
-    _marker: marker::PhantomData<T>,
-}
+    T: Theme;
 
 impl<'source, E, T> Offload<'source, E> for Fancy<T>
 where
     E: SourceReport<'source>,
     T: Theme + 'static,
-    E::Source: SourceLines<'source> + SourceMetadata<'source> + 'source,
+    E::Source: SourceLines<'source> + SourceMetadata<'source>,
     <E::Source as SourceMetadata<'source>>::Metadata: Location,
     <E::Source as SourceLines<'source>>::Line: Print,
+    <<E::Source as SourceMetadata<'source>>::Metadata as Print>::Context: Default,
+    <<E::Source as SourceLines<'source>>::Line as LineSegmented<'source, E::Source>>::View: Visualize,
+    //
     <<E::Kind as ErrorKind>::Descriptor as Print>::Context: Default,
     <E::Title as Title>::Context: Default,
-    <<E::Source as SourceMetadata<'source>>::Metadata as Print>::Context: Default,
     <<<E::Annotations as Annotations>::Annotation as Annotated>::Title as Title>::Context: Default,
-    <<E::Source as SourceLines<'source>>::Line as LineSegmented<'source, E::Source>>::View: Visualize,
 {
     type Input<'input>
         = FancySettings<T>
@@ -101,14 +88,14 @@ where
         let segment = error.target().and_then(|target| {
             let source_size = source.size();
 
-            match source.segment(target) {
-                Some(extents) => Some(extents),
-                None => match (target.start() == source_size, source_size) {
-                    (true, 0) => None,
-                    (true, _) => source.segment(Span::unit(source_size - 1)),
-                    (false, _) => None,
-                },
-            }
+            // Select real context without changing the annotation's coordinates.
+            let context = if target == Span::unit(source_size) {
+                Span::unit(source_size.checked_sub(1)?)
+            } else {
+                target
+            };
+
+            source.segment(context)
         });
 
         match segment {
@@ -128,7 +115,7 @@ mod tests {
             RenderMut,
             textual::{
                 Present, Textual,
-                offload::fancy::{Colored, FancySettings, Fancyness, LayoutSettings, charset::Charset},
+                offload::fancy::{Colored, FancySettings, LayoutSettings, charset::Charset},
             },
         },
     };
@@ -137,20 +124,137 @@ mod tests {
 
     use super::Fancy;
 
-    #[test]
-    fn renders_source_boundary_span() {
-        let source = "abc";
-        let annotation = Label::new("missing input", Span::unit(source.len()));
-        let report = oneshot::single(source, annotation);
+    /// Render with a distinct title and a predictable, uncolored gutter.
+    fn render_target(source: &str, target: Span) -> String {
+        let report = oneshot::Oneshot::new("report title", source, Label::new("annotation detail", target));
         let mut output = String::new();
         let mut renderer = Textual::<'_, _, Fancy, _>::new(&mut output);
-        let settings = Present::from_input(FancySettings::level(Fancyness::Outblown));
+        let settings = FancySettings::tuple((Colored::No, LayoutSettings::marginal(), Charset::UNICODE));
 
         renderer
-            .render_mut_with_input(settings, &report)
-            .expect("failed to render source boundary diagnostic");
+            .render_mut_with_input(Present::from_input(settings), &report)
+            .expect("render diagnostic");
+        output
+    }
 
-        assert!(output.contains("missing input"));
+    #[test]
+    fn eof_without_terminator_marks_after_the_final_scalar() {
+        for (source, expected) in [("abc", "1│ abc\n │    ^\n"), ("é🦀", "1│ é🦀\n │   ^\n")] {
+            let output = render_target(source, Span::unit(source.len()));
+            assert!(output.contains(expected), "incorrect EOF marker placement: {output}");
+            assert!(
+                output.contains("[^]: annotation detail"),
+                "annotation must appear outside the heading: {output}"
+            );
+        }
+    }
+
+    #[test]
+    fn eof_after_lf_or_crlf_marks_a_separate_display_row() {
+        for source in ["abc\n", "abc\r\n", "é🦀\n", "é🦀\r\n", "\n", "\r\n"] {
+            let output = render_target(source, Span::unit(source.len()));
+            assert!(
+                output.contains("2│ \n │ ^\n │   [^]: annotation detail\n"),
+                "incorrect terminal row: {output}"
+            );
+            assert!(!output.contains("│    ^"), "the marker must not attach to prior content: {output}");
+            if source.starts_with("abc") {
+                assert!(output.contains("1│ abc\n"), "final source context is missing: {output}");
+            }
+            if source.starts_with('é') {
+                assert!(output.contains("1│ é🦀\n"), "UTF-8 context is missing: {output}");
+            }
+        }
+    }
+
+    #[test]
+    fn wrapped_eof_preserves_the_final_text_and_utf8_boundaries() {
+        for prefix_length in [139, 140] {
+            let source = "a".repeat(prefix_length) + "é🦀";
+            let output = render_target(&source, Span::unit(source.len()));
+
+            if prefix_length == 139 {
+                assert!(
+                    output.contains(&("1│ ".to_owned() + &"a".repeat(139) + "é\n")),
+                    "split UTF-8 phase: {output}"
+                );
+                assert!(output.contains(" │ 🦀\n │  ^\n"), "wrapped EOF marker is misplaced: {output}");
+            } else {
+                assert!(
+                    output.contains(" │ é🦀\n │   ^\n"),
+                    "final phase repeated the line prefix: {output}"
+                );
+            }
+            assert!(
+                output.contains("[^]: annotation detail"),
+                "wrapped annotation disappeared: {output}"
+            );
+        }
+    }
+
+    #[test]
+    fn terminal_boundary_and_content_annotations_keep_their_own_positions() {
+        use aldebaran_baseline::prelude::RefOneOrMore;
+
+        let source = "first\nabc\r\n";
+        let content = Label::new("content detail", Span::unit(7));
+        let terminal = [Label::new("terminal detail", Span::unit(source.len()))];
+        let report = oneshot::many(source, "report title", RefOneOrMore::new(&content, &terminal));
+        let mut output = String::new();
+        let mut renderer = Textual::<'_, _, Fancy, _>::new(&mut output);
+        let settings = FancySettings::tuple((Colored::No, LayoutSettings::marginal(), Charset::UNICODE));
+
+        renderer
+            .render_mut_with_input(Present::from_input(settings), &report)
+            .expect("render multiple annotations");
+        assert!(output.contains("2│ abc\n │  ^\n"), "content annotation moved: {output}");
+        assert!(output.contains("3│ \n │ *\n"), "terminal annotation moved: {output}");
+        assert!(output.contains("[^]: content detail"), "content annotation is missing: {output}");
+        assert!(output.contains("[*]: terminal detail"), "terminal annotation is missing: {output}");
+    }
+
+    #[test]
+    fn empty_and_wholly_out_of_bounds_targets_have_only_a_heading() {
+        for (source, target) in [
+            ("", Span::unit(0)),
+            ("abc", Span::unit(4)),
+            ("abc\n", Span::unit(5)),
+            ("abc", Span::new(3, NonZero::new(2).expect("positive length"))),
+            ("abc\n", Span::new(4, NonZero::new(2).expect("positive length"))),
+            ("abc", Span::END_OF_WORLD),
+        ] {
+            let output = render_target(source, target);
+            assert!(output.contains("report title"), "heading is missing: {output}");
+            assert!(
+                !output.contains("annotation detail"),
+                "invalid target acquired an annotation: {output}"
+            );
+            assert!(!output.contains('│'), "invalid target acquired source context: {output}");
+        }
+    }
+
+    #[test]
+    fn partially_out_of_bounds_targets_clip_to_source_content() {
+        let output = render_target("abc", Span::new(2, NonZero::<usize>::MAX));
+        assert!(output.contains("1│ abc\n │   ^\n"), "incorrect clipped marker: {output}");
+        assert!(output.contains("[^]: annotation detail"), "clipped annotation is missing: {output}");
+    }
+
+    #[test]
+    fn gutter_fits_large_absolute_line_numbers_and_digit_transitions() {
+        let source = "x\n".repeat(1001);
+        let output = render_target(&source, Span::unit(1998));
+        assert!(output.contains("1000│ x\n    │ ^\n"), "single-line gutter is too narrow: {output}");
+        assert!(!output.contains("1001│"), "selection continued past its end: {output}");
+        let output = render_target(&source, Span::new(1996, NonZero::new(4).expect("positive length")));
+        assert!(output.contains(" 999│ x\n    │ ^\n"), "shorter numbers must align: {output}");
+        assert!(output.contains("1000│ x\n    │ ^\n"), "multiline gutter is too narrow: {output}");
+        let source = "x\n".repeat(9);
+        let output = render_target(&source, Span::unit(source.len()));
+        assert!(
+            output.contains(" 9│ x\n10│ \n  │ ^\n"),
+            "terminal row must contribute to gutter width: {output}"
+        );
     }
 
     #[test]
@@ -174,22 +278,16 @@ mod tests {
     }
 
     #[test]
-    fn fancy_offload() {
-        let target_source = "snicker\n dog bone\n";
-
-        let err = oneshot::single(
-            target_source,
-            Label::new("you hate snickers?? so do I!!", Span::new(0, const { NonZero::<usize>::MAX })),
+    fn multiline_annotation_renders_all_selected_content_and_its_markers() {
+        let output = render_target("snicker\n dog bone\n", Span::ALL);
+        assert!(
+            output.contains("1│ snicker\n │ ^^^^^^^\n"),
+            "first line markers are missing: {output}"
         );
-
-        let mut target_sink = String::new();
-
-        let mut renderer = Textual::<'_, _, Fancy, _>::new(&mut target_sink);
-
-        renderer
-            .render_mut_with_input(Present::from_input(FancySettings::level(Fancyness::Outblown)), &err)
-            .expect("failed to render error");
-
-        println!("{}", target_sink);
+        assert!(
+            output.contains("2│  dog bone\n │ ^^^^^^^^^\n"),
+            "final line markers are missing: {output}"
+        );
+        assert_eq!(output.matches("[^]: annotation detail").count(), 1);
     }
 }

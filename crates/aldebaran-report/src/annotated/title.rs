@@ -6,12 +6,15 @@
 
 use aldebaran_print::prelude::Print;
 
-/// The title of a message-carrying structure.
+/// Printable content for a diagnostic heading or annotation message.
+///
+/// Values implementing [`Print`] already satisfy this contract. A custom title
+/// can instead supply a printable view that uses its own external context.
 pub trait Title {
-    /// External data required while printing this title.
+    /// Data the caller must supply when formatting the printable content.
     type Context;
 
-    /// Determine the printable content of the title.
+    /// Printable view that interprets the context defined by this title.
     fn content(&self) -> impl Print<Context = Self::Context>;
 }
 

@@ -1,5 +1,9 @@
-//! Module for the layout settings of the [`Fancy`] offload renderer and
-//! adjacent types.
+//! Gutter spacing between the margin, line numbers, and source separator.
+//!
+//! [`LayoutSettings`] uses [`padding::HorizontalPadding`] to add spaces around
+//! the digit column. [`Fancy`] reserves the same gutter width on source, marker,
+//! and message rows so their separators align. Explicit settings take precedence
+//! over spacing derived from the [`Viewport`] shape.
 //!
 //! [`Fancy`]: super::Fancy
 
@@ -9,40 +13,39 @@ use padding::HorizontalPadding;
 
 use crate::render::textual::viewport::{self, Viewport, ViewportShape};
 
-/// The layout settings for the [`Fancy`] offload renderer.
+/// Extra spaces on either side of [`Fancy`]'s line-number digits.
+///
+/// The digit column is sized to the largest displayed line number. These spaces
+/// widen that gutter without reducing the viewport width used for source
+/// wrapping. [`Self::viewport`] chooses padding from the layout preference,
+/// while [`Default`] uses no padding.
 ///
 /// [`Fancy`]: super::Fancy
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default)]
+// NOTE(invariant): None.
 pub struct LayoutSettings {
-    /// Horizontal padding around the rendered line-number column.
+    /// Spaces before the digit column and between the digits and source separator.
     line_no_col_padding: HorizontalPadding,
 }
 
 impl LayoutSettings {
-    /// The standard layout settings.
-    ///
-    /// This constant is the same as calling [`LayoutSettings::standard()`].
+    /// One space before the digit column and two before the separator.
     pub const STANDARD: Self = Self::standard();
 
-    /// The marginal layout settings.
-    ///
-    /// This constant is the same as calling [`LayoutSettings::marginal()`].
-    ///
-    /// This is the narrowest acceptable layout settings that allow for a
-    /// readable output.
+    /// Gutter width determined solely by the line-number digits.
     pub const MARGINAL: Self = Self::marginal();
 
-    /// Retrieve the standard layout settings.
-    ///
-    /// This is the same as calling [`LayoutSettings::viewport`] with a
-    /// [`standard viewport`](Viewport::standard).
+    /// Use the roomier rightward spacing of [`Viewport::standard`].
     #[inline]
     pub const fn standard() -> Self {
         Self::viewport(&Viewport::standard())
     }
 
-    /// Create a new set of [`LayoutSettings`] with the appropiate padding for
-    /// the target [`Viewport`] configuration.
+    /// Choose gutter spacing from the viewport's layout preference.
+    ///
+    /// Squarish viewports use no padding, rightward preference adds one space on
+    /// the left and two on the right, and downward preference adds one on each
+    /// side. Explicit shape overrides apply even when the dimensions disagree.
     #[inline]
     pub const fn viewport(viewport: &Viewport) -> Self {
         match viewport.shape() {
@@ -56,8 +59,7 @@ impl LayoutSettings {
 }
 
 impl LayoutSettings {
-    /// Create a new set of [`LayoutSettings`] with the marginal padding
-    /// configuration.
+    /// Keep only the width needed for the line-number digits, as [`Default`] does.
     #[inline]
     pub const fn marginal() -> Self {
         let line_no_col_padding = HorizontalPadding::uniform(0);
@@ -65,13 +67,13 @@ impl LayoutSettings {
         Self { line_no_col_padding }
     }
 
-    /// Create a new set of [`LayoutSettings`] from its raw parts.
+    /// Fix the spaces before and after the digits independently of viewport shape.
     #[inline]
     pub const fn from_raw_parts(line_no_col_padding: HorizontalPadding) -> Self {
         Self { line_no_col_padding }
     }
 
-    /// Retrieve the horizontal padding for the line column of the code block.
+    /// Spaces before the digit column and before the source separator.
     #[inline]
     pub const fn line_column_padding(&self) -> HorizontalPadding {
         let &Self { line_no_col_padding, .. } = self;

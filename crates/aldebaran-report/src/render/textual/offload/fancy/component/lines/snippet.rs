@@ -1,8 +1,8 @@
-//! Source snippet segments used by the fancy line renderer.
+//! Source lines paired with the annotations selected for Fancy output.
 //!
-//! Snippet segments preserve both the visible source view and the annotations
-//! associated with relevant intervals. The distinction between relevant and
-//! irrelevant pieces lets line rendering retain source gaps without extra scans.
+//! [`SnippetSegment`] distinguishes a line with relevant annotations from an
+//! unannotated line. [`RelevantSegment`] retains borrowed annotations in their
+//! caller-supplied order while owning only the collection of references.
 
 use core::fmt;
 
@@ -12,26 +12,22 @@ use aldebaran_source::prelude::{LineId, SourceLines};
 
 use crate::{annotated::Annotations, report::SourceReport};
 
-/// Visible source segment classified by annotation relevance.
-///
-/// Relevant segments carry the annotations that intersect the source interval.
-/// Irrelevant segments retain the intervening source text so the renderer can
-/// reconstruct the visible line in source order.
+/// A source line and any report annotations that intersect it.
 pub enum SnippetSegment<'source, 'borrow, E>
 where
     E: SourceReport<'source>,
     E::Source: SourceLines<'source>,
     'source: 'borrow,
 {
-    /// A variant that denotes a relevant source segment.
+    /// A line with matching annotations.
     Relevant(
         /// Source segment together with every annotation intersecting it.
         RelevantSegment<'source, 'borrow, E>,
     ),
 
-    /// A variant that denotes an irrelevant source segment.
+    /// A line without matching annotations.
     Irrelevant(
-        /// Unannotated source segment retained to preserve visible line order.
+        /// Source line omitted from the annotated excerpt.
         IrrelevantSegment<'source, E>,
     ),
 }
@@ -68,20 +64,19 @@ where
     }
 }
 
-/// Relevant source segment paired with its intersecting annotations.
-///
-/// The segment owns no report data. It borrows the projected source view and the
-/// annotation references selected for that interval during line decomposition.
+/// A source line paired with its intersecting annotation references.
+// NOTE(invariant): None.
 pub struct RelevantSegment<'source, 'borrow, E>
 where
     E: SourceReport<'source>,
     E::Source: SourceLines<'source>,
 {
     /// The line identifier for this snippet segment.
-    pub(super) line_id: LineId<'source, E::Source>,
+    pub(in crate::render::textual::offload::fancy::component::lines) line_id: LineId<'source, E::Source>,
 
-    /// The selection type for the annotations regarding this line segment.
-    pub(super) annotations: OneOrMore<&'borrow <E::Annotations as Annotations>::Annotation>,
+    /// Caller-ordered references to the report annotations selected for this line.
+    pub(in crate::render::textual::offload::fancy::component::lines) annotations:
+        OneOrMore<&'borrow <E::Annotations as Annotations>::Annotation>,
 }
 
 impl<'source, 'borrow, E> fmt::Debug for RelevantSegment<'source, 'borrow, E>
@@ -116,7 +111,7 @@ where
         line_id
     }
 
-    /// Retrieve the annotations corresponding to this snippet segment.
+    /// Caller-ordered annotations, borrowing the reference collection for this view.
     #[inline]
     pub fn annotations(&self) -> RefOneOrMore<'borrow, &<E::Annotations as Annotations>::Annotation> {
         let &Self { ref annotations, .. } = self;
@@ -125,13 +120,11 @@ where
     }
 }
 
-/// A structure that represents an irrelevant segment.
-///
-/// This is for the line segments that do not contain any annotations and
-/// can be safely ignored.
+/// A source line with no annotation intersecting its span.
+// NOTE(invariant): None.
 pub struct IrrelevantSegment<'a, E>(
     /// Line identifier retained for an unannotated source segment.
-    pub(super) LineId<'a, E::Source>,
+    pub(in crate::render::textual::offload::fancy::component::lines) LineId<'a, E::Source>,
 )
 where
     E: SourceReport<'a>,
@@ -158,6 +151,8 @@ where
 {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("IrrelevantSegment").field("line_id", &self.0).finish()
+        let Self(line_id) = self;
+
+        f.debug_struct("IrrelevantSegment").field("line_id", line_id).finish()
     }
 }

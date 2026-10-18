@@ -1,7 +1,8 @@
-//! This module revolves around the [`Textual`] [`Render`], that is, an engine
-//! that makes creating human-readable error reports possible.
+//! Text output composed from a writable sink and an [`Offload`] backend.
 //!
-//! [`Render`]: super::Render
+//! [`Textual`] retains the sink between diagnostics. Each render receives a
+//! [`Present`] value that combines backend input with a [`Viewport`], so callers
+//! can change presentation policy without rebuilding the renderer.
 
 pub mod offload;
 pub mod viewport;
@@ -16,17 +17,18 @@ use viewport::Viewport;
 
 use crate::{render::RenderMut, report::SourceReport};
 
-/// Presentational settings for the textual renderer.
+/// A backend's per-call input paired with a terminal-cell viewport.
 ///
-/// This structure contains the settings that are used to render the error
-/// report
+/// Child backends can share the viewport and borrow
+/// selected input through [`Self::referenced_with`].
+// NOTE(invariant): None.
 pub struct Present<'source, 'input, O, E>
 where
     'source: 'input,
     O: Offload<'source, E> + ?Sized,
     E: SourceReport<'source>,
 {
-    /// Renderer-specific presentation input.
+    /// Settings or resources interpreted by the selected backend.
     input: O::Input<'input>,
 
     /// Terminal viewport used to shape textual output.
@@ -127,11 +129,7 @@ where
     O: Offload<'source, E> + ?Sized,
     E: SourceReport<'source>,
 {
-    /// Create a new set of presentational settings from solely the input, using
-    /// a standard viewport.
-    ///
-    /// This is the same as calling [`Present::from_raw_parts`] with a standard
-    /// viewport retrieved through [`Viewport::standard()`].
+    /// Use this backend input with the standard [`Viewport`].
     #[inline]
     pub const fn from_input(input: O::Input<'input>) -> Self {
         Self {
@@ -140,9 +138,7 @@ where
         }
     }
 
-    /// Create a new set of presentational settings from solely the viewport,
-    ///
-    /// Uses the default input for the offload renderer.
+    /// Use this [`Viewport`] with the backend's default input.
     #[inline]
     pub fn from_viewport(viewport: Viewport) -> Self
     where
@@ -153,14 +149,13 @@ where
         Self { input, viewport }
     }
 
-    /// Create a new set of presentational settings from its raw parts.
+    /// Combine explicit backend input and viewport without applying defaults.
     #[inline]
     pub const fn from_raw_parts(input: O::Input<'input>, viewport: Viewport) -> Self {
         Self { input, viewport }
     }
 
-    /// Retrieve a reference the [`offload renderer input`](Offload::Input)
-    /// associated with these presentational settings.
+    /// Settings or resources supplied to this backend for the render call.
     #[inline]
     pub const fn input(&self) -> &O::Input<'input> {
         let &Self { ref input, .. } = self;
@@ -168,8 +163,7 @@ where
         input
     }
 
-    /// Retrieve a reference to the [`Viewport`] associated with these
-    /// presentational settings.
+    /// Terminal-cell budget and shape policy available to layout-aware backends.
     #[inline]
     pub const fn viewport(&self) -> &Viewport {
         let &Self { ref viewport, .. } = self;
@@ -177,9 +171,7 @@ where
         viewport
     }
 
-    /// Reinstate a different offload context for a distinct offload renderer
-    /// that has an input type borrowing the input type of the current offload
-    /// renderer.
+    /// Create a presentation for a backend whose input borrows this backend's input.
     #[inline]
     pub fn referenced<'borrow, U>(&'borrow mut self) -> Present<'source, 'borrow, U, E>
     where
@@ -190,9 +182,10 @@ where
         self.referenced_with(move |input: &'borrow O::Input<'input>| input)
     }
 
-    /// An input-mapping version of [`referenced`].
+    /// Project this backend's input for another backend.
     ///
-    /// [`referenced`]: Present::referenced
+    /// The returned presentation keeps the same viewport and borrows the
+    /// projected input for `'borrow`.
     #[inline]
     pub fn referenced_with<'borrow, U, F, K>(&'borrow mut self, map: F) -> Present<'source, 'borrow, U, E>
     where
@@ -209,12 +202,12 @@ where
     }
 }
 
-/// A textual renderer that can be used to create human-readable error reports.
+/// A mutable text renderer backed by [`Offload`].
 ///
-/// See [`Render`] and [`RenderMut`] for more information.
-///
-/// [`Render`]: super::Render
+/// Rendering appends to the sink. If formatting fails, output already written
+/// remains and the backend error is returned.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default)]
+// NOTE(invariant): None.
 pub struct Textual<'source, W, O, E>
 where
     W: fmt::Write,
@@ -224,8 +217,7 @@ where
     /// The destination to write the report to.
     write_sink: W,
 
-    /// A marker to indicate the offload renderer and error type on an
-    /// implementation basis.
+    /// Backend, diagnostic type, and source lifetime associated with this sink.
     _marker: (marker::PhantomData<O>, marker::PhantomData<E>, marker::PhantomData<&'source ()>),
 }
 
@@ -267,9 +259,7 @@ where
     O: Offload<'source, E> + ?Sized,
     E: SourceReport<'source>,
 {
-    /// Create a new [`Textual`] renderer that writes to the target [`Write`]r.
-    ///
-    /// [`Write`]: fmt::Write
+    /// Retain `write_sink` for subsequent renders, which append to its existing output.
     #[inline]
     pub const fn new(write_sink: W) -> Self {
         Self {

@@ -1,8 +1,8 @@
-//! Structured diagnostic kinds and their semantic metadata.
+//! Diagnostic classifications with independent wording and styling metadata.
 //!
-//! [`ErrorKind`] combines printable presentation with semantic connotation.
-//! [`Simple`] provides the common error and warning categories while retaining a
-//! metadata projection that renderers can inspect independently of wording.
+//! [`ErrorKind`] supplies the printed descriptor and uses [`Connotate`] to expose
+//! severity and importance. [`Simple`] provides common classifications whose
+//! wording remains distinct even when their metadata is the same.
 
 use core::fmt;
 
@@ -10,37 +10,32 @@ use aldebaran_print::prelude::Print;
 
 use crate::report::{connotate::Connotate, severity::Metadata};
 
-/// A super-trait for error kinds.
+/// A diagnostic classification with printable wording and semantic metadata.
 ///
-/// This trait combines both the [`Print`] and the [`Connotate`] traits
-/// into a single atomic unit.
+/// Renderers can use the descriptor for text and the [`Connotate`] result for
+/// styling or ordering without deriving meaning from the displayed word.
 pub trait ErrorKind: Connotate<Subject = Metadata> {
-    /// The type representing the descriptor of the error kind.
-    ///
-    /// This serves as a human-readable representation of the error kind.
+    /// Printable descriptor associated with this classification.
     type Descriptor: Print;
 
-    /// Retrieve the [`descriptor`](Self::Descriptor) for this error kind.
+    /// Borrow the printable descriptor for this classification.
     fn descriptor(&self) -> &Self::Descriptor;
 }
 
-/// Keep it simple, stupid.
+/// Common diagnostic classifications with fixed wording and metadata.
 ///
-/// This is used to determine the nature of the error, in other words, whether
-/// it is an error, warning, lint, etc.
-///
-/// This enum is kept simplistic on purpose, as higher-level connotations are
-/// not necessary for the error report.
+/// [`Warning`](Self::Warning) and [`Lint`](Self::Lint) share styling metadata but
+/// print different descriptors. The default is [`Error`](Self::Error).
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Default, Clone, Copy)]
 pub enum Simple {
-    /// An error that is deemed non-fatal. The default kind.
+    /// Prints `error` with error severity and trivial importance.
     #[default]
     Error,
 
-    /// A warning.
+    /// Prints `warning` with warning severity and marginal importance.
     Warning,
 
-    /// A lint, or a suggestion.
+    /// Prints `lint` with the same metadata as [`Warning`](Self::Warning).
     Lint,
 }
 

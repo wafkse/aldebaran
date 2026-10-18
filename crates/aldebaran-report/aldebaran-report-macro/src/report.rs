@@ -1,8 +1,6 @@
-//! Parsing and expansion of allocation-free report policies.
-//!
-//! Derive input is normalized into explicit structure or enum policies before
-//! any tokens are emitted. Expansion then projects titles, annotation messages,
-//! source targets, and stored annotation collections into runtime trait impls.
+//! Diagnostic policies admitted by the `Report` derive. Structs support inferred
+//! targets, stored annotations, or report forwarding, while enum alternatives
+//! share `str` messages and `Simple::Error` classification.
 
 use darling::{FromMeta, ast::NestedMeta};
 use proc_macro2::TokenStream;
@@ -10,25 +8,24 @@ use quote::ToTokens;
 use quote::quote;
 use syn::{Attribute, Data, DeriveInput, Fields, Ident, LitStr, Member, Path, Type};
 
-/// Validated report derive input ready for policy expansion.
-///
-/// Construction classifies the input as a structure or enum and validates its
-/// report metadata before code generation. Expansion consumes this representation
-/// to emit the runtime `Annotated` and `Report` implementations.
+/// A diagnostic declaration with unambiguous report metadata and resolved field
+/// selectors. Required runtime traits remain obligations of the declared field types.
 #[derive(Debug)]
+// NOTE(invariant): `body` contains validated policies for the diagnostic named by `ident` and its fields.
 pub struct Report {
-    /// Name of the diagnostic type.
+    /// Diagnostic type receiving the annotation and report contracts.
     ident: Ident,
 
-    /// Generic parameters of the diagnostic type.
+    /// Caller-declared parameters and bounds preserved by the report implementations.
     generics: syn::Generics,
 
-    /// Validated diagnostic shape.
+    /// Report policy compatible with this diagnostic's field shape and metadata.
     body: Body,
 }
 
 impl Report {
-    /// Parse and validate the derive input.
+    /// Accept a struct or enum declaration only when its report policies and field
+    /// selectors are coherent, rejecting unions and ambiguous targets.
     #[inline]
     pub fn new(input: DeriveInput) -> syn::Result<Self> {
         let DeriveInput {
@@ -38,6 +35,7 @@ impl Report {
             data,
             ..
         } = input;
+
         let body = match data {
             Data::Struct(data) => Body::Struct(Box::new(Structure::new(attrs, data.fields, &ident)?)),
             Data::Enum(data) => data
@@ -52,7 +50,8 @@ impl Report {
         Ok(Self { ident, generics, body })
     }
 
-    /// Generate allocation-free annotation and report implementations.
+    /// Express the selected diagnostic contracts through `runtime`, preserving the
+    /// declaration's generics and bounds.
     #[inline]
     pub fn expand(self, runtime: &TokenStream) -> TokenStream {
         let Self { ident, generics, body } = self;
@@ -64,26 +63,28 @@ impl Report {
     }
 }
 
-/// Validated report shape.
+/// Report policy shared by a struct or selected by an enum's active alternative.
 #[derive(Debug)]
 enum Body {
-    /// Report structure generation state.
+    /// A struct whose fields share a diagnostic policy.
     Struct(
-        /// Validated report structure policy.
+        /// Reporting contract with field selectors resolved against the struct.
         Box<Structure>,
     ),
 
-    /// Per-alternative report policies.
+    /// Alternatives sharing string messages and `Simple::Error` classification.
     Enum(
-        /// Validated policies for each enum alternative.
+        /// Contracts for wording and source targets belonging to the declared alternatives.
         Vec<Variant>,
     ),
 }
 
 impl Body {
-    /// Generate the report enum implementation.
+    /// Preserve each alternative's wording and target within an enum that acts
+    /// as its own annotation and always has `Simple::Error` classification.
     fn expand_enum(ident: &Ident, generics: &syn::Generics, variants: &[Variant], runtime: &TokenStream) -> TokenStream {
         let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
         let message = variants.iter().map(|variant| variant.message_arm(runtime));
         let target = variants.iter().map(|variant| variant.target_arm(runtime));
         let title = variants.iter().map(|variant| variant.title_arm(runtime));
@@ -133,19 +134,17 @@ impl Body {
     }
 }
 
-/// Validated generation state for a report structure.
-///
-/// The structure owns the reporting policy selected from its attributes
-/// and fields. Expansion delegates to that policy after target ambiguity and
-/// incompatible metadata combinations have already been rejected.
+/// A struct's report policy with unambiguous targets and compatible metadata.
+/// Its field types must still satisfy the runtime traits required by that policy.
 #[derive(Debug)]
+// NOTE(invariant): `policy` refers only to resolved members and excludes incompatible report declarations.
 struct Structure {
-    /// Validated report generation policy.
+    /// Contract for diagnostic wording, source location, and annotation collection selection.
     policy: StructurePolicy,
 }
 
 impl Structure {
-    /// Validate the report structure.
+    /// A struct must select forwarding, stored annotations, or an unambiguous primary target.
     fn new(attributes: Vec<Attribute>, fields: Fields, ident: &Ident) -> syn::Result<Self> {
         let members = Self::members(fields);
         let policy = StructurePolicy::parse(&attributes, &members, ident)?;
@@ -153,7 +152,7 @@ impl Structure {
         Ok(Self { policy })
     }
 
-    /// Normalize structure fields into members and types.
+    /// Declared field identities and types, preserving named selectors or tuple positions.
     fn members(fields: Fields) -> Vec<(Member, Type)> {
         match fields {
             Fields::Named(fields) => fields
@@ -171,7 +170,8 @@ impl Structure {
         }
     }
 
-    /// Determine whether a type is syntactically a source span.
+    /// Only a type path ending in `Span` qualifies for direct span targeting.
+    /// Aliases and underlying type identity are unavailable to this spelling check.
     fn is_span(ty: &Type) -> bool {
         match ty {
             Type::Path(path) => path.path.segments.last().map(|segment| segment.ident == "Span").unwrap_or(false),
@@ -179,7 +179,8 @@ impl Structure {
         }
     }
 
-    /// Find the declared member and preserve its type.
+    /// Require an explicit selector to name a declared field, retaining the type
+    /// needed by that field's reporting contract.
     fn member(members: &[(Member, Type)], selected: &Member, ident: &Ident) -> syn::Result<TargetMember> {
         members
             .iter()
@@ -188,7 +189,8 @@ impl Structure {
             .ok_or_else(|| syn::Error::new_spanned(ident, "report member does not exist"))
     }
 
-    /// Infer an unambiguous source target.
+    /// Require exactly one syntactically named `Span`, or a sole field whose
+    /// annotation contract can supply the target when no `Span` is present.
     fn target(members: &[(Member, Type)], ident: &Ident) -> syn::Result<TargetMember> {
         let spans = members
             .iter()
@@ -212,7 +214,7 @@ impl Structure {
         }
     }
 
-    /// Generate the report structure implementation.
+    /// Report implementations retain declared bounds rather than inferring requirements from fields.
     fn expand(&self, ident: &Ident, generics: &syn::Generics, runtime: &TokenStream) -> TokenStream {
         let Self { policy } = self;
 
@@ -220,48 +222,48 @@ impl Structure {
     }
 }
 
-/// Generation policy for a report structure.
-///
-/// A policy determines whether behavior is forwarded to a wrapped report, built
-/// from a primary source target, or backed by an existing annotation collection.
-/// Each variant contains everything needed to generate both reporting traits.
+/// Defines a struct's report through forwarding, a selected source target, or
+/// stored annotations. Each mode determines both the enclosing annotation's view
+/// and the report's heading, classification, and annotation collection.
 #[derive(Debug)]
 enum StructurePolicy {
-    /// Forward every diagnostic facet to the wrapped report field.
+    /// Preserve a wrapped field's annotation and report contracts, including associated types.
     Transparent(
-        /// Wrapped report member receiving every forwarded operation.
+        /// Field supplying the message, target, heading, classification, and annotations.
         TargetMember,
     ),
 
-    /// Build the primary annotation from a selected source target.
+    /// The enclosing struct is its own annotation with custom wording and an inferred target.
     Custom {
-        /// Diagnostic title policy.
+        /// Heading text independent of the primary annotation message.
         title: TitlePolicy,
 
-        /// Primary annotation message policy.
+        /// Text describing the concern at the selected source location.
         message: Message,
 
-        /// Member establishing the primary source target.
+        /// Direct span or annotated field establishing the primary source coordinates.
         target: TargetMember,
     },
 
-    /// Reuse a statically nonempty inline annotation collection.
+    /// Expose stored annotations while giving the enclosing struct its primary annotation's target.
     Stored {
-        /// Diagnostic title policy.
+        /// Heading text independent of the stored annotation messages.
         title: TitlePolicy,
 
-        /// Optional primary-message projection overriding the stored annotation title type.
+        /// Optional wording for the enclosing annotation view, leaving the stored collection unchanged.
         message: Option<Message>,
 
-        /// Member storing the annotation collection.
+        /// Collection whose `PrimaryAnnotations` contract establishes a primary location and message.
         annotations: TargetMember,
     },
 }
 
 impl StructurePolicy {
-    /// Parse the structure report policy.
+    /// Admit forwarding alone or a titled report with inferred or stored annotations,
+    /// rejecting absent fields and incompatible wording choices.
     fn parse(attributes: &[Attribute], members: &[(Member, Type)], ident: &Ident) -> syn::Result<Self> {
         let declarations = Declarations::parse(attributes)?;
+
         let Declarations {
             transparent,
             title,
@@ -314,7 +316,8 @@ impl StructurePolicy {
         }
     }
 
-    /// Generate implementations for the validated structure policy.
+    /// The selected mode determines the report's heading and collection together
+    /// with the enclosing value's annotation contract.
     fn expand(&self, ident: &Ident, generics: &syn::Generics, runtime: &TokenStream) -> TokenStream {
         match self {
             Self::Transparent(target) => Self::expand_transparent(ident, generics, runtime, target),
@@ -327,7 +330,8 @@ impl StructurePolicy {
         }
     }
 
-    /// Generate the custom primary-annotation implementation.
+    /// The enclosing struct supplies its own string annotation and heading with
+    /// the selected target and `Simple::Error` classification.
     fn expand_custom(
         ident: &Ident,
         generics: &syn::Generics,
@@ -337,6 +341,7 @@ impl StructurePolicy {
         target: &TargetMember,
     ) -> TokenStream {
         let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
         let title = title.expression(quote!(self));
         let message = message.expression(quote!(self));
         let target = target.expression(runtime);
@@ -379,9 +384,11 @@ impl StructurePolicy {
         }
     }
 
-    /// Generate the transparent forwarding implementation.
+    /// Preserve the selected field's message and report types, classification,
+    /// and annotation collection in the enclosing struct.
     fn expand_transparent(ident: &Ident, generics: &syn::Generics, runtime: &TokenStream, target: &TargetMember) -> TokenStream {
         let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
         let inner = target.reference();
         let ty = target.ty();
 
@@ -423,7 +430,8 @@ impl StructurePolicy {
         }
     }
 
-    /// Generate a report backed by the stored nonempty annotation collection.
+    /// Expose the stored collection unchanged and use its primary target for the
+    /// enclosing annotation, with an optional override as `str` wording.
     fn expand_stored(
         ident: &Ident,
         generics: &syn::Generics,
@@ -433,9 +441,11 @@ impl StructurePolicy {
         annotations: &TargetMember,
     ) -> TokenStream {
         let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
         let title = title.expression(quote!(self));
         let annotations_ref = annotations.reference();
         let annotations_ty = annotations.ty();
+
         let (annotation_title, annotation_message) = match message {
             Some(message) => {
                 let message = message.expression(quote!(self));
@@ -493,30 +503,33 @@ impl StructurePolicy {
     }
 }
 
-/// Parsed structure-level report declarations.
+/// Report options before compatibility and field selector validation.
+/// Forwarding distinguishes an explicit field from inference of the sole field.
 #[derive(Debug, Default)]
+// NOTE(invariant): None.
 struct Declarations {
-    /// Optional transparent forwarding target. `Some(None)` means infer the sole field.
+    /// Forwarding selection, where `Some(None)` requests the sole field and `None` disables forwarding.
     transparent: Option<Option<Member>>,
 
-    /// Optional static title.
+    /// Literal report heading, mutually exclusive with `title_with`.
     title: Option<LitStr>,
 
-    /// Optional title projection function.
+    /// Projection borrowing the report heading, mutually exclusive with `title`.
     title_with: Option<Path>,
 
-    /// Optional static primary message.
+    /// Literal annotation wording, mutually exclusive with `message_with`.
     message: Option<LitStr>,
 
-    /// Optional primary-message projection function.
+    /// Borrowed annotation wording projected from the report value or variant payload.
     message_with: Option<Path>,
 
-    /// Optional stored annotation member.
+    /// Explicit collection selector that replaces inferred primary targeting for structs.
     annotations: Option<Member>,
 }
 
 impl Declarations {
-    /// Parse report declarations from structure attributes.
+    /// Admit options across attributes with unique recognized names, without
+    /// establishing mode compatibility or field existence.
     fn parse(attributes: &[Attribute]) -> syn::Result<Self> {
         let mut transparent = None;
         let mut standard = Vec::new();
@@ -555,6 +568,7 @@ impl Declarations {
         }
 
         let standard = StandardDeclarations::from_list(&standard).map_err(syn::Error::from)?;
+
         let StandardDeclarations {
             title,
             title_with,
@@ -569,32 +583,36 @@ impl Declarations {
             title_with,
             message,
             message_with,
-            annotations: annotations.map(|member| member.0),
+            annotations: annotations.map(|MemberArgument(member)| member),
         })
     }
 }
 
-/// Standard report metadata parsed through Darling.
+/// Non-forwarding report options whose duplicates and unknown names are rejected.
+/// Their compatibility depends on whether the declaration is a struct or enum alternative.
 #[derive(Debug, Default, FromMeta)]
+// NOTE(invariant): None.
 struct StandardDeclarations {
-    /// Static title text.
+    /// Literal heading independent of error display and annotation wording.
     title: Option<LitStr>,
 
-    /// Function path projecting a title from the report value.
+    /// Borrowed heading projection available only to struct report policies.
     title_with: Option<Path>,
 
-    /// Static primary annotation message.
+    /// Literal wording at the primary location, independent of the report heading.
     message: Option<LitStr>,
 
-    /// Function path projecting a primary message from the report value.
+    /// Borrowed annotation wording projected from a struct or an enum payload.
     message_with: Option<Path>,
 
-    /// Field containing stored annotations.
+    /// Struct field whose collection supplies both annotation order and a primary location.
     annotations: Option<MemberArgument>,
 }
 
-/// A field selector parsed from the value of `annotations` metadata.
+/// A stored annotation field selector using a field name or tuple position.
+/// Selecting an existing field is a separate obligation of the struct policy.
 #[derive(Debug)]
+// NOTE(invariant): None.
 struct MemberArgument(Member);
 
 impl FromMeta for MemberArgument {
@@ -603,24 +621,24 @@ impl FromMeta for MemberArgument {
     }
 }
 
-/// Diagnostic title policy.
+/// A report heading independent of annotation messages and standard error display.
 #[derive(Debug)]
 enum TitlePolicy {
-    /// Static diagnostic title.
+    /// Literal heading used without format interpolation.
     Static(
-        /// Literal emitted as the diagnostic title.
+        /// Heading text shared by every report value using this policy.
         LitStr,
     ),
 
-    /// Function used to project a borrowed title from the error.
+    /// A heading borrowed from the diagnostic value.
     With(
-        /// Function path used to project a borrowed diagnostic title.
+        /// Projection whose result must coerce to `&str` for the subject borrow.
         Path,
     ),
 }
 
 impl TitlePolicy {
-    /// Resolve the exclusive title declaration.
+    /// Require exactly one heading source, rejecting both absent and competing declarations.
     fn resolve(title: Option<LitStr>, title_with: Option<Path>, ident: &Ident) -> syn::Result<Self> {
         match (title, title_with) {
             (Some(title), None) => Ok(Self::Static(title)),
@@ -630,7 +648,7 @@ impl TitlePolicy {
         }
     }
 
-    /// Generate the title expression.
+    /// A heading expression valid for the borrow of `subject`, independent of annotation wording.
     fn expression(&self, subject: TokenStream) -> TokenStream {
         match self {
             Self::Static(title) => quote!(#title),
@@ -639,28 +657,30 @@ impl TitlePolicy {
     }
 }
 
-/// Source target selected from a structure member.
+/// A selected field with its declared type retained for report requirements.
+/// Only a type path ending in `Span` permits direct coordinate access.
 #[derive(Debug, Clone)]
 enum TargetMember {
-    /// Member stores a source span directly.
+    /// A field spelled as a `Span` supplies source coordinates directly.
     Span(
-        /// Structure member containing the source span.
+        /// Field selector locating the direct source coordinates.
         Member,
-        /// Declared type of the selected member.
+        /// Caller-declared type retained for associated-type references.
         Type,
     ),
 
-    /// Member supplies its target through Annotated.
+    /// A field subject to the selected policy's runtime traits rather than direct span access.
     Annotated(
-        /// Structure member implementing the annotation contract.
+        /// Field selector available for annotation, report forwarding, or stored collection access.
         Member,
-        /// Declared type of the selected member.
+        /// Caller-declared type retained for associated-type references.
         Type,
     ),
 }
 
 impl TargetMember {
-    /// Construct the member classification.
+    /// Only `Span` spelling permits direct coordinate access, leaving other fields
+    /// subject to the runtime traits required by their selected policy.
     fn new(member: Member, ty: Type) -> Self {
         if Structure::is_span(&ty) {
             Self::Span(member, ty)
@@ -669,7 +689,8 @@ impl TargetMember {
         }
     }
 
-    /// Generate a borrow of the selected member.
+    /// The selected field remains borrowed from the enclosing report for forwarding
+    /// or stored annotation access.
     fn reference(&self) -> TokenStream {
         let member = match self {
             Self::Span(member, _) | Self::Annotated(member, _) => member,
@@ -678,14 +699,15 @@ impl TargetMember {
         quote!(&self.#member)
     }
 
-    /// Retrieve the selected member type.
+    /// Declared field type governing the associated types of forwarded or stored diagnostics.
     const fn ty(&self) -> &Type {
         match self {
             Self::Span(_, ty) | Self::Annotated(_, ty) => ty,
         }
     }
 
-    /// Generate the source-span expression.
+    /// Source coordinates supplied by the field or its annotation contract,
+    /// without validation against a source.
     fn expression(&self, runtime: &TokenStream) -> TokenStream {
         match self {
             Self::Span(member, _) => quote!(self.#member),
@@ -694,24 +716,25 @@ impl TargetMember {
     }
 }
 
-/// Primary annotation message policy.
+/// Annotation wording independent of the diagnostic heading and error display.
+/// A projection borrows its subject rather than requiring allocated message text.
 #[derive(Debug)]
 enum Message {
-    /// Static annotation text.
+    /// Literal annotation wording used without format interpolation.
     Static(
-        /// Literal emitted as the primary annotation message.
+        /// Annotation text shared by every diagnostic value using this policy.
         LitStr,
     ),
 
-    /// Function used to project annotation text from the error.
+    /// Annotation wording borrowed from a struct or enum payload.
     With(
-        /// Function path used to project a borrowed annotation message.
+        /// Projection whose result must coerce to `&str` for the subject borrow.
         Path,
     ),
 }
 
 impl Message {
-    /// Resolve an optional exclusive message declaration.
+    /// Permit absent wording for a stored primary message, rejecting competing overrides.
     fn optional(message: Option<LitStr>, message_with: Option<Path>, ident: &Ident) -> syn::Result<Option<Self>> {
         match (message, message_with) {
             (Some(message), None) => Ok(Some(Self::Static(message))),
@@ -721,7 +744,7 @@ impl Message {
         }
     }
 
-    /// Resolve the required exclusive message declaration.
+    /// Require exactly one message source, rejecting both absent and competing declarations.
     fn resolve(message: Option<LitStr>, message_with: Option<Path>, ident: &Ident) -> syn::Result<Self> {
         match (message, message_with) {
             (Some(message), None) => Ok(Self::Static(message)),
@@ -731,7 +754,7 @@ impl Message {
         }
     }
 
-    /// Generate the message expression.
+    /// A message expression valid for the borrow of `subject`, independent of the report heading.
     fn expression(&self, subject: TokenStream) -> TokenStream {
         match self {
             Self::Static(message) => quote!(#message),
@@ -740,26 +763,29 @@ impl Message {
     }
 }
 
-/// Validated report enum alternative.
+/// A report alternative with exactly one unnamed field and compatible wording
+/// metadata. Its declared payload must satisfy the selected runtime contracts.
 #[derive(Debug)]
+// NOTE(invariant): `ty` is the sole unnamed field of `ident`, and `policy` has been validated for that field.
 struct Variant {
-    /// Variant constructor name.
+    /// Alternative whose wording and location apply when it is active.
     ident: Ident,
 
-    /// Wrapped diagnostic type.
+    /// Payload type whose spelling distinguishes a direct span from an annotated target.
     ty: Type,
 
-    /// Report wording and forwarding policy.
+    /// Explicit or forwarded wording within the enum's shared annotation and error kind.
     policy: Policy,
 
-    /// Configuration attributes copied to generated match arms.
+    /// Conditions under which this alternative participates in the enum's report contracts.
     cfg: Vec<Attribute>,
 }
 
 impl Variant {
-    /// Validate the report enum alternative.
+    /// Require a sole unnamed payload and wording compatible with enum report constraints.
     fn new(variant: syn::Variant) -> syn::Result<Self> {
         let syn::Variant { attrs, ident, fields, .. } = variant;
+
         let ty = match fields {
             Fields::Unnamed(fields) => {
                 let mut fields = fields.unnamed.into_iter();
@@ -785,9 +811,10 @@ impl Variant {
         Ok(Self { ident, ty, policy, cfg })
     }
 
-    /// Generate the message match arm.
+    /// This alternative's annotation wording must coerce to `&str` for the payload borrow.
     fn message_arm(&self, runtime: &TokenStream) -> TokenStream {
         let Self { ident, policy, cfg, .. } = self;
+
         let message = match policy {
             Policy::Transparent => quote!(#runtime::annotated::Annotated::message(error)),
             Policy::Custom { message, .. } => message.expression(quote!(error)),
@@ -799,9 +826,10 @@ impl Variant {
         }
     }
 
-    /// Generate the target match arm.
+    /// This alternative's source coordinates come from a direct span or the payload's annotation.
     fn target_arm(&self, runtime: &TokenStream) -> TokenStream {
         let Self { ident, ty, cfg, .. } = self;
+
         let target = if Structure::is_span(ty) {
             quote!(*error)
         } else {
@@ -814,9 +842,10 @@ impl Variant {
         }
     }
 
-    /// Generate the title match arm.
+    /// This alternative's report heading is literal text or borrowed from its wrapped report.
     fn title_arm(&self, runtime: &TokenStream) -> TokenStream {
         let Self { ident, policy, cfg, .. } = self;
+
         let title = match policy {
             Policy::Transparent => quote!(#runtime::report::Report::title(error)),
             Policy::Custom { title, .. } => quote!(#title),
@@ -829,24 +858,26 @@ impl Variant {
     }
 }
 
-/// Report wording and forwarding policy.
+/// An enum alternative's wording within a shared `str` annotation and `Simple::Error`
+/// classification. Forwarding reuses wording rather than the wrapped report's collection or kind.
 #[derive(Debug)]
 enum Policy {
-    /// Forward wording to the wrapped report.
+    /// Borrow annotation wording and the heading from a payload implementing both diagnostic traits.
     Transparent,
 
-    /// Use explicit static title and message policy.
+    /// Require a literal heading with independently selected annotation wording.
     Custom {
-        /// Static diagnostic title.
+        /// Literal report heading independent of the payload's own diagnostic title.
         title: LitStr,
 
-        /// Primary annotation message policy.
+        /// Literal wording or text borrowed from the payload for the enum's annotation view.
         message: Message,
     },
 }
 
 impl Policy {
-    /// Parse report metadata from an item or enum alternative.
+    /// Require transparent wording or a literal heading with a message, excluding
+    /// struct-only title projections, stored collections, and field selectors.
     fn parse(attributes: &[Attribute], ident: &Ident) -> syn::Result<Self> {
         let Declarations {
             transparent,
@@ -856,6 +887,7 @@ impl Policy {
             message_with,
             annotations,
         } = Declarations::parse(attributes)?;
+
         let transparent = match transparent {
             None => false,
             Some(None) => true,

@@ -1,8 +1,7 @@
-//! Byte-oriented textual diagnostics rendered as hexadecimal rows.
+//! Renderer for reports over raw byte sources.
 //!
-//! The renderer prints fixed-width byte cells beside an ASCII projection and
-//! places annotation markers beneath intersecting rows. Terminal source-boundary
-//! diagnostics are rendered as insertion points after the final byte cell.
+//! Each row is indexed by a zero-based byte offset and shows both hexadecimal
+//! values and an ASCII projection, with annotation locations beneath the rows.
 
 use core::{cmp, fmt, num::NonZero};
 
@@ -16,8 +15,11 @@ use crate::{
     report::SourceReport,
 };
 
-/// Presentation settings for byte-oriented diagnostic dumps.
+/// Row width, hexadecimal case, and marker glyphs for a byte dump.
+///
+/// The default uses 16 bytes per row, uppercase digits, and `.`/`^` markers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+// NOTE(invariant): None.
 pub struct HexdumpSettings {
     /// Number of source bytes shown in each rendered row.
     bytes_per_row: NonZero<usize>,
@@ -35,9 +37,8 @@ pub struct HexdumpSettings {
     point: char,
 }
 
-// NOTE(invariant): Every rendered row has a strictly positive byte capacity.
 impl HexdumpSettings {
-    /// Construct hexdump settings with an explicit row width.
+    /// Set the row width and use the default case and marker glyphs.
     #[inline]
     #[must_use]
     pub const fn new(bytes_per_row: NonZero<usize>) -> Self {
@@ -68,7 +69,6 @@ impl HexdumpSettings {
         }
     }
 
-    /// Retrieve the number of bytes rendered per row.
     #[inline]
     #[must_use]
     pub const fn bytes_per_row(&self) -> NonZero<usize> {
@@ -77,7 +77,6 @@ impl HexdumpSettings {
         bytes_per_row
     }
 
-    /// Retrieve the hexadecimal letter case.
     #[inline]
     #[must_use]
     pub const fn case(&self) -> HexCase {
@@ -86,7 +85,6 @@ impl HexdumpSettings {
         case
     }
 
-    /// Retrieve the non-graphic byte replacement glyph.
     #[inline]
     #[must_use]
     pub const fn replacement(&self) -> char {
@@ -95,7 +93,6 @@ impl HexdumpSettings {
         replacement
     }
 
-    /// Retrieve the annotation span glyph.
     #[inline]
     #[must_use]
     pub const fn span(&self) -> char {
@@ -104,7 +101,6 @@ impl HexdumpSettings {
         span
     }
 
-    /// Retrieve the source-boundary point glyph.
     #[inline]
     #[must_use]
     pub const fn point(&self) -> char {
@@ -142,6 +138,7 @@ impl Default for HexCase {
 
 /// Hexadecimal value with an explicit field width and letter case.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+// NOTE(invariant): None.
 struct Hex<T> {
     /// Value rendered in hexadecimal notation.
     value: T,
@@ -165,16 +162,6 @@ impl<T> Hex<T> {
     /// Construct a hexadecimal value from its formatting parts.
     const fn from_raw_parts(value: T, width: usize, case: HexCase) -> Self {
         Self { value, width, case }
-    }
-
-    /// Construct a hexadecimal value padded to at least two digits.
-    const fn two(value: T, case: HexCase) -> Self {
-        Self::from_raw_parts(value, 2, case)
-    }
-
-    /// Construct a hexadecimal value padded to at least eight digits.
-    const fn eight(value: T, case: HexCase) -> Self {
-        Self::from_raw_parts(value, 8, case)
     }
 }
 
@@ -206,11 +193,12 @@ where
     }
 }
 
-/// Textual offload renderer for byte-oriented diagnostic sources.
+/// Renders byte sources as hexadecimal rows with printable-byte projections.
 ///
-/// Each source row is rendered as hexadecimal byte cells with an ASCII
-/// projection. Annotation spans are projected beneath intersecting rows, while a
-/// terminal unit span is rendered as an insertion marker after the final cell.
+/// Because annotation coordinates are byte offsets, targets are clipped to
+/// the rows they intersect. A unit span at the source length instead represents
+/// an insertion, so its marker appears after the final byte even when the
+/// source is empty.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Hexdump {}
 
@@ -254,14 +242,14 @@ where
         for (row_index, source_row) in source_rows.enumerate() {
             let row_start_offset = row_index.saturating_mul(bytes_per_row);
             let row_end_offset = row_start_offset.saturating_add(source_row.len());
-            let row_offset = Hex::eight(row_start_offset, hex_case);
+            let row_offset = Hex::from_raw_parts(row_start_offset, 8, hex_case);
 
             row_offset.sequence(' '.times(2)).print(sink)?;
 
             for column_index in 0..bytes_per_row {
                 match source_row.get(column_index) {
                     Some(source_byte) => {
-                        let formatted_byte = Hex::two(*source_byte, hex_case);
+                        let formatted_byte = Hex::from_raw_parts(*source_byte, 2, hex_case);
 
                         formatted_byte.sequence(' ').print(sink)?;
                     }
@@ -335,92 +323,4 @@ where
 }
 
 #[cfg(test)]
-mod tests {
-    use core::num::NonZero;
-
-    use aldebaran_baseline::span::Span;
-
-    use crate::{
-        annotated::{InlineAnnotations, label::Label},
-        render::{
-            RenderMut,
-            textual::{Present, Textual},
-        },
-        report::{Report, kind::Simple},
-    };
-
-    use super::{HexCase, Hexdump, HexdumpSettings};
-
-    #[derive(Debug)]
-    struct Diagnostic(InlineAnnotations<Label<&'static str>, 1>);
-
-    impl Report for Diagnostic {
-        type Title = str;
-        type Kind = Simple;
-        type Annotations = InlineAnnotations<Label<&'static str>, 1>;
-
-        #[inline]
-        fn kind(&self) -> &Self::Kind {
-            &Simple::Error
-        }
-
-        #[inline]
-        fn title(&self) -> &Self::Title {
-            "malformed bytes"
-        }
-
-        #[inline]
-        fn annotations(&self) -> &Self::Annotations {
-            let Self(annotations) = self;
-
-            annotations
-        }
-    }
-
-    #[test]
-    fn renders_byte_spans() {
-        let source = [0xde, 0xad, 0xbe, 0xef, 0x00, b'A'];
-        let length = NonZero::<usize>::MIN.saturating_add(1);
-        let primary = Label::new("invalid bytes", Span::new(1, length));
-        let related = [Label::new("insert here", Span::unit(source.len()))];
-        let report = Diagnostic(InlineAnnotations::new(primary, related));
-        let attached = report.attach(source.as_slice());
-        let mut output = String::new();
-        let mut renderer = Textual::<'_, _, Hexdump, _>::new(&mut output);
-        let settings = Present::from_input(HexdumpSettings::default());
-
-        renderer
-            .render_mut_with_input(settings, &attached)
-            .expect("hexdump rendering should succeed");
-
-        assert!(output.contains("error: malformed bytes"));
-        assert!(output.contains("00000000  DE AD BE EF 00 41"));
-        assert!(output.contains("|.....A"));
-        assert!(output.contains("^^ ^^ invalid bytes"));
-        assert!(output.contains("^ insert here"));
-    }
-
-    #[test]
-    fn customizes_hexdump_presentation() {
-        let source = [0xab, b'A', 0x00];
-        let length = NonZero::<usize>::MIN.saturating_add(1);
-        let primary = Label::new("invalid bytes", Span::new(0, length));
-        let related = [Label::new("insert here", Span::unit(source.len()))];
-        let report = Diagnostic(InlineAnnotations::new(primary, related));
-        let attached = report.attach(source.as_slice());
-        let mut output = String::new();
-        let mut renderer = Textual::<'_, _, Hexdump, _>::new(&mut output);
-        let bytes_per_row = NonZero::<usize>::MIN.saturating_add(2);
-        let settings = HexdumpSettings::from_raw_parts(bytes_per_row, HexCase::Lower, '?', '~', '!');
-        let settings = Present::from_input(settings);
-
-        renderer
-            .render_mut_with_input(settings, &attached)
-            .expect("custom hexdump rendering should succeed");
-
-        assert!(output.contains("00000000  ab 41 00"));
-        assert!(output.contains("|?A?|"));
-        assert!(output.contains("~~ ~~ invalid bytes"));
-        assert!(output.contains("! insert here"));
-    }
-}
+mod tests;
