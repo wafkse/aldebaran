@@ -1,8 +1,4 @@
-//! Owned collections that guarantee at least one element.
-//!
-//! [`OneOrMore`] stores one mandatory first value separately from an owned tail.
-//! Borrowed views and iterators preserve that nonempty guarantee while exposing
-//! ordinary traversal and mutation over the complete logical collection.
+//! Borrowed views and iteration for owned nonempty collections.
 
 /// Shared and exclusive traversal over the required first element and tail.
 pub mod iter;
@@ -15,10 +11,11 @@ use core::{convert::AsRef, num::NonZero};
 
 use alloc::vec::Vec;
 
-/// A structure that guarantees that there is at least one known element.
+/// An owned sequence with separate access to its first value and tail.
 ///
-/// For a reference-based version, see [`RefOneOrMore`].
+/// For a borrowed view, see [`RefOneOrMore`].
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+// NOTE(invariant): None.
 pub struct OneOrMore<T> {
     /// The required first element that makes the collection nonempty.
     a0: T,
@@ -28,7 +25,11 @@ pub struct OneOrMore<T> {
 }
 
 impl<T> OneOrMore<T> {
-    /// Create a [`OneOrMore`] of references to some type.
+    /// Create a collection containing a reference to the first input value.
+    ///
+    /// The returned tail starts empty, although its requested capacity comes from
+    /// the input tail's length. As a result, the input tail reserves storage without
+    /// contributing values to the collection.
     #[inline]
     pub fn references<'a>((a0, a_n): (&'a T, &'a [T])) -> OneOrMore<&'a T> {
         let a_n = Vec::with_capacity(a_n.len());
@@ -36,7 +37,7 @@ impl<T> OneOrMore<T> {
         OneOrMore { a0, a_n }
     }
 
-    /// Retrieve a reference to the first value contained in this [`OneOrMore`].
+    /// Borrow the required first value.
     #[inline]
     pub const fn first(&self) -> &T {
         let &Self { ref a0, .. } = self;
@@ -44,8 +45,7 @@ impl<T> OneOrMore<T> {
         a0
     }
 
-    /// Retrieve a mutable reference to the first value contained in this
-    /// [`OneOrMore`].
+    /// Mutably borrow the required first value.
     #[inline]
     pub const fn first_mut(&mut self) -> &mut T {
         let &mut Self { ref mut a0, .. } = self;
@@ -53,8 +53,7 @@ impl<T> OneOrMore<T> {
         a0
     }
 
-    /// Retrieve a reference to the [`Vec`] corresponding to the rest of the
-    /// values.
+    /// Borrow the tail following the required first value.
     #[inline]
     pub const fn rest(&self) -> &Vec<T> {
         let &Self { ref a_n, .. } = self;
@@ -62,8 +61,7 @@ impl<T> OneOrMore<T> {
         a_n
     }
 
-    /// Retrieve a mutable reference to [`Vec`] corresponding to the rest of the
-    /// values.
+    /// Mutate the tail without removing the required first value.
     #[inline]
     pub const fn rest_mut(&mut self) -> &mut Vec<T> {
         let &mut Self { ref mut a_n, .. } = self;
@@ -71,7 +69,7 @@ impl<T> OneOrMore<T> {
         a_n
     }
 
-    /// Retrieve the first value and the rest of the values as a 2-tuple.
+    /// Borrow the required value and tail together.
     #[inline]
     pub const fn tuple(&self) -> (&T, &Vec<T>) {
         let &Self { ref a0, ref a_n } = self;
@@ -79,8 +77,7 @@ impl<T> OneOrMore<T> {
         (a0, a_n)
     }
 
-    /// Retrieve the first value and the rest of the values as a 2-tuple,
-    /// mutably.
+    /// Mutably borrow the required value and tail together.
     #[inline]
     pub fn tuple_mut(&mut self) -> (&mut T, &mut Vec<T>) {
         let &mut Self { ref mut a0, ref mut a_n } = self;
@@ -88,13 +85,11 @@ impl<T> OneOrMore<T> {
         (a0, a_n)
     }
 
-    /// Retrieve the `nth` value.
+    /// Index the tail using one-based numbering.
     ///
-    /// `n` is constrained to be a non-zero value, valid indices are `1..=len`
-    /// and will only fetch from the rest of the values, not the first one.
-    ///
-    /// For natural zero-based traversal across the complete collection, use
-    /// [`Self::iter`] instead.
+    /// Because the required first value is excluded, position `1` selects the
+    /// first tail value, and positions beyond the tail return [`None`]. To include
+    /// the required value in traversal, use [`Self::iter`] instead.
     #[inline]
     pub fn nth(&self, n: NonZero<usize>) -> Option<&T> {
         let &Self { ref a_n, .. } = self;
@@ -104,7 +99,7 @@ impl<T> OneOrMore<T> {
         a_n.get(target_index)
     }
 
-    /// Retrieve an iterator over all values.
+    /// Iterate over the required value followed by the tail.
     #[inline]
     pub fn iter(&self) -> OnceOrMore<'_, T> {
         let &Self { ref a0, ref a_n } = self;
@@ -114,14 +109,13 @@ impl<T> OneOrMore<T> {
         a0.iter()
     }
 
-    /// Retrieve an iterator over all values, mutably.
+    /// Mutably iterate over the required value followed by the tail.
     #[inline]
     pub fn iter_mut(&mut self) -> OnceOrMoreMut<'_, T> {
         OnceOrMoreMut::from_mut_ref(self)
     }
 
-    /// Convert this [`OneOrMore`] into a referential counterpart
-    /// [`RefOneOrMore`].
+    /// Borrow this sequence as a [`RefOneOrMore`] without copying its elements.
     #[inline]
     pub fn as_ref(&self) -> RefOneOrMore<'_, T> {
         let &Self { ref a0, ref a_n } = self;
@@ -131,7 +125,7 @@ impl<T> OneOrMore<T> {
 }
 
 impl<T> OneOrMore<T> {
-    /// Create a new [`OneOrMore`] with a single value.
+    /// Create a sequence whose tail is empty.
     #[inline]
     pub const fn single(a0: T) -> Self {
         let a_n = Vec::new();
@@ -139,9 +133,7 @@ impl<T> OneOrMore<T> {
         Self { a0, a_n }
     }
 
-    /// Create a new [`OneOrMore`] from borrowed values.
-    ///
-    /// This will clone the values into the internal storage.
+    /// Clone the first value and tail into owned storage.
     #[inline]
     pub fn from_borrowed<P, U>(a0: P, a_n: U) -> Self
     where
@@ -168,20 +160,18 @@ impl<T> OneOrMore<T> {
         Self { a0, a_n }
     }
 
-    /// Create a new [`OneOrMore`] with the specified first value and the rest
+    /// Create a sequence from its required value and owned tail.
     #[inline]
     pub fn from_raw_parts((a0, a_n): (T, Vec<T>)) -> Self {
         Self { a0, a_n }
     }
 
-    /// Attempt to create a new [`OneOrMore`] collection from a [`Vec`].
+    /// Convert a nonempty vector into a [`OneOrMore`].
     ///
-    /// Returns `None` if the vector is empty.
-    ///
-    /// # Note
-    ///
-    /// This performs a [`Vec::swap_remove`], so the order of the elements in
-    /// the is not kept in any way or shape.
+    /// The original first element becomes the required value, so an empty vector
+    /// returns [`None`]. Removing that first element moves the original last
+    /// element to the front of the tail, which means the input order is not
+    /// preserved when the vector has more than one element.
     #[inline]
     pub fn from_vec(mut vec: Vec<T>) -> Option<Self> {
         if vec.is_empty() {

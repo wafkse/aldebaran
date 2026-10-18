@@ -3,37 +3,38 @@
 //! [`Appendage`] grows tuples while preserving their component types, and
 //! [`Uniform`] converts homogeneous tuples into fixed-size arrays.
 
-/// A trait for those that can have types `{ap,pre}pended` to them.
+/// Tuple operations that preserve each element's type and position.
 ///
-/// This is useful for certain cummulative operations, such as appending
-/// values to a tuple in a type-safe manner.
+/// Implementations are provided for tuples with one through seventeen elements.
 pub trait Appendage {
-    /// The next type that has type `T` appended to, e.g `(..., T)`.
+    /// The tuple type with `T` as its final element.
     type Append<T>;
 
-    /// The next type that has type `T` prepended to, e.g `(T, ...)`.
+    /// The tuple type with `T` as its first element.
     type Prepend<T>;
 
-    /// The current length for this [`Appendage`] type.
+    /// Number of elements in the current tuple.
     const LENGTH: usize;
 
-    /// Append a value of type `T` to the current [`Appendage`] type.
+    /// Return the tuple with `target_value` appended.
     fn append<T>(self, target_value: T) -> Self::Append<T>;
 
-    /// Prepend a value of type `T` to the current [`Appendage`] type.
+    /// Return the tuple with `target_value` prepended.
     fn prepend<T>(self, target_value: T) -> Self::Prepend<T>;
 }
 
-/// A trait for those tuples that are uniform in their type.
+/// Conversion from a homogeneous tuple to an array of the same length.
+///
+/// Implementations are provided for tuple lengths one through sixteen.
 pub trait Uniform<const K: usize, T>
 where
     Self: Appendage,
 {
-    /// Convert the homogeneous tuple into an array while preserving tuple order.
+    /// Consume the tuple into an array, preserving element order.
     fn array(self) -> [T; K];
 }
 
-/// TT-Muncher that implements [`Appendage`] for tuple types.
+/// Generate [`Appendage`] implementations for the supplied tuple shapes.
 macro_rules! appendage {
     (
         @
@@ -186,8 +187,7 @@ appendage!(
     (T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16),
 );
 
-/// TT-Muncher that implements [`Uniform`] for tuple types of homogeneous
-/// types.
+/// Generate [`Uniform`] implementations for homogeneous tuple lengths.
 macro_rules! uniform {
     () => {};
     (

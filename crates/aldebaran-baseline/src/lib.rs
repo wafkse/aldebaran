@@ -1,6 +1,5 @@
 #![no_std]
-//! Foundational source coordinates, tuple operations, nonempty collections,
-//! inline storage, and optional allocator integration.
+#![doc = include_str!("../README.md")]
 
 #[cfg(any(feature = "alloc", test))]
 extern crate alloc;
@@ -22,9 +21,8 @@ pub mod allocator;
 mod tests;
 
 pub mod prelude {
-    //! The prelude for the `aldebaran-baseline` crate.
-    //!
-    //! It re-exports commonly used foundational types.
+    //! The baseline crate prelude re-exports its commonly used coordinate, selection,
+    //! and collection primitives.
 
     pub use crate::maybe_spanned::MaybeSpanned;
     pub use crate::select::{Either, EitherOrBoth};

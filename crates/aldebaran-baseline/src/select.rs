@@ -1,25 +1,18 @@
-//! The module hosting various "selection" types.
-//!
-//! Selection types are used to represent some relationship between two or more
-//! types, such as a "or", "xor", and other such relationships. These types are
-//! used to represent the various possibilities that can occur in a program.
+//! Selection enums retain which of two alternatives produced a value, including
+//! whether both alternatives are present when combining optional results.
 
-/// A selection type that represents a choice between two types.
+/// A value from one of two alternatives, with its side preserved.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum Either<L, R> {
-    /// The left-hand side of the selection.
+    /// The value from the left alternative.
     Left(L),
 
-    /// The right-hand side of the selection.
+    /// The value from the right alternative.
     Right(R),
 }
 
 impl<T> Either<T, T> {
-    /// A convenience method to get the value of the selection, regardless of
-    /// which side it is.
-    ///
-    /// This is only available when the left-hand side and right-hand side are
-    /// the same type.
+    /// Borrow the selected value when both alternatives have the same type.
     #[inline]
     pub const fn anyhow(&self) -> &T {
         match self {
@@ -30,22 +23,21 @@ impl<T> Either<T, T> {
 }
 
 impl<L, R> Either<L, R> {
-    /// Create a new selection type with the left-hand side value.
+    /// Select the left alternative.
     #[inline]
     pub const fn left(value: L) -> Self {
         Self::Left(value)
     }
 
-    /// Create a new selection type with the right-hand side value.
+    /// Select the right alternative.
     #[inline]
     pub const fn right(value: R) -> Self {
         Self::Right(value)
     }
 
-    /// A bi-directional monadic map operation.
+    /// Apply the function for the selected side and preserve that side in the result.
     ///
-    /// In other words, this applies a different function depending on which
-    /// side the value is on, mapping the value to a different type.
+    /// The function for the unselected side is not called.
     #[inline]
     pub fn bidirectional_map<F, G, I, J>(self, left: F, right: G) -> Either<I, J>
     where
@@ -59,24 +51,21 @@ impl<L, R> Either<L, R> {
     }
 }
 
-/// A selection type that represents a choice between two types, or both.
-///
-/// This is similar to the [`Either`] type, but it also includes a case where
-/// both the left-hand side and the right-hand side are selected.
+/// The present values from two alternatives, preserving whether one or both exist.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum EitherOrBoth<L, R> {
-    /// The left-hand side of the selection.
+    /// Only the left alternative is present.
     Left(L),
 
-    /// The right-hand side of the selection.
+    /// Only the right alternative is present.
     Right(R),
 
-    /// Both the left-hand side and the right-hand side of the selection.
+    /// Both alternatives are present.
     Both(L, R),
 }
 
 impl<L, R> EitherOrBoth<L, R> {
-    /// Construct a [`EitherOrBoth`] from a 2-tuple of [`Option`]s.
+    /// Combine two optional values, returning [`None`] only when both are absent.
     #[inline]
     pub fn maybe(pair: (Option<L>, Option<R>)) -> Option<Self> {
         match pair {
@@ -90,10 +79,9 @@ impl<L, R> EitherOrBoth<L, R> {
         }
     }
 
-    /// An all-variant monadic map operation.
+    /// Map the present values while preserving whether the left, right, or both were present.
     ///
-    /// In other words, this applies a different function depending on which
-    /// side the value is on, mapping the value to a different type.
+    /// Only the function for the current variant is called.
     #[inline]
     pub fn map<F, G, I, J, K>(self, left: F, right: G, both: K) -> EitherOrBoth<I, J>
     where
@@ -112,7 +100,7 @@ impl<L, R> EitherOrBoth<L, R> {
         }
     }
 
-    /// Map the selected types to their references.
+    /// Borrow the present values without changing the variant.
     #[inline]
     pub const fn as_ref(&self) -> EitherOrBoth<&L, &R> {
         match self {
@@ -122,14 +110,14 @@ impl<L, R> EitherOrBoth<L, R> {
         }
     }
 
-    /// Attempt to retrieve a reference to the left value.
+    /// Borrow the left value when the left alternative is present.
     pub const fn left(&self) -> Option<&L> {
         match self {
             Self::Left(value) | Self::Both(value, ..) => Some(value),
             _ => None,
         }
     }
-    /// Attempt to retrieve a reference to the right value.
+    /// Borrow the right value when the right alternative is present.
     pub const fn right(&self) -> Option<&R> {
         match self {
             Self::Right(value) | Self::Both(.., value) => Some(value),
@@ -137,7 +125,7 @@ impl<L, R> EitherOrBoth<L, R> {
         }
     }
 
-    /// Attempt to retrieve a reference to both the left and right values.
+    /// Borrow both values only when both alternatives are present.
     #[inline]
     pub const fn both(&self) -> Option<(&L, &R)> {
         match self {
