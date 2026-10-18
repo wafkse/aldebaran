@@ -1,8 +1,5 @@
-//! Character-oriented assertion values for text processing.
-//!
-//! [`Char`] wraps one Unicode scalar value and participates in assertion,
-//! printing, and ASCII-compatible byte comparisons. It provides the character
-//! counterpart to [`crate::builtin::Byte`] for generic text algorithms.
+//! Unicode scalar equality for character sources. [`Char`] also accepts matching
+//! ASCII bytes, letting the same predicate serve either source kind within ASCII.
 
 use aldebaran_print::visualize::Visualize;
 use core::{
@@ -17,12 +14,8 @@ use aldebaran_logic::{
 
 use aldebaran_print::prelude::Print;
 
-/// A singular character.
-///
-/// This is a *newtype* over [`char`] that represents a singular character.
-///
-/// Be noted that this is also equatable to [`crate::builtin::Byte`], as per the ASCII (and
-/// Unicode) standard.
+/// Matches a Unicode scalar exactly, with the same rule for borrowed inputs.
+/// Byte inputs match only in ASCII, so a multibyte UTF-8 encoding cannot satisfy this predicate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct Char(pub char);

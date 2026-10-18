@@ -1,37 +1,32 @@
-//! Pairing of a source cursor with borrowed mutable construction state.
-//!
-//! [`Internment`] keeps a [`Cursor`] and one mutable context borrow alive
-//! together. Lexical streams use this carrier to reuse storage or other state
-//! across successive values without embedding that state in individual tokens.
+//! Shared state for lexical reads. [`Internment`] keeps source position and
+//! caller-owned construction context available together across token production.
 
 use aldebaran_source::prelude::{SourceDissect, SourceIter};
 
 use super::Cursor;
 
-/// A text cursor paired with one borrowed mutable interner.
+/// Maintains source progress alongside a borrowed construction context across
+/// lexical reads. [`Self::parts_mut`] permits coordinated access to both states.
 #[derive(Debug)]
+// NOTE(invariant): None.
 pub struct Internment<'source, 'interner, S, I>
 where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
     I: ?Sized,
 {
-    /// Source cursor owned by this carrier.
+    /// Source position retained between lexical reads.
     text: Cursor<'source, S>,
 
-    /// Interner borrowed while the source cursor is consumed.
+    /// Caller-owned context whose construction effects persist across reads.
     interner: &'interner mut I,
 }
-
-// NOTE(invariant): `text` is the only cursor for the paired source and `interner`
-// remains mutably borrowed for exactly the carrier lifetime. Consuming or dropping
-// the carrier releases the interner borrow without transferring it into outputs.
 
 impl<'source, 'interner, S, I> Internment<'source, 'interner, S, I>
 where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
     I: ?Sized,
 {
-    /// Create a source cursor paired with borrowed mutable internment state.
+    /// Begin traversal at source offset zero while retaining the caller's construction context.
     #[inline]
     #[must_use]
     pub const fn new(source: &'source S, interner: &'interner mut I) -> Self {
@@ -40,7 +35,8 @@ where
         Self { text, interner }
     }
 
-    /// Borrow the source cursor and interner together.
+    /// Access source progress and construction context together for a lexical read.
+    /// Changes to either remain available to subsequent reads.
     #[inline]
     pub const fn parts_mut(&mut self) -> (&mut Cursor<'source, S>, &mut I) {
         let Self { text, interner } = self;

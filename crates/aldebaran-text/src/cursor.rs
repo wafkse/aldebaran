@@ -1,9 +1,6 @@
-//! Stateful traversal and matching over borrowed source text.
-//!
-//! [`Cursor`] owns a source boundary and advances it through component-oriented
-//! consumption, assertions, and lookahead. Branches support speculative work
-//! without committing the parent cursor, while lexing builds higher-level values
-//! from the same source-relative coordinates.
+//! Source traversal for lexical recognition and recovery. [`Cursor`] preserves
+//! source coordinates for diagnostics, [`branch`] makes cursor progress speculative,
+//! and [`consume`] separates recognition from construction of lexical values.
 
 pub mod error;
 
@@ -29,20 +26,18 @@ use aldebaran_baseline::span::Span;
 
 use self::{branch::Branch, error::Expected};
 
-/// A source cursor used for incremental matching and lexical consumption.
-///
-/// The cursor retains the original borrowed source and one absolute boundary.
-/// Consumption advances only through source components, while lookahead and
-/// branching allow callers to inspect or speculate without inventing separate
-/// coordinate state.
+/// Traverses source components while preserving their diagnostic coordinates.
+/// Offsets and spans use source units, which are bytes for `str` and byte slices,
+/// while lookahead counts components, which are Unicode scalars for `str`.
+// NOTE(invariant): None.
 pub struct Cursor<'source, S>
 where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
-    /// The current index in the source code.
+    /// Position of the next component in the source's coordinate units.
     source_index: usize,
 
-    /// The source code, borrowed for `'source`.
+    /// Source whose coordinate system gives `source_index` its meaning.
     source_code: &'source S,
 }
 
@@ -50,13 +45,16 @@ impl<'source, S> Cursor<'source, S>
 where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
-    /// Create a new [`Cursor`] at the beginning of the borrowed source.
+    /// Begin traversal at offset zero, including for an empty source.
     #[inline]
     pub const fn create(source_code: &'source S) -> Self {
         Self::at(source_code, 0)
     }
 
-    /// Create text positioned at one source boundary.
+    /// Start at an absolute source offset.
+    ///
+    /// The offset is not validated. Out-of-range offsets may behave as exhaustion,
+    /// and offsets inside a `str` scalar can panic during a read.
     #[inline]
     #[must_use]
     pub const fn at(source_code: &'source S, source_index: usize) -> Self {
@@ -68,7 +66,8 @@ impl<'source, S> Cursor<'source, S>
 where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
-    /// Retrieve the index of this [`Cursor`] respective to the source code.
+    /// Position of the next component in source units, including the end boundary
+    /// after ordinary traversal exhausts the source.
     #[inline]
     pub const fn index(&self) -> usize {
         let &Self { source_index, .. } = self;
@@ -76,7 +75,8 @@ where
         source_index
     }
 
-    /// Retrieve the source code of this [`Cursor`].
+    /// Source against which cursor offsets and diagnostic spans are interpreted,
+    /// available for the original source lifetime.
     #[inline]
     pub const fn source(&self) -> &'source S {
         let &Self { source_code, .. } = self;
@@ -89,25 +89,29 @@ impl<'source, S> Cursor<'source, S>
 where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
-    /// Dissect this [`Cursor`] as per the given [`Span`].
+    /// Restrict the source through [`SourceDissect::dissect`] while retaining
+    /// `span.start()` as the new cursor's index.
     ///
-    /// This abides by the same rules as [`SourceDissect::dissect`].
+    /// Built-in string and byte views have coordinates beginning at zero, so a
+    /// nonzero start also skips that many units within the selected view and may
+    /// exhaust it. String views require UTF-8 boundaries for the selected endpoints
+    /// and for subsequent reads within the view.
     #[inline]
     pub fn slice(&self, span: Span) -> Cursor<'source, S>
     where
         S: SourceDissect<'source, View<'source> = &'source S>,
     {
         let &Self { source_code, .. } = self;
+
         let source_code: &'source S = source_code.dissect(span);
         let source_index = span.start();
 
         Cursor { source_index, source_code }
     }
 
-    /// Mutably borrow this [`Cursor`], creating a new [`Branch`] from it.
+    /// Start speculative traversal at the current offset.
     ///
-    /// Branching allows for arbitrary speculative operations to be performed on
-    /// a [`Cursor`], and commiting the changes if necessary.
+    /// Dropping the branch discards its movement. [`Branch::backport`] commits it.
     #[inline]
     pub fn branch<'borrow>(&'borrow mut self) -> Branch<'source, 'borrow, S>
     where
@@ -121,21 +125,21 @@ impl<'source, S> Cursor<'source, S>
 where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
-    /// Determine if the end of the source text has been reached.
+    /// Whether traversal has no next component at the current source offset.
     #[inline]
     pub fn is_eof(&self) -> bool {
         self.peek().is_none()
     }
 
-    /// Peek at the immediate [`Component`] from the source text.
+    /// Inspect the current component without changing its diagnostic position.
     #[inline]
     pub fn peek(&self) -> Option<S::Component> {
         self.peek_at::<0>()
     }
 
-    /// Peek at the `n`th immediate [`Component`] from the source text.
+    /// Inspect the component `N` positions after the next component.
     ///
-    /// `n` is zero-indexed, so `peek_at::<0>()` is equivalent to [`Self::peek`].
+    /// `N` counts components. `N = 0` is equivalent to [`Self::peek`].
     #[inline]
     pub fn peek_at<const N: usize>(&self) -> Option<S::Component> {
         let &Self { source_index, source_code } = self;
@@ -143,7 +147,8 @@ where
         source_code.offset(source_index)?.iter().nth(N)
     }
 
-    /// Take the next [`Component`] from the source text, irrevocably.
+    /// Advance past the next component by its source width, leaving the offset
+    /// unchanged when input is exhausted.
     #[inline]
     pub fn any(&mut self) -> Option<S::Component> {
         let &mut Self {
@@ -158,13 +163,15 @@ where
         Some(target_input)
     }
 
-    /// Take the next [`Component`] from the source text. Includes its associated [`Span`].
+    /// Associate the consumed component with its original source extent.
+    /// Exhaustion leaves the offset unchanged.
     #[inline]
     pub fn any_spanned(&mut self) -> Option<(S::Component, Span)> {
         let &mut Self {
             ref mut source_index,
             source_code,
         } = self;
+
         let target_input = source_code.offset(*source_index)?.iter().next()?;
 
         let span = Span::new(*source_index, target_input.size());
@@ -174,7 +181,7 @@ where
         Some((target_input, span))
     }
 
-    /// Skip the next [`Component`] from the source text.
+    /// Advance past a component without retaining it, leaving exhaustion unchanged.
     #[inline]
     pub fn skip(&mut self) {
         let _: Option<S::Component> = self.any();
@@ -185,8 +192,10 @@ impl<'source, S> Cursor<'source, S>
 where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
-    /// Irrevocably consumes the next component, determining if it is subject
-    /// to the specified [`Assert`], bailing with an [`Expected`] otherwise.
+    /// Consume the next component and check it against an [`Assert`].
+    ///
+    /// A mismatching component remains consumed, while exhaustion is reported at
+    /// a unit span at the current offset.
     #[inline]
     pub fn expect_is_next<A, T>(&mut self, target_assert: T) -> Result<S::Component, Expected<S::Component, A>>
     where
@@ -197,7 +206,10 @@ where
         self.expect_is_next_spanned(target_assert).map(|(component, _)| component)
     }
 
-    /// Consume the next component and return its classification value.
+    /// Consume the next component and classify it with [`Choose`].
+    ///
+    /// A mismatch remains consumed, while exhaustion is reported at a unit span
+    /// at the current offset.
     #[inline]
     pub fn expected_is_next<A>(&mut self, target_assert: A) -> Result<A::Unit, Expected<S::Component, A>>
     where
@@ -207,8 +219,9 @@ where
         self.expected_is_next_spanned(target_assert).map(|(unit, _)| unit)
     }
 
-    /// Alike to [`Self::is_next`], but reports an [`Expected`] instead of a
-    /// boolean.
+    /// Check the next component without consuming it.
+    ///
+    /// A mismatch or exhaustion is reported at a unit span at the current offset.
     #[inline]
     pub fn validate_is_next<A, T>(&self, target_assert: T) -> Result<S::Component, Expected<S::Component, A>>
     where
@@ -239,11 +252,10 @@ where
         }
     }
 
-    /// Validates that the next component is subject to the specified
-    /// [`Assert`] or that `eof` has been reached, failing with an [`Expected`]
-    /// otherwise.
+    /// Check the next component, accepting either a match or exhaustion.
     ///
-    /// This won't consume the next component in case of failure.
+    /// A mismatch is reported at a unit span at the current offset. The cursor is
+    /// not advanced.
     #[inline]
     pub fn validate_is_next_or_eof<A, T>(&self, target_assert: T) -> Result<(), Expected<S::Component, A>>
     where
@@ -273,8 +285,9 @@ where
         }
     }
 
-    /// Optionally consumes the next component if subject to the specified
-    /// [`Assert`], returning the value if it is.
+    /// Consume the next component only when it satisfies the assertion.
+    ///
+    /// A mismatch or exhaustion leaves the cursor unchanged.
     #[inline]
     pub fn optional<A, T>(&mut self, target_assert: T) -> Option<S::Component>
     where
@@ -290,7 +303,10 @@ impl<'source, S> Cursor<'source, S>
 where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
-    /// Expect the next [`Component`] to be subject to `T`. Includes its associated [`Span`].
+    /// Require the next component to satisfy the assertion and preserve its source extent.
+    ///
+    /// A mismatch is consumed and reported at that component's span, while exhaustion
+    /// is reported at a unit span at the current offset.
     #[inline]
     pub fn expect_is_next_spanned<A, T>(&mut self, target_assert: T) -> Result<(S::Component, Span), Expected<S::Component, A>>
     where
@@ -307,7 +323,10 @@ where
         }
     }
 
-    /// Consume the next component and return its classification with the source extent.
+    /// Classify the consumed component while preserving its original source extent.
+    ///
+    /// A mismatch is consumed and reported at that component's span, while exhaustion
+    /// is reported at a unit span at the current offset.
     #[inline]
     pub fn expected_is_next_spanned<A>(&mut self, target_assert: A) -> Result<(A::Unit, Span), Expected<S::Component, A>>
     where
@@ -323,7 +342,9 @@ where
         }
     }
 
-    /// Take the next [`Component`] if it is subject to `T`. Includes its associated [`Span`].
+    /// Consume a matching component and return its source [`Span`].
+    ///
+    /// A mismatch or exhaustion returns `None` without advancing.
     #[inline]
     pub fn optional_spanned<A, T>(&mut self, target_assert: T) -> Option<(S::Component, Span)>
     where
@@ -338,7 +359,8 @@ where
         }
     }
 
-    /// Repeatedly ignores any components that satisfy the target [`Assert`]. Returns the [`Span`] of all ignored components.
+    /// Consume a maximal matching run and identify its source extent, leaving the
+    /// first mismatch unconsumed and producing no span for an empty run.
     #[inline]
     pub fn ignore_while_spanned<A, T>(&mut self, target_assert: T) -> Option<Span>
     where
@@ -363,8 +385,7 @@ impl<'source, S> Cursor<'source, S>
 where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
-    /// Determine if the next component is subject to the specified [`Assert`], falling back to the default value if the end of the source
-    /// has been reached.
+    /// Acceptance at exhaustion is the caller-selected policy `D`.
     #[inline]
     fn is_next_or_default<const D: bool, A, T>(&self, target_assert: T) -> bool
     where
@@ -377,10 +398,9 @@ where
         self.peek().map_or(D, |target_input| target_assert.assert(target_input))
     }
 
-    /// Determine whether the component at lookahead `N` satisfies the specified [`Assert`].
+    /// Test the component `N` positions after the next component.
     ///
-    /// Lookahead is zero-indexed, so `is_at::<0>(assertion)` examines the same
-    /// component as [`Self::is_next`].
+    /// `N` counts components. Missing input returns `false`.
     #[inline]
     pub fn is_at<const N: usize, A, T>(&self, target_assert: T) -> bool
     where
@@ -395,7 +415,8 @@ where
             .unwrap_or(false)
     }
 
-    /// Determines if the next component is subject to the specified [`Assert`].
+    /// Whether the next component satisfies the assertion, with exhaustion treated
+    /// as rejection and the cursor position preserved.
     #[inline]
     pub fn is_next<A, T>(&self, target_assert: T) -> bool
     where
@@ -406,7 +427,7 @@ where
         self.is_at::<0, A, T>(target_assert)
     }
 
-    /// Determine whether the immediate component satisfies the target [`Assert`] or if the end of the source has been reached.
+    /// Return whether the next component matches or input is exhausted.
     #[inline]
     pub fn is_next_or_eof<A, T>(&self, target_assert: T) -> bool
     where
@@ -417,7 +438,7 @@ where
         self.is_next_or_default::<true, A, T>(target_assert)
     }
 
-    /// Repeatedly ignores any components that satisfy the target [`Assert`].
+    /// Discard a maximal matching run, leaving the first mismatch unconsumed.
     #[inline]
     pub fn ignore_while<A, T>(&mut self, target_assert: T)
     where
@@ -428,7 +449,8 @@ where
         while self.optional(&target_assert).is_some() {}
     }
 
-    /// Counts the number of components that satisfy the target [`Assert`].
+    /// Count consumed matches in components rather than source units, leaving the
+    /// first mismatch unconsumed and yielding zero for an empty run.
     #[inline]
     pub fn count<A, T>(&mut self, target_assert: T) -> usize
     where
@@ -504,7 +526,14 @@ where
     S: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.source_index == other.source_index && self.source_code == other.source_code
+        let Self { source_index, source_code } = self;
+
+        let Self {
+            source_index: other_index,
+            source_code: other_code,
+        } = other;
+
+        source_index == other_index && source_code == other_code
     }
 }
 
@@ -526,9 +555,11 @@ where
     S: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { source_index, source_code } = self;
+
         f.debug_struct("Cursor")
-            .field("source_index", &self.source_index)
-            .field("source_code", &self.source_code)
+            .field("source_index", source_index)
+            .field("source_code", source_code)
             .finish()
     }
 }
@@ -556,6 +587,68 @@ mod tests {
     use crate::prelude::{AsciiAlphanumeric, Digit};
 
     use super::Cursor;
+
+    #[test]
+    fn validation_reports_a_mismatch_without_consuming_it() {
+        let mut text = Cursor::create("α7");
+        let error = text.validate_is_next(AsciiAlphanumeric).expect_err("Greek letters are not ASCII");
+
+        assert_eq!(Annotated::target(&error), Span::unit(0));
+        assert_eq!(text.index(), 0);
+        assert_eq!(text.any(), Some('α'));
+        assert_eq!(text.validate_is_next(AsciiAlphanumeric), Ok('7'));
+        assert_eq!(text.index(), 2);
+        assert_eq!(text.peek(), Some('7'));
+    }
+
+    #[test]
+    fn consuming_mismatch_preserves_the_rejected_component_extent() {
+        let mut text = Cursor::create("α7");
+        let error = text.expect_is_next(AsciiAlphanumeric).expect_err("Greek letters are not ASCII");
+        let width = NonZero::new(2).expect("the UTF-8 character occupies two bytes");
+
+        assert_eq!(Annotated::target(&error), Span::new(0, width));
+        assert_eq!(text.index(), 2);
+        assert_eq!(text.expect_is_next_spanned(AsciiAlphanumeric), Ok(('7', Span::unit(2))));
+    }
+
+    #[test]
+    fn optional_matching_does_not_consume_a_mismatch_or_advance_past_eof() {
+        let mut text = Cursor::create("!7");
+
+        assert_eq!(text.optional_spanned(AsciiAlphanumeric), None);
+        assert_eq!(text.index(), 0);
+        assert_eq!(text.any(), Some('!'));
+        assert_eq!(text.optional_spanned(AsciiAlphanumeric), Some(('7', Span::unit(1))));
+
+        for _ in 0..3 {
+            assert_eq!(text.optional(AsciiAlphanumeric), None);
+            assert_eq!(text.optional_spanned(AsciiAlphanumeric), None);
+            assert_eq!(text.index(), 2);
+        }
+    }
+
+    #[test]
+    fn ignored_span_covers_utf8_bytes_and_leaves_the_first_mismatch() {
+        let mut text = Cursor::create("αα!");
+        let width = NonZero::new(4).expect("two Greek letters occupy four bytes");
+
+        assert_eq!(text.ignore_while_spanned('α'), Some(Span::new(0, width)));
+        assert_eq!(text.index(), 4);
+        assert_eq!(text.peek(), Some('!'));
+        assert_eq!(text.ignore_while_spanned('α'), None);
+        assert_eq!(text.index(), 4);
+    }
+
+    #[test]
+    fn count_measures_components_rather_than_source_bytes() {
+        let mut text = Cursor::create("αα!");
+
+        assert_eq!(text.count('α'), 2);
+        assert_eq!(text.index(), 4);
+        assert_eq!(text.count('α'), 0);
+        assert_eq!(text.peek(), Some('!'));
+    }
 
     #[test]
     fn missing_input_targets_terminal_source_boundary() {
@@ -625,8 +718,6 @@ mod tests {
         assert_eq!(Annotated::target(&first_error), Span::unit(0));
         assert_eq!(Annotated::target(&err), Span::unit(1));
         assert_eq!(t.index(), s.len());
-
-        //let err = t.expect_is_next(Char('8')).expect_err("valid");
 
         let mut target_sink = String::new();
 

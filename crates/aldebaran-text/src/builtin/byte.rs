@@ -1,8 +1,5 @@
-//! Byte-oriented assertion values for text processing.
-//!
-//! [`Byte`] wraps one `u8` and participates in assertion, printing, and ASCII
-//! compatible comparisons. It lets generic text algorithms treat a concrete byte
-//! value as a reusable predicate without erasing the underlying byte identity.
+//! Byte equality across byte and character sources. [`Byte`] accepts any byte
+//! value but restricts cross-kind matching to ASCII.
 
 use aldebaran_print::visualize::Visualize;
 use core::{
@@ -17,11 +14,8 @@ use aldebaran_logic::{
 
 use aldebaran_print::prelude::Print;
 
-/// A singular byte.
-///
-/// This is a *new-type* over [`u8`] that represents a singular byte.
-///
-/// Be noted that this is equatable to [`crate::builtin::Char`], as per the Unicode standard.
+/// Matches a byte exactly, with the same rule for borrowed inputs.
+/// Character inputs match only in ASCII, so byte values above `0x7f` never match a character.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct Byte(pub u8);
