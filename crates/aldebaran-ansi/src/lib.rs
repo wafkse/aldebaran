@@ -1,12 +1,5 @@
-//! ANSI terminal styling primitives for printable values.
-//!
-//! The crate models colors, text attributes, escape sequences, and deferred style
-//! application independently. Consumers can compose presentation without forcing
-//! ANSI concerns into the semantic values being printed.
-
+#![doc = include_str!("../README.md")]
 #![cfg_attr(not(test), no_std)]
-//! ANSI colors, text attributes, and deferred terminal painting for
-//! `aldebaran-print` values.
 
 pub mod brush;
 pub mod predicate;
@@ -14,10 +7,9 @@ pub mod reset;
 pub mod sequence;
 
 pub mod prelude {
-    //! A prelude for the `aldebaran-ansi` crate.
+    //! The `aldebaran-ansi` prelude.
     //!
-    //! This simply re-exports the most commonly used items in the
-    //! `aldebaran-ansi` crate.
+    //! Re-exports the most commonly used items from this crate.
 
     pub use crate::brush::{
         Paintable,

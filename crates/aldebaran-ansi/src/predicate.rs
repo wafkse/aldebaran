@@ -1,12 +1,17 @@
-//! Predicates for conditional logic during the painting process.
+//! Caller-owned conditions for enabling terminal presentation.
 //!
-//! See the [`ContextualPredicate`] trait for more information.
+//! [`Should`] binds a condition to borrowed context and implements
+//! [`ContextualPredicate`]. Painting evaluates that condition when
+//! [`only_when`](crate::brush::paint::Painted::only_when) is called, retaining
+//! the result rather than the predicate or its context.
 
-/// A predicate that holds an inherent context.
+/// A reusable painting condition bound to caller-owned context.
 ///
-/// This is a struct that holds a context and a predicate, and can be used as an
-/// [`ContextualPredicate`].
+/// Each [`holds`](Self::holds) evaluation consults the borrowed context. The
+/// adapter retains no cached decision, leaving painting to snapshot the result
+/// when the condition is applied.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+// NOTE(invariant): None.
 pub struct Should<'a, C, P>
 where
     P: Fn(&'a C) -> bool,
@@ -45,21 +50,19 @@ impl<'a, C, P> Should<'a, C, P>
 where
     P: Fn(&'a C) -> bool,
 {
-    /// Instantiate a new contextual predicate from the given
-    /// context and predicate 2-tuple.
+    /// Bind the predicate to the context in an existing pair.
     #[inline]
     pub fn tuple((context, predicate): (&'a C, P)) -> Self {
         Self { context, predicate }
     }
 
-    /// Instantiate a new contextual predicate from the given
-    /// context and predicate.
+    /// Bind the predicate to the borrowed context.
     #[inline]
     pub const fn satisfies(context: &'a C, predicate: P) -> Self {
         Self { context, predicate }
     }
 
-    /// Determine if the predicate holds for the given context.
+    /// Evaluate the predicate against the stored context.
     #[inline]
     pub fn holds(&self) -> bool {
         let &Self { context, ref predicate } = self;
@@ -67,7 +70,7 @@ where
         predicate(context)
     }
 
-    /// Retrieve the context for this contextual predicate.
+    /// Caller-owned data against which the condition is evaluated.
     #[inline]
     pub const fn context(&self) -> &'a C {
         let &Self { context, .. } = self;
@@ -75,7 +78,7 @@ where
         context
     }
 
-    /// Retrieve the predicate for this contextual predicate.
+    /// Bound condition available for reuse without taking a new decision snapshot.
     #[inline]
     pub const fn predicate(&self) -> &P {
         let &Self { ref predicate, .. } = self;
@@ -100,27 +103,24 @@ where
     }
 }
 
-/// A trait for types that can be used as contextual predicates.
-///
-/// A contextual predicate is simply a predicate that holds an inherent context.
+/// A presentation decision with separately accessible evaluation context.
+/// Zero-argument closures satisfy this contract with unit context.
 #[diagnostic::on_unimplemented(
     message = "{Self} is not a contextual predicate",
     label = "implementing this trait will enable the use of the `holds` method"
 )]
 pub trait ContextualPredicate {
-    /// The context type for the predicate.
+    /// Data available to the condition, independent of a printable value's context.
     type Context;
 
-    /// Retrieve the context for this contextual predicate.
+    /// Evaluation data associated with this presentation condition.
     fn context(&self) -> &Self::Context;
 
-    /// Determine if the contextua; predicate holds.
+    /// Evaluate whether the condition is satisfied.
     fn holds(&self) -> bool;
 }
 
-/// Blanket implementation for all types that implement the `Fn` trait.
-///
-/// Uses a unit (`()`) context.
+/// Zero-argument closures provide painting decisions without external context.
 impl<F> ContextualPredicate for F
 where
     F: Fn() -> bool,

@@ -1,8 +1,8 @@
-//! Color, style, and deferred painting primitives for ANSI output.
+//! Deferred terminal presentation built from colors and text attributes.
 //!
-//! Color models describe terminal color identity, [`style::Style`] combines color and
-//! text attributes, and [`paint::Painted`] applies that style only while a printable
-//! subject is written. The module keeps presentation policy separate from data.
+//! [`color::Color`] selects a palette or RGB representation and [`style::Style`]
+//! combines those choices with text attributes. [`Paintable`] attaches that
+//! style to printable values for emission when they are rendered.
 
 pub mod color;
 pub mod paint;

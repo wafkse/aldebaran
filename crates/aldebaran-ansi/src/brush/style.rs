@@ -1,8 +1,8 @@
-//! Composite ANSI styles for painted output.
+//! Terminal styles combining color overrides and text attributes.
 //!
-//! [`Style`] combines optional foreground and background colors with a set of
-//! text attributes. Emission coalesces compatible settings where possible and
-//! the [`Stylus`] implementation resets terminal state after the wrapped print.
+//! [`Style`] emits [`Attributes`] and optional foreground and background
+//! colors. Its [`Stylus`] implementation brackets a writer closure with
+//! activation and a global reset, without restoring earlier terminal settings.
 
 mod mode;
 
@@ -19,38 +19,31 @@ use crate::{
 
 pub use mode::{Attributes, TextAttribute};
 
-/// A style that can be applied to a painted type.
+/// Optional [`Color`] overrides and active [`Attributes`] for formatted output.
 ///
-/// The stylistic settings that can be applied are:
-/// - `foreground` color
-/// - `background` color
-/// - `bold` setting
-/// - `underline` setting
-/// - `strike` setting (strike-through text)
+/// The [`Stylus`] implementation applies the configured SGR state around a
+/// closure's output, leaving a surface unchanged during setup when its color is
+/// absent. After the closure returns, SGR 0 clears active settings, so wrapping
+/// output does not restore the terminal's previous state.
+///
+/// If setup fails, the closure does not run. Otherwise, its result is returned
+/// only after reset succeeds, which means a reset failure takes precedence over
+/// the closure's result. A panic bypasses this reset path.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+// NOTE(invariant): None.
 pub struct Style {
-    /// The foreground override, or the terminal default when absent.
+    /// The configured foreground override, if present.
     foreground: Option<Color>,
 
-    /// The background override, or the terminal default when absent.
+    /// The configured background override, if present.
     background: Option<Color>,
 
-    /// Text attributes enabled while the styled subject is emitted.
+    /// Text attributes selected for emission.
     attribute: Attributes,
 }
 
-/// Main implementation block for [`Style`].
-///
-/// Methods for this type follow a determinate trend:
-///
-/// - Immutable (copied) accessors are named after the field they access.
-/// - Mutable accessors are named after the field they access, suffixed with `_mut`.
-/// - Replace methods are named after the field they replace, suffixed with `_replace`.
 impl Style {
-    /// Create a new, empty, [`Style`].
-    ///
-    /// This style has no foreground, background, or bold settings (`defaults to
-    /// false`)
+    /// No activation settings. Used as a [`Stylus`], this still emits a global reset after output.
     #[inline]
     pub const fn empty() -> Self {
         Self {
@@ -60,10 +53,7 @@ impl Style {
         }
     }
 
-    /// Retrieve the underlying `foreground` color of this [`Style`].
-    ///
-    /// To retrieve a mutable reference to the foreground color, use the
-    /// [`Style::foreground_mut`] method instead.
+    /// Glyph-color override. An absent override leaves the foreground unchanged during activation.
     #[inline]
     pub const fn foreground(&self) -> Option<Color> {
         let &Self { foreground, .. } = self;
@@ -71,11 +61,8 @@ impl Style {
         foreground
     }
 
-    /// Retrieve a mutable reference to the underlying `foreground` color of
-    /// this [`Style`].
-    ///
-    /// If you wish to only retrieve the associated setting, make use of the
-    /// [`Style::foreground`] method instead.
+    /// Adjust an existing glyph-color override.
+    /// An absent override cannot be installed through this view.
     #[inline]
     pub const fn foreground_mut(&mut self) -> Option<&mut Color> {
         let &mut Self { ref mut foreground, .. } = self;
@@ -83,10 +70,7 @@ impl Style {
         foreground.as_mut()
     }
 
-    /// Retrieve the underlying `background` color of this [`Style`].
-    ///
-    /// To retrieve a mutable reference to the background color, use the
-    /// [`Style::background_mut`] method instead.
+    /// Background override. An absent override leaves the background unchanged during activation.
     #[inline]
     pub const fn background(&self) -> Option<Color> {
         let &Self { background, .. } = self;
@@ -94,11 +78,8 @@ impl Style {
         background
     }
 
-    /// Retrieve a mutable reference to the underlying `background` color of
-    /// this [`Style`].
-    ///
-    /// If you wish to only retrieve the associated setting, make use of the
-    /// [`Style::background`] method instead.
+    /// Adjust an existing background override.
+    /// An absent override cannot be installed through this view.
     #[inline]
     pub const fn background_mut(&mut self) -> Option<&mut Color> {
         let &mut Self { ref mut background, .. } = self;
@@ -106,8 +87,7 @@ impl Style {
         background.as_mut()
     }
 
-    /// Retrieve the underlying [`TextAttribute`] (if existing) of this
-    /// [`Style`].
+    /// Attribute activations included in this style's emitted settings.
     #[inline]
     pub const fn attribute(&self) -> Attributes {
         let &Self { attribute, .. } = self;
@@ -115,8 +95,7 @@ impl Style {
         attribute
     }
 
-    /// Retrieve a mutable reference to the underlying [`TextAttribute`] (if
-    /// existing) of this [`Style`].
+    /// Adjust the attributes emitted by this style on subsequent activation.
     #[inline]
     pub const fn attribute_mut(&mut self) -> &mut Attributes {
         let &mut Self { ref mut attribute, .. } = self;
@@ -124,11 +103,7 @@ impl Style {
         attribute
     }
 
-    /// Replace (alike to [`Option::replace`]) the `attribute` setting of this
-    /// [`Style`] with the specified one.
-    ///
-    /// For a mutable reference to the `attribute` setting, use the
-    /// [`Style::attribute_mut`] method instead.
+    /// Replace the attribute set and return its previous value.
     #[inline]
     pub const fn attribute_replace(&mut self, value: Attributes) -> Attributes {
         let &mut Self { ref mut attribute, .. } = self;
@@ -140,11 +115,7 @@ impl Style {
         last_value
     }
 
-    /// Replace (alike to [`Option::replace`]) the `foreground` color of this
-    /// [`Style`] with the specified one.
-    ///
-    /// For a mutable reference to the `foreground` color, use the
-    /// [`Style::foreground_mut`] method instead.
+    /// Set the foreground override and return the previous value, if present.
     #[inline]
     pub const fn foreground_replace(&mut self, value: Color) -> Option<Color> {
         let &mut Self { ref mut foreground, .. } = self;
@@ -152,11 +123,7 @@ impl Style {
         foreground.replace(value)
     }
 
-    /// Replace (alike to [`Option::replace`]) the `background` color of this
-    /// [`Style`] with the specified one.
-    ///
-    /// For a mutable reference to the `background` color, use the
-    /// [`Style::background_mut`] method instead.
+    /// Set the background override and return the previous value, if present.
     #[inline]
     pub const fn background_replace(&mut self, value: Color) -> Option<Color> {
         let &mut Self { ref mut background, .. } = self;
@@ -197,8 +164,7 @@ impl AnsiSequence<()> for Style {
         } = self;
 
         match (foreground, background, attribute) {
-            // If all the settings are present, and the foreground and
-            // background are both 3-bit colors.
+            // Palette parameters and attributes share a single SGR sequence.
             (&Some(Color::Bits3(foreground_color)), &Some(Color::Bits3(background_color)), &target_attributes) => {
                 let foreground_code = foreground_color.foreground();
                 let background_code = background_color.background();
@@ -260,6 +226,7 @@ mod tests {
     #[test]
     fn painted_attributes_survive_color_until_final_reset() {
         let mut output = String::new();
+
         "subject".red().bold().underline().print(&mut output).expect("paint succeeds");
 
         assert_eq!(output, "\x1b[4m\x1b[1m\x1b[31msubject\x1b[0m");
@@ -289,6 +256,7 @@ mod tests {
 
         for (foreground, background, expected) in cases {
             let mut attribute = Attributes::single(TextAttribute::Bold);
+
             attribute.force(TextAttribute::Underline);
 
             let style = Style {
@@ -297,6 +265,7 @@ mod tests {
                 attribute,
             };
             let mut output = String::new();
+
             style.emit(&mut output).expect("style emission succeeds");
 
             assert_eq!(output, expected, "color activation must not reset attributes");
