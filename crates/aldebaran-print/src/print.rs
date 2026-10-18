@@ -1,10 +1,13 @@
 //! Context-aware printing into formatting sinks.
 //!
-//! [`Print`] is the small formatting contract used by Aldebaran types that need
-//! sink-oriented output without committing to [`core::fmt::Display`]. A value
-//! may require external contextual data such as an interner or arena while
-//! printing. Values with a default context retain the direct [`Print::print`]
-//! convenience path.
+//! [`Print`] writes a value using external context such as an interner or arena,
+//! so the value need not retain that data or implement [`fmt::Display`] itself.
+//! The display adapters make the same printing behavior available to standard
+//! formatting when a context can be supplied or created by default.
+//!
+//! Output goes incrementally to a [`fmt::Write`] sink. Because earlier writes
+//! are not rolled back, a later formatting error can leave partially written
+//! output in that sink.
 
 use core::{
     convert::Infallible,
@@ -12,16 +15,18 @@ use core::{
     ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo},
 };
 
-/// A value that can write its textual representation into a formatting sink.
+/// Text rendering with externally supplied data such as an interner or arena.
+///
+/// The context belongs to the caller, allowing stored values to remain separate
+/// from the data needed to display them. Output errors can leave a written
+/// prefix in the sink, with no rollback required by this contract.
 #[diagnostic::on_unimplemented(message = "{Self} is not printable")]
 pub trait Print {
-    /// External data required while printing this value.
+    /// Data consulted while producing this value's textual representation.
     type Context;
 
-    /// Write this value using a default context.
-    ///
-    /// This convenience operation is available only when the context has a
-    /// natural default value.
+    /// Render using a newly created default context.
+    /// Prefer an explicit context when output depends on caller-owned storage.
     #[inline]
     fn print<W>(&self, writer: &mut W) -> fmt::Result
     where
@@ -33,12 +38,13 @@ pub trait Print {
         self.print_with_context(writer, &context)
     }
 
-    /// Write this value using `context`.
+    /// Render with caller-owned context into the supplied sink.
+    /// Implementations should propagate sink errors without implying output rollback.
     fn print_with_context<W>(&self, writer: &mut W, context: &Self::Context) -> fmt::Result
     where
         W: fmt::Write;
 
-    /// Borrow this value as a standard display value using a default context.
+    /// Use this rendering in standard formatting with a fresh default context each time.
     #[inline]
     #[must_use]
     fn display(&self) -> impl fmt::Display + '_
@@ -48,7 +54,8 @@ pub trait Print {
         DisplayDefault(self)
     }
 
-    /// Borrow this value as a standard display value using `context`.
+    /// Use this rendering in standard formatting while borrowing the same context.
+    /// The adapter retains both borrows until formatting has finished.
     #[inline]
     #[must_use]
     fn display_with_context<'a>(&'a self, context: &'a Self::Context) -> impl fmt::Display + 'a {
@@ -59,8 +66,9 @@ pub trait Print {
     }
 }
 
-/// Borrowed standard-display view of one default-context [`Print`] value.
+/// Standard formatting that creates a fresh default context for each rendering.
 #[repr(transparent)]
+// NOTE(invariant): None.
 struct DisplayDefault<'a, P>(&'a P)
 where
     P: Print + ?Sized;
@@ -78,15 +86,16 @@ where
     }
 }
 
-/// Borrowed standard-display view of one contextual [`Print`] value.
+/// Standard formatting tied to caller-owned context for the lifetime of the adapter.
+// NOTE(invariant): None.
 struct DisplayWith<'a, P>
 where
     P: Print + ?Sized,
 {
-    /// Value rendered using the borrowed context.
+    /// Borrowed subject whose textual form is resolved at formatting time.
     target_value: &'a P,
 
-    /// Context used to customize the rendered value.
+    /// Caller-owned data retained alongside the subject for subsequent formatting.
     context: &'a P::Context,
 }
 
@@ -209,6 +218,7 @@ where
     }
 }
 
+/// Prints [`Option::Some`] and emits no output for [`Option::None`].
 impl<T> Print for Option<T>
 where
     T: Print,
@@ -365,84 +375,4 @@ impl_numeric!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f3
 impl_nonzero!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize);
 
 #[cfg(test)]
-mod tests {
-    extern crate alloc;
-
-    use alloc::{format, string::String};
-    use core::fmt;
-
-    use crate::combine::Combine as _;
-
-    use super::Print as _;
-
-    /// External names resolved by contextual print fixtures.
-    struct Names(&'static [&'static str]);
-
-    /// An index into the external name table.
-    struct Name(usize);
-
-    impl super::Print for Name {
-        type Context = Names;
-
-        fn print_with_context<W>(&self, writer: &mut W, context: &Self::Context) -> fmt::Result
-        where
-            W: fmt::Write,
-        {
-            let Self(target_index) = self;
-            let Names(target_names) = context;
-
-            writer.write_str(target_names[*target_index])
-        }
-    }
-
-    #[test]
-    fn composition_writes_directly_in_order() {
-        let mut output = String::new();
-
-        "ab".sequence('-')
-            .sequence('x'.times(3))
-            .print(&mut output)
-            .expect("writing to a String succeeds");
-
-        assert_eq!(output, "ab-xxx");
-    }
-
-    #[test]
-    fn contextual_values_do_not_require_default_contexts() {
-        let mut output = String::new();
-        let context = Names(&["left", "right"]);
-
-        Name(0)
-            .aggregate(Name(1))
-            .print_with_context(&mut output, &context)
-            .expect("writing to a String succeeds");
-
-        assert_eq!(output, "leftright");
-    }
-
-    #[test]
-    fn default_context_values_can_use_standard_display_formatting() {
-        let output = format!("value={}", 42_u8.display());
-
-        assert_eq!(output, "value=42");
-    }
-
-    #[test]
-    fn contextual_values_can_use_standard_display_formatting() {
-        let context = Names(&["left", "right"]);
-        let target_name = Name(1);
-
-        let output = format!("name={}", target_name.display_with_context(&context));
-
-        assert_eq!(output, "name=right");
-    }
-
-    #[test]
-    fn slices_keep_delimiter_order() {
-        let mut output = String::new();
-
-        [1_u8, 2, 3].print(&mut output).expect("writing to a String succeeds");
-
-        assert_eq!(output, "[1, 2, 3]");
-    }
-}
+mod tests;

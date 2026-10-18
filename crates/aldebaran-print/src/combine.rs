@@ -1,20 +1,18 @@
 //! Deferred composition of printable values.
 //!
-//! [`Combine`] builds small printable values that preserve left-to-right output
-//! without allocating intermediate strings. The concrete adaptor types remain
-//! private because callers only need the resulting [`Print`] capability.
-//!
-//! Composition preserves contextual printing. Aggregation shares one context,
-//! sequencing keeps each child context distinct, and repetition forwards the
-//! inner context unchanged.
+//! [`Combine`] builds printable output without writing it. Aggregation shares
+//! a printing context, sequencing keeps separate contexts, and repetition reuses
+//! the same context for each rendering. The caller supplies context and sink
+//! when the composed value is printed.
 
 use core::fmt;
 
 use crate::print::Print;
 
-/// Extension operations for composing printable values.
+/// Deferred output composition for values that retain their own context requirements.
+/// Builders preserve the subjects until rendering and add no separators.
 pub trait Combine: Print {
-    /// Print `self` followed by `other` using one shared context.
+    /// Concatenate two subjects that resolve against the same printing context.
     #[inline]
     fn aggregate<T>(self, other: T) -> impl Print<Context = Self::Context>
     where
@@ -24,7 +22,8 @@ pub trait Combine: Print {
         Aggregate { left: self, right: other }
     }
 
-    /// Print `self` followed by `other` using independent contexts.
+    /// Concatenate subjects with independently supplied printing contexts.
+    /// The composed context pairs the left subject's context with the right's.
     #[inline]
     fn sequence<T>(self, other: T) -> impl Print<Context = (Self::Context, T::Context)>
     where
@@ -34,7 +33,8 @@ pub trait Combine: Print {
         Sequence { left: self, right: other }
     }
 
-    /// Print `self` exactly `count` times using the same context each time.
+    /// Repeat rendering with shared context and no separators.
+    /// A zero count writes nothing, and a formatting error stops further output.
     #[inline]
     fn times(self, count: u32) -> impl Print<Context = Self::Context>
     where
@@ -46,7 +46,8 @@ pub trait Combine: Print {
 
 impl<T> Combine for T where T: Print + ?Sized {}
 
-/// Two printable values that share one context.
+/// Adjacent output from two subjects resolved against a shared context.
+// NOTE(invariant): None.
 struct Aggregate<T, U>
 where
     T: Print,
@@ -78,7 +79,8 @@ where
     }
 }
 
-/// Two printable values with independent contexts.
+/// Adjacent output whose paired contexts resolve the left and right subjects independently.
+// NOTE(invariant): None.
 struct Sequence<T, U>
 where
     T: Print,
@@ -104,6 +106,7 @@ where
         W: fmt::Write,
     {
         let Self { left, right } = self;
+
         let (left_context, right_context) = context;
 
         left.print_with_context(writer, left_context)?;
@@ -111,7 +114,8 @@ where
     }
 }
 
-/// One printable value repeated a fixed number of times.
+/// Repeated rendering of a retained subject with shared context and no separators.
+// NOTE(invariant): None.
 struct Times<T>
 where
     T: Print,
