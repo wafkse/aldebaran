@@ -1,8 +1,10 @@
-//! Unified interning storage for source-derived values.
+//! Content-based source interning with stable, storage-local identities.
 //!
-//! [`Storage`] can retain borrowed source slices and owned transformed values in
-//! one identity domain. [`OwnedStorage`] provides the corresponding fully owned
-//! model when values must outlive any particular source borrow.
+//! [`Storage`] permits source borrows, while [`OwnedStorage`] retains values
+//! independently of its inputs. Both assign one-based IDs and reuse an ID for
+//! values with equal hashes that compare equal under [`SourceDiff::same_as`].
+//! For consistent deduplication, source equality and hashing must agree and
+//! remain stable while values are stored.
 
 use core::{
     borrow::Borrow,
@@ -26,7 +28,7 @@ use crate::{borrow::BorrowInterner, owned::OwnedInterner};
 use aldebaran_source::prelude::{SourceDiff, SourceDissect, SourceHash, SourceOwned};
 
 Id!(
-    /// A general-purpose storage identifier.
+    /// Storage-local identity whose default width is 32 bits.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
     become StorageId as "storage-id{{{}}}"
 );
@@ -36,18 +38,11 @@ StorageId!(16);
 StorageId!(32 become);
 StorageId!(64);
 
-/// A storage for source-based data.
-///
-/// This is the central storage type for interned data that is either:
-///
-/// - A chunk of the source itself.
-///
-/// - A value that was partially/totally derived from the source.
-///
-/// Therefore, to allow for this to be possible, owned values must be able to
-/// convert to the same kind of source reference for storage to be able to
-/// have a consistent outwards interface.
+/// Retain source values as borrows lasting for `'a` or as owned representations.
+/// Assigned IDs belong to this storage and remain valid across insertions.
 #[derive(Debug, Clone)]
+// NOTE(invariant): ForAll(Id In IndexedIds): 1 <= Id <= StorageList.Length
+// And IndexedHash(Id) = SourceHash(StorageList[Id - 1])
 pub struct Storage<'a, S, O, I = StorageId, H = BuildHasherDefault<FxHasher>>
 where
     S: SourceDissect<'a> + SourceHash<'a> + SourceDiff<'a> + SourceOwned<'a, Owned = O> + ?Sized,
@@ -56,18 +51,13 @@ where
     I::BackingPrimitive: TryFrom<usize>,
     usize: TryFrom<I::BackingPrimitive>,
 {
-    /// The hasher builder for this storage.
-    ///
-    /// Used for value internment.
+    /// Source-content hash policy used to identify reusable values.
     build_hasher: H,
 
-    /// The hash map that stores the interned values.
-    ///
-    /// This [`HashMap`] has no ability to hash keys by itself, so [`Storage`]
-    /// needs to provide a hasher.
+    /// IDs grouped by source hash for content-based identity reuse.
     id_existence: HashMap<I, (), ()>,
 
-    /// The storage vector that stores the interned values.
+    /// Retained source representations in ID assignment order.
     storage_list: Vec<Cow<'a, S>>,
 }
 
@@ -98,7 +88,7 @@ where
     I::BackingPrimitive: TryFrom<usize>,
     usize: TryFrom<I::BackingPrimitive>,
 {
-    /// A new, completely empty internment storage.
+    /// Create empty storage with the default hasher.
     #[inline]
     pub fn empty() -> Self
     where
@@ -117,7 +107,7 @@ where
         }
     }
 
-    /// A new internment storage with a custom hasher builder.
+    /// Create empty storage using `build_hasher` for source-content hashing.
     #[inline]
     pub const fn with_hasher(build_hasher: H) -> Self {
         let id_existence = HashMap::with_hasher(());
@@ -140,8 +130,9 @@ where
     I::BackingPrimitive: TryFrom<usize>,
     usize: TryFrom<I::BackingPrimitive>,
 {
-    /// Store either an owned value or a reference to a value in this
-    /// [`Storage`].
+    /// Intern a source value, retaining the first representation of equal content.
+    /// A distinct value yields `None` without insertion if its new ID cannot be
+    /// represented, but already interned values still return their IDs at capacity.
     #[inline]
     pub fn try_store<V>(&mut self, target_value: V) -> Option<I>
     where
@@ -194,10 +185,9 @@ where
         }
     }
 
-    /// Try to resolve a [`StorageId`] to a reference to the stored value.
-    ///
-    /// If the target [`trait@Id`] `I` was indeed sourced from this [`Storage`], then
-    /// this function will never fail.
+    /// Access a retained source by this storage's identity, yielding `None` for
+    /// an unassigned or unrepresentable position.
+    /// IDs from another storage may resolve to unrelated values here.
     #[inline]
     pub fn try_resolve(&self, target_id: I) -> Option<&S> {
         let &Self { ref storage_list, .. } = self;
@@ -205,7 +195,8 @@ where
         Self::index(target_id).and_then(|index| storage_list.get(index)).map(Cow::as_ref)
     }
 
-    /// Convert a one-based identifier into its zero-based storage position.
+    /// Storage position corresponding to a one-based identity, if representable
+    /// on this platform, without establishing that a value occupies the position.
     #[inline]
     fn index(target_id: I) -> Option<usize>
     where
@@ -223,8 +214,8 @@ where
     I::BackingPrimitive: TryFrom<usize>,
     usize: TryFrom<I::BackingPrimitive>,
 {
-    /// Store a the target value `V` in this [`Storage`] and return a
-    /// [`TaggedId`] that is associated with the target value.
+    /// Intern under [`Self::try_store`]'s reuse and capacity contract, distinguishing
+    /// source types in the returned ID without proving storage membership.
     #[inline]
     pub fn try_store_tagged<V>(&mut self, target_value: V) -> Option<TaggedId<S, I>>
     where
@@ -235,25 +226,19 @@ where
         Some(TaggedId::new(target_id))
     }
 
-    /// Try to resolve a [`TaggedId`] to a reference to the stored value.
+    /// Access a source under [`Self::try_resolve`]'s contract.
+    /// The type tag does not establish that this storage issued the ID.
     #[inline]
     pub fn try_resolve_tagged(&self, tagged_id: TaggedId<S, I>) -> Option<&S> {
         self.try_resolve(tagged_id.into_inner())
     }
 }
 
-/// A storage for source-based data.
-///
-/// This is the central storage type for interned data that is either:
-///
-/// - A chunk of the source itself.
-///
-/// - A value that was partially/totally derived from the source.
-///
-/// Therefore, to allow for this to be possible, owned values must be able to
-/// convert to the same kind of source reference for storage to be able to
-/// have a consistent outwards interface.
+/// Retain source values independently of input borrows under storage-local IDs.
+/// Assigned IDs remain valid across insertions, and resolved borrows are tied to this storage.
 #[derive(Debug, Clone)]
+// NOTE(invariant): ForAll(Id In IndexedIds): 1 <= Id <= StorageList.Length
+// And IndexedHash(Id) = SourceHash(StorageList[Id - 1])
 pub struct OwnedStorage<S, I = StorageId, H = BuildHasherDefault<FxHasher>>
 where
     for<'a> S: SourceDissect<'a> + SourceHash<'a> + SourceDiff<'a> + SourceOwned<'a>,
@@ -263,18 +248,13 @@ where
     S: ?Sized,
     usize: TryFrom<I::BackingPrimitive>,
 {
-    /// The hasher builder for this storage.
-    ///
-    /// Used for value internment.
+    /// Source-content hash policy used to identify reusable values.
     build_hasher: H,
 
-    /// The hash map that stores the interned values.
-    ///
-    /// This [`HashMap`] has no ability to hash keys by itself, so [`Storage`]
-    /// needs to provide a hasher.
+    /// IDs grouped by source hash for content-based identity reuse.
     id_existence: HashMap<I, (), ()>,
 
-    /// The storage vector that stores the interned values.
+    /// Owned source representations retained in ID assignment order.
     storage_list: Vec<S::Owned>,
 }
 
@@ -287,7 +267,7 @@ where
     S: ?Sized,
     usize: TryFrom<I::BackingPrimitive>,
 {
-    /// A new, completely empty internment storage.
+    /// Create empty storage with the default hasher.
     #[inline]
     pub fn empty() -> Self
     where
@@ -306,7 +286,7 @@ where
         }
     }
 
-    /// A new internment storage with a custom hasher builder.
+    /// Create empty storage using `build_hasher` for source-content hashing.
     #[inline]
     pub const fn with_hasher(build_hasher: H) -> Self {
         let id_existence = HashMap::with_hasher(());
@@ -332,6 +312,8 @@ where
 {
     #[inline]
     fn try_store(&mut self, target_value: &S) -> Option<I> {
+        /// An input source borrow that does not require `S` to implement [`AsRef`].
+        // NOTE(invariant): None.
         struct Referenced<'a, S>(&'a S)
         where
             S: ?Sized;
@@ -366,17 +348,9 @@ where
     S: ?Sized,
     usize: TryFrom<I::BackingPrimitive>,
 {
-    /// Store the target value `V` in this [`OwnedStorage`].
-    ///
-    /// Returns the [`StorageId`] that is associated with the target value, if internment did
-    /// not fail.
-    ///
-    /// # Remarks
-    ///
-    /// Note that failure is very unlikely, although it can realistically happen if the used [`trait@Id`] type is too small to
-    /// represent the amount of values that are to be stored in this [`OwnedStorage`].
-    ///
-    /// If your target [`trait@Id`] type is big enough, then this function will never realistically fail.
+    /// Intern an owned source value, retaining the first representation of equal content.
+    /// A distinct value yields `None` without insertion if its new ID cannot be
+    /// represented, but already interned values still return their IDs at capacity.
     #[inline]
     pub fn try_store<V>(&mut self, target_value: V) -> Option<I>
     where
@@ -429,9 +403,9 @@ where
         }
     }
 
-    /// Try to resolve a [`StorageId`] to a reference to the stored value.
-    ///
-    /// If the target [`trait@Id`] `I` was indeed sourced from this [`OwnedStorage`], this method will never fail.
+    /// Access a retained source by this storage's identity, yielding `None` for
+    /// an unassigned or unrepresentable position.
+    /// IDs from another storage may resolve to unrelated values here.
     #[inline]
     pub fn try_resolve(&self, target_id: I) -> Option<&S> {
         let &Self { ref storage_list, .. } = self;
@@ -439,7 +413,8 @@ where
         Self::index(target_id).and_then(|index| storage_list.get(index)).map(Borrow::borrow)
     }
 
-    /// Convert a one-based identifier into its zero-based storage position.
+    /// Storage position corresponding to a one-based identity, if representable
+    /// on this platform, without establishing that a value occupies the position.
     #[inline]
     fn index(target_id: I) -> Option<usize>
     where
@@ -600,6 +575,7 @@ mod tests {
 
         for value in 0..u8::MAX {
             let value = format!("value-{value}");
+
             ids.push(storage.try_store(value).expect("all nonzero u8 IDs fit"));
         }
 

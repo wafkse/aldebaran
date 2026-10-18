@@ -1,9 +1,5 @@
 #![no_std]
-//! Interning facilities for stable value identity.
-//!
-//! Borrowed and owned interners provide distinct storage models while sharing
-//! the same role of mapping repeated values to compact identities. Callers pick
-//! the ownership model that matches the lifetime of their source data.
+#![doc = include_str!("../README.md")]
 
 extern crate alloc;
 
@@ -18,10 +14,8 @@ pub mod owned;
 pub mod storage;
 
 pub mod prelude {
-    //! A prelude for the `aldebaran-interner` crate.
-    //!
-    //! This simply re-exports the most commonly used items in the
-    //! `aldebaran-interner` crate.
+    //! The `aldebaran-interner` prelude re-exports the crate's commonly used
+    //! storage contracts and, when enabled, source storage implementations.
 
     pub use crate::borrow::BorrowInterner;
 
