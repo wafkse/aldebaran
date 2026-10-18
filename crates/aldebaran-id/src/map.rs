@@ -1,4 +1,7 @@
-//! Maps of [`trait@Id`]s to values.
+//! ID lookup with position-aligned views of stored entries.
+//!
+//! [`IdMap`] associates each ID with a value, while [`reverse::ReverseMap`]
+//! provides positional pair storage without requiring unique keys.
 
 use core::hash::{BuildHasher, BuildHasherDefault, Hash};
 
@@ -10,29 +13,20 @@ use rustc_hash::FxHasher;
 
 use crate::prelude::Id;
 
-/// A map from [`trait@Id`]s to values.
-///
-/// # Time Complexity
-///
-/// The time complexity of the operations on this type are the same as those of
-/// the underlying [`HashMap`], but:
-///
-/// - The [`trait@Id`]s are hashed using the [`core::hash::Hash::hash`] implementation, which is a no-op as identifiers are integers for the most part.
-/// - The [`trait@Id`]s are compared using the [`core::cmp::PartialEq::eq`] implementation, which is a simple equality check.
-///
-/// So, the time complexity to access a value by its [`trait@Id`] is `O(1)`, in all
-/// cases be it amortized or worst-case.
+/// Associate values with IDs while retaining aligned key and value slice views.
+/// New IDs append to those views, replacements retain their position, and removal
+/// may reorder them independently of the hash-ordered [`Self::keys`] iterator.
 #[derive(Debug, Clone, PartialEq, Eq)]
+// NOTE(invariant): ForAll((Id, Index) In Map): Index < Storage.Length And Storage.Keys[Index] = Id
 pub struct IdMap<I, V, S = BuildHasherDefault<FxHasher>>
 where
     I: Id,
     S: BuildHasher,
 {
-    /// The hash map that maps the [`trait@Id`]s to the indices of the values in
-    /// [`IdMap::storage`].
+    /// Associates each stored ID with its position in the paired slice views.
     map: HashMap<I, usize, S>,
 
-    /// The value storage.
+    /// Entry order shared by key and value slice views.
     storage: ReverseMap<I, V>,
 }
 
@@ -41,42 +35,7 @@ where
     I: Id,
     S: BuildHasher,
 {
-    /// Creates a new empty [`IdMap`].
-    ///
-    /// # Time Complexity
-    ///
-    /// The time complexity of this operation is `O(1)`.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use aldebaran_id::map::IdMap;
-    /// use aldebaran_id::Id;
-    /// use aldebaran_id::ident::Id as _;
-    ///
-    /// Id!(
-    ///     #[derive(Debug,  Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-    ///     become TestId
-    /// );
-    ///
-    /// TestId!(8);
-    ///
-    /// let mut map: IdMap<TestId8, &str> = IdMap::new();
-    ///
-    /// assert_eq!(map.len(), 0);
-    ///
-    /// assert_eq!(map.capacity(), 0);
-    ///
-    /// assert!(map.is_empty());
-    ///
-    /// assert_eq!(map.keys().count(), 0);
-    ///
-    /// assert_eq!(map.values().count(), 0);
-    ///
-    /// eprintln!("but, is it truly brand-new?: {:?}", map);
-    ///
-    /// map.clear(); // meh, it's empty anyway
-    /// ```
+    /// Create an empty map using the default state for `S`.
     #[inline]
     pub fn new() -> Self
     where
@@ -88,38 +47,9 @@ where
         Self { map, storage }
     }
 
-    /// Creates a new empty [`IdMap`] with the given hasher.
-    ///
-    /// # Time Complexity
-    ///
-    /// The time complexity of this operation is `O(2K)`, where `K` is the time
-    /// complexity of creating two allocators of type `A`.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use aldebaran_id::map::IdMap;
-    /// # use aldebaran_id::Id;
-    /// # use aldebaran_id::ident::Id as _;
-    /// #
-    /// # use std::collections::hash_map::RandomState;
-    /// #
-    /// # Id!(
-    /// #   #[derive(Debug,  Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-    /// #   become TestId
-    /// # );
-    /// #
-    /// TestId!(8);
-    ///
-    /// let map: IdMap<TestId8, &str, RandomState> = IdMap::with_hasher(RandomState::new());
-    ///
-    /// assert_eq!(map.len(), 0);
-    ///
-    /// assert_eq!(map.capacity(), 0);
-    /// ```
+    /// Create an empty map with the supplied hasher state.
     #[inline]
     pub fn with_hasher(hasher: S) -> Self {
-        // fixme: make fn const after this stabilizes
         let map = HashMap::with_hasher(hasher);
         let storage = ReverseMap::new();
 
@@ -143,84 +73,23 @@ where
     I: Id,
     S: BuildHasher,
 {
-    /// Query the capacity of this [`IdMap`], that is, the maximum number of
-    /// elements it can hold without reallocating.
-    ///
-    /// # Time Complexity
-    ///
-    /// The time complexity of this operation is `O(1)`.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use aldebaran_id::map::IdMap;
-    /// # use aldebaran_id::Id;
-    /// # use aldebaran_id::ident::Id as _;
-    /// #
-    /// # Id!(
-    /// #   #[derive(Debug,  Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-    /// #   become TestId
-    /// # );
-    /// #
-    /// TestId!(8);
-    ///
-    /// let mut map: IdMap<TestId8, &str> = IdMap::new();
-    ///
-    /// assert_eq!(map.capacity(), 0);
-    ///
-    /// map.insert(TestId8::MIN, "hello");
-    ///
-    /// assert!(map.capacity() >= 1);
-    /// ```
+    /// Number of entries that fit before either backing store grows.
     #[inline]
     pub fn capacity(&self) -> usize {
         let &Self { ref storage, ref map, .. } = self;
 
-        // FIXME: make this a const fn after this stabilizes
         storage.capacity().min(map.capacity())
     }
 
-    /// Query the number of elements in this [`IdMap`].
-    ///
-    /// # Time Complexity
-    ///
-    /// The time complexity of this operation is `O(1)`.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use aldebaran_id::map::IdMap;
-    /// # use aldebaran_id::Id;
-    /// # use aldebaran_id::ident::Id as _;
-    /// #
-    /// # Id!(
-    /// #   #[derive(Debug,  Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-    /// #   become TestId
-    /// # );
-    /// #
-    /// TestId!(8);
-    ///
-    /// let mut map: IdMap<TestId8, &str> = IdMap::new();
-    ///
-    /// assert_eq!(map.len(), 0);
-    ///
-    /// map.insert(TestId8::MIN, "hello");
-    ///
-    /// assert_eq!(map.len(), 1);
-    /// ```
+    /// Length shared by the paired key and value views.
     #[inline]
     pub fn len(&self) -> usize {
         let &Self { ref storage, .. } = self;
 
-        // FIXME: make this a const fn after this stabilizes
         storage.len()
     }
 
-    /// Determine if this [`IdMap`] is empty.
-    ///
-    /// # Time Complexity
-    ///
-    /// The time complexity of this operation is `O(1)`.
+    /// Whether both paired views are empty and every ID lookup will fail.
     #[inline]
     pub fn is_empty(&self) -> bool {
         let &Self { ref storage, .. } = self;
@@ -228,11 +97,7 @@ where
         storage.is_empty()
     }
 
-    /// Clear this [`IdMap`], removing all elements.
-    ///
-    /// # Time Complexity
-    ///
-    /// The time complexity of this operation is `O(n)`.
+    /// Discard all associations while retaining capacity for reuse.
     #[inline]
     pub fn clear(&mut self) {
         let &mut Self {
@@ -245,11 +110,7 @@ where
         map.clear();
     }
 
-    /// Determine if the target [`trait@Id`] is contained in this [`IdMap`].
-    ///
-    /// # Time Complexity
-    ///
-    /// The time complexity of this operation is `O(1)`.
+    /// Membership under ID equality, independent of the entry's storage position.
     #[inline]
     pub fn contains_key<Q>(&self, id: Q) -> bool
     where
@@ -261,11 +122,7 @@ where
         map.contains_key(id.as_ref())
     }
 
-    /// Retrieve an iterator over the keys of this [`IdMap`].
-    ///
-    /// # Time Complexity
-    ///
-    /// The time complexity of this operation is `O(1)`.
+    /// Iterate over identifiers in unspecified hash-table order.
     #[inline]
     pub fn keys<'a>(&'a self) -> impl Iterator<Item = &'a I> + 'a {
         let &Self { ref map, .. } = self;
@@ -273,11 +130,8 @@ where
         map.keys()
     }
 
-    /// Retrieve an iterator over the values of entries of this [`IdMap`].
-    ///
-    /// # Time Complexity
-    ///
-    /// The time complexity of this operation is `O(1)`.
+    /// Iterate over values in paired storage order, which may differ from
+    /// [`Self::keys`].
     #[inline]
     pub fn values<'a>(&'a self) -> impl Iterator<Item = &'a V> + 'a {
         let &Self { ref storage, .. } = self;
@@ -285,12 +139,8 @@ where
         storage.values().iter()
     }
 
-    /// Retrieve a mutable iterator over the values of the entries of this
-    /// [`IdMap`].
-    ///
-    /// # Time Complexity
-    ///
-    /// The time complexity of this operation is `O(1)`.
+    /// Edit values in the order of [`Self::as_keys`] without changing their IDs
+    /// or storage positions.
     #[inline]
     pub fn values_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut V> + 'a {
         let &mut Self { ref mut storage, .. } = self;
@@ -298,39 +148,26 @@ where
         storage.iter_mut().map(|(_, v)| v)
     }
 
-    /// Retrieve a reference to a slice of the values of the entries of this
-    /// [`IdMap`].
-    ///
-    /// # Time Complexity
-    ///
-    /// The time complexity of this operation is `O(1)`.
+    /// Values aligned by index with [`Self::as_keys`], including after reordering
+    /// by removal.
     #[inline]
     pub fn as_values(&self) -> &[V] {
         let &Self { ref storage, .. } = self;
 
-        // FIXME: make this a const fn after this stabilizes
         storage.values()
     }
 
-    /// Retrieve a reference to a slice of the keys of the entries of this
-    /// [`IdMap`].
-    ///
-    /// # Time Complexity
-    ///
-    /// The time complexity of this operation is `O(1)`.
+    /// IDs aligned by index with [`Self::as_values`], independently of the order
+    /// produced by [`Self::keys`].
     #[inline]
     pub fn as_keys(&self) -> &[I] {
         let &Self { ref storage, .. } = self;
 
-        // FIXME: make this a const fn after this stabilizes
         storage.keys()
     }
 
-    /// Retrieve a reference to the value corresponding to the given [`trait@Id`].
-    ///
-    /// # Time Complexity
-    ///
-    /// The time complexity of this operation is `O(1)`.
+    /// Resolve ID equality to its associated value, regardless of storage position.
+    /// An absent ID yields `None`.
     #[inline]
     pub fn get<Q>(&self, id: Q) -> Option<&V>
     where
@@ -342,12 +179,8 @@ where
         map.get(id.as_ref()).and_then(|&index| storage.get(index))
     }
 
-    /// Retrieve a mutable reference to the value corresponding to the given
-    /// [`trait@Id`] in this [`IdMap`].
-    ///
-    /// # Time Complexity
-    ///
-    /// The time complexity of this operation is `O(1)`.
+    /// Edit an ID's associated value without changing its key or storage position.
+    /// An absent ID yields `None`.
     #[inline]
     pub fn get_mut<Q>(&mut self, id: &Q) -> Option<&mut V>
     where
@@ -361,12 +194,8 @@ where
         map.get(id.as_ref()).and_then(move |&index| storage.get_mut(index))
     }
 
-    /// Insert a new entry into this [`IdMap`], potentially replacing an
-    /// existing one.
-    ///
-    /// # Time Complexity
-    ///
-    /// The time complexity of this operation is `O(1)`. (amortized).
+    /// Insert or replace an entry. New IDs append to the paired slices.
+    /// Replacing an entry retains its position and returns the previous value.
     #[inline]
     pub fn insert(&mut self, id: I, value: V) -> Option<V> {
         let &mut Self {
@@ -380,7 +209,6 @@ where
         if let Some(target_index) = target_index {
             let (target_key, target_value) = storage.swap_at(target_index, (id, value));
 
-            // Update the map to reflect the new index of the target key
             let _: Option<usize> = map.insert(target_key, target_index);
 
             Some(target_value)
@@ -395,11 +223,14 @@ where
         }
     }
 
-    /// Remove the entry corresponding to the given [`trait@Id`] from this [`IdMap`].
+    /// Remove an entry and return its stored identifier and value, if present.
     ///
-    /// # Time Complexity
+    /// Removing an entry may move the final stored pair into its position.
     ///
-    /// The time complexity of this operation is `O(1)` (amortized).
+    /// # Panics
+    ///
+    /// If the entry occupies the final storage position, this method panics
+    /// after removing it. This includes removing the only entry.
     #[inline]
     pub fn remove<Q>(&mut self, id: Q) -> Option<(I, V)>
     where
@@ -419,7 +250,6 @@ where
 
             let target_id = storage.get_key(target_index).expect("index removed from storage");
 
-            // Update the map to reflect the new index of the target key
             map.insert(*target_id, target_index);
 
             (target_key, target_value)

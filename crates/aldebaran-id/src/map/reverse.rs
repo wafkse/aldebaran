@@ -1,31 +1,29 @@
-//! A key/value sequence with matched indexing and swap removal.
+//! Positional access to key/value pairs without key lookup or uniqueness checks.
 //!
-//! `ReverseMap` keeps keys and values in parallel vectors so callers can
-//! preserve insertion order while accessing either side by the same index.
+//! [`ReverseMap`] exposes aligned key and value slices, so the same element or
+//! range index selects corresponding parts of both views.
 
 use core::{iter::Zip, mem, ops::IndexMut, slice::SliceIndex};
 
 use alloc::vec::Vec;
 
-/// Borrowed keys and values selected by the same element or range index.
+/// Corresponding key and value selections, including aligned ranges of pairs.
 type IndexedKeyValue<'a, K, V, I> = (&'a <I as SliceIndex<[K]>>::Output, &'a <I as SliceIndex<[V]>>::Output);
 
-/// A map that has a reverse mapping from values to keys.
-///
-/// This is crucial for certain algorithms and data structures to work in `O(1)`
-/// time complexity.
+/// Preserve key/value associations across positional access and value mutation.
+/// Duplicate keys are permitted, and removal may change the position of a surviving pair.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-
+// NOTE(invariant): Keys.Length = Values.Length And ForAll(Index In 0..Keys.Length): Entry(Index) = (Keys[Index], Values[Index])
 pub struct ReverseMap<K, V> {
-    /// The keys of the map.
+    /// Key view aligned by index and length with the value view.
     keys: Vec<K>,
 
-    /// The values of the map.
+    /// Value view aligned by index and length with the key view.
     values: Vec<V>,
 }
 
 impl<K, V> ReverseMap<K, V> {
-    /// Create a new empty [`ReverseMap`].
+    /// Create an empty pair sequence.
     #[inline]
     pub fn new() -> Self {
         let keys = Vec::new();
@@ -36,44 +34,29 @@ impl<K, V> ReverseMap<K, V> {
 }
 
 impl<K, V> ReverseMap<K, V> {
-    /// Query the capacity of the [`ReverseMap`], that is, the maximum number of
-    /// elements it can hold without reallocating.
-    ///
-    /// This operation is `O(1)`.
+    /// Number of pairs that fit before either backing vector grows.
     #[inline]
     pub fn capacity(&self) -> usize {
         let &Self { ref keys, ref values, .. } = self;
 
-        // FIXME: make this a const fn after this stabilizes
         keys.capacity().min(values.capacity())
     }
 
-    /// Query the number of elements in the [`ReverseMap`].
-    ///
-    /// This operation is `O(1)`.
+    /// Length shared by the aligned key and value views.
     #[inline]
-    pub fn len(&self) -> usize {
-        let &Self { ref keys, ref values, .. } = self;
+    pub const fn len(&self) -> usize {
+        let &Self { ref keys, .. } = self;
 
-        assert_eq!(keys.len(), values.len(), "each reverse-map key must have a corresponding value");
-
-        // FIXME: make this a const fn after this stabilizes
         keys.len()
     }
 
-    /// Query if the [`ReverseMap`] is empty.
-    ///
-    /// This operation is `O(1)`.
+    /// Whether both aligned views are empty.
     #[inline]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
-    /// Push a key-value pair into the [`ReverseMap`].
-    ///
-    /// This operation is `O(1)` (amortized). In the worst case it is `O(n +
-    /// 1)`, where `n` is the number of elements in the map, plus the additional
-    /// allocation cost of the underlying allocator.
+    /// Append a pair without checking whether its key is already present.
     #[inline]
     pub fn push(&mut self, key: K, value: V) {
         let &mut Self {
@@ -86,9 +69,7 @@ impl<K, V> ReverseMap<K, V> {
         values.push(value);
     }
 
-    /// Clear the [`ReverseMap`], removing all elements.
-    ///
-    /// This operation is `O(n)` worst-case.
+    /// Discard every association while retaining capacity for reuse.
     #[inline]
     pub fn clear(&mut self) {
         let &mut Self {
@@ -101,9 +82,8 @@ impl<K, V> ReverseMap<K, V> {
         values.clear();
     }
 
-    /// Retrieve the value `V` from the [`ReverseMap`] by index.
-    ///
-    /// Time complexity: `O(1)`.
+    /// Select values by pair position rather than key equality.
+    /// An invalid element or range index yields `None`.
     #[inline]
     pub fn get<I>(&self, index: I) -> Option<&<I as SliceIndex<[V]>>::Output>
     where
@@ -114,9 +94,8 @@ impl<K, V> ReverseMap<K, V> {
         values.get(index)
     }
 
-    /// Retrieve the value `V` from the [`ReverseMap`] by index, mutably.
-    ///
-    /// Time complexity: `O(1)`.
+    /// Edit values selected by pair position without changing their keys or order.
+    /// An invalid element or range index yields `None`.
     #[inline]
     pub fn get_mut<I>(&mut self, index: I) -> Option<&mut <I as SliceIndex<[V]>>::Output>
     where
@@ -127,9 +106,8 @@ impl<K, V> ReverseMap<K, V> {
         values.get_mut(index)
     }
 
-    /// Retrieve the key `K` from the [`ReverseMap`] by index.
-    ///
-    /// Time complexity: `O(1)`.
+    /// Select keys by pair position, including duplicate keys.
+    /// An invalid element or range index yields `None`.
     #[inline]
     pub fn get_key<I>(&self, index: I) -> Option<&<I as SliceIndex<[K]>>::Output>
     where
@@ -140,9 +118,8 @@ impl<K, V> ReverseMap<K, V> {
         keys.get(index)
     }
 
-    /// Retrieve one or many key-value pair from the [`ReverseMap`] by index.
-    ///
-    /// Time complexity: `O(1)` with a constant factor of `2`.
+    /// Select corresponding keys and values by pair position.
+    /// Ranges preserve their alignment, and an invalid index yields `None`.
     #[inline]
     pub fn get_key_value<I>(&self, index: I) -> Option<IndexedKeyValue<'_, K, V, I>>
     where
@@ -153,32 +130,24 @@ impl<K, V> ReverseMap<K, V> {
         keys.get(index).and_then(|k| values.get(index).map(|v| (k, v)))
     }
 
-    /// Retrieve a slice of keys from the [`ReverseMap`].
-    ///
-    /// Time complexity: `O(1)`.
+    /// Keys aligned by index with [`Self::values`], including duplicate keys.
     #[inline]
     pub fn keys(&self) -> &[K] {
         let &Self { ref keys, .. } = self;
 
-        // FIXME: make this a const fn after this stabilizes
         keys.as_slice()
     }
 
-    /// Retrieve a slice of values from the [`ReverseMap`].
-    ///
-    /// Time complexity: `O(1)`.
+    /// Values aligned by index with [`Self::keys`], including after positional replacement
+    /// or removal.
     #[inline]
     pub fn values(&self) -> &[V] {
         let &Self { ref values, .. } = self;
 
-        // FIXME: make this a const fn after this stabilizes
         values.as_slice()
     }
 
-    /// Perform a swap-remove operation on the [`ReverseMap`], that is, remove
-    /// the key-value pair at the given index and swap it with the last element.
-    ///
-    /// This operation is `O(1)`.
+    /// Remove the pair at `index`, moving the final pair into its position.
     ///
     /// # Panics
     ///
@@ -197,10 +166,7 @@ impl<K, V> ReverseMap<K, V> {
         (key, value)
     }
 
-    /// Swap the key-value pair at the given index with the given key-value
-    /// pair.
-    ///
-    /// This operation is `O(1)`.
+    /// Replace the pair at `index`, returning the previous pair.
     ///
     /// # Panics
     ///
@@ -221,10 +187,8 @@ impl<K, V> ReverseMap<K, V> {
         (key, value)
     }
 
-    /// Iterate over the key-value pairs of the [`ReverseMap`].
-    ///
-    /// Creating an iterator over the key-value pairs of the [`ReverseMap`] is
-    /// `O(1)`, with no extra allocations.
+    /// Traverse the associations represented by matching positions in the key
+    /// and value views.
     #[inline]
     pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
         let &Self { ref keys, ref values, .. } = self;
@@ -232,10 +196,7 @@ impl<K, V> ReverseMap<K, V> {
         keys.iter().zip(values.iter())
     }
 
-    /// Iterate over the key-value pairs of the [`ReverseMap`] mutably.
-    ///
-    /// Creating an iterator over the key-value pairs of the [`ReverseMap`] is
-    /// `O(1)`, with no extra allocations.
+    /// Edit values alongside their associated keys without changing pair order.
     #[inline]
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (&K, &mut V)> {
         let &mut Self {
@@ -295,6 +256,7 @@ mod tests {
     #[test]
     fn clear() {
         let mut map: ReverseMap<u32, u32> = ReverseMap::new();
+
         map.push(1, 10);
         map.push(2, 20);
         map.push(3, 30);
@@ -309,6 +271,7 @@ mod tests {
     #[test]
     fn swap_remove_last() {
         let mut map: ReverseMap<u32, u32> = ReverseMap::new();
+
         map.push(1, 10);
         map.push(2, 20);
         map.push(3, 30);
@@ -322,6 +285,7 @@ mod tests {
     #[test]
     fn swap_at_same_index() {
         let mut map: ReverseMap<u32, u32> = ReverseMap::new();
+
         map.push(1, 10);
         map.push(2, 20);
         map.push(3, 30);
@@ -335,10 +299,12 @@ mod tests {
     #[test]
     fn extend() {
         let mut map: ReverseMap<u32, u32> = ReverseMap::new();
+
         map.push(1, 10);
         map.push(2, 20);
 
         let additional_pairs = vec![(3, 30), (4, 40)];
+
         map.extend(additional_pairs);
 
         assert_eq!(map.len(), 4);
@@ -349,6 +315,7 @@ mod tests {
     #[test]
     fn push() {
         let mut map: ReverseMap<u32, u32> = ReverseMap::new();
+
         map.push(1, 10);
         map.push(2, 20);
         map.push(3, 30);
@@ -361,6 +328,7 @@ mod tests {
     #[test]
     fn get() {
         let mut map: ReverseMap<u32, u32> = ReverseMap::new();
+
         map.push(1, 10);
         map.push(2, 20);
         map.push(3, 30);
@@ -374,6 +342,7 @@ mod tests {
     #[test]
     fn get_mut() {
         let mut map: ReverseMap<u32, u32> = ReverseMap::new();
+
         map.push(1, 10);
         map.push(2, 20);
         map.push(3, 30);
@@ -388,6 +357,7 @@ mod tests {
     #[test]
     fn get_key() {
         let mut map: ReverseMap<u32, u32> = ReverseMap::new();
+
         map.push(1, 10);
         map.push(2, 20);
         map.push(3, 30);
@@ -401,6 +371,7 @@ mod tests {
     #[test]
     fn get_key_value() {
         let mut map: ReverseMap<u32, u32> = ReverseMap::new();
+
         map.push(1, 10);
         map.push(2, 20);
         map.push(3, 30);
@@ -414,6 +385,7 @@ mod tests {
     #[test]
     fn iter() {
         let mut map: ReverseMap<u32, u32> = ReverseMap::new();
+
         map.push(1, 10);
         map.push(2, 20);
         map.push(3, 30);
@@ -428,6 +400,7 @@ mod tests {
     #[test]
     fn iter_mut() {
         let mut map: ReverseMap<u32, u32> = ReverseMap::new();
+
         map.push(1, 10);
         map.push(2, 20);
         map.push(3, 30);

@@ -1,10 +1,4 @@
-//! Arbitrary object identification.
-//!
-//! This crate provides a way to identify objects in a way that is unique and
-//! consistent.
-//!
-//! The central trait of this crate is [`Id`], which is a trait that provides a
-//! way to identify objects in a generic manner.
+#![doc = include_str!("../README.md")]
 #![cfg_attr(not(test), no_std)]
 
 extern crate alloc;
@@ -21,14 +15,15 @@ pub mod ident;
 
 #[doc(hidden)]
 pub mod reexport {
+    //! Macro support resolved through this crate, so callers need no direct
+    //! dependency on the token-generation facility.
+
     pub use tokel::stream;
 }
 
 pub mod prelude {
-    //! A prelude for the `aldebaran-id` crate.
-    //!
-    //! This simply re-exports the most commonly used items in the
-    //! `aldebaran-id` crate.
+    //! The `aldebaran-id` prelude re-exports the crate's commonly used identity
+    //! contracts, nonzero representations, and collections.
 
     pub use crate::Id;
 
