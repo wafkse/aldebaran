@@ -1,8 +1,4 @@
-//! Aldebaran source-processing and diagnostic tooling.
-//!
-//! This facade groups the reusable compiler infrastructure crates in the
-//! Aldebaran workspace. Language integrations remain separate consumers so this
-//! crate stays focused on shared mechanisms.
+#![doc = include_str!("../README.md")]
 #![no_std]
 
 pub use aldebaran_ansi as ansi;
@@ -28,10 +24,9 @@ pub use aldebaran_source as source;
 pub use aldebaran_text as text;
 
 pub mod prelude {
-    //! A prelude for the `aldebaran` crate.
+    //! The `aldebaran` prelude.
     //!
-    //! This simply re-exports the most commonly used items in the
-    //! `aldebaran` crate.
+    //! Re-exports the most commonly used items from this crate.
 
     pub use crate::ansi::prelude::*;
 
