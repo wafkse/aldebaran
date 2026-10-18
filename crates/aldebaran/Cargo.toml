@@ -1,0 +1,34 @@
+[package]
+name = "aldebaran"
+version.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Compiler framework for source processing, parsing, diagnostics, and supporting infrastructure"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran"
+readme = "README.md"
+edition = "2024"
+
+[features]
+default = []
+report-codegen = ["aldebaran-report/codegen"]
+allocator = ["aldebaran-baseline/allocator"]
+source-storage = ["aldebaran-interner/source-storage"]
+
+[dependencies]
+aldebaran-ansi.workspace = true
+aldebaran-baseline.workspace = true
+aldebaran-grammar.workspace = true
+aldebaran-ice.workspace = true
+aldebaran-id.workspace = true
+aldebaran-interner.workspace = true
+aldebaran-logic.workspace = true
+aldebaran-print.workspace = true
+aldebaran-report.workspace = true
+aldebaran-source.workspace = true
+aldebaran-text.workspace = true
+
+[lints]
+workspace = true

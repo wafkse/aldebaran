@@ -1,0 +1,24 @@
+[package]
+name = "aldebaran-interner"
+version.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Borrowed and owned value interning for stable identities"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran-interner"
+edition = "2024"
+
+[dependencies]
+aldebaran-id.workspace = true
+aldebaran-source = { workspace = true, optional = true }
+hashbrown.workspace = true
+rustc-hash.workspace = true
+
+[features]
+default = []
+source-storage = ["dep:aldebaran-source"]
+
+[lints]
+workspace = true

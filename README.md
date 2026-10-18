@@ -12,15 +12,8 @@ be used either through the top-level `aldebaran` crate or as individual
 > [!WARNING]
 > Aldebaran is **very pre-alpha**. Expect breaking changes, incomplete features,
 > and bugs. Releases are intended for experimentation.
-
-## crates.io releases
-
-Aldebaran is available on [crates.io](https://crates.io/crates/aldebaran).
-
-```toml
-[dependencies]
-aldebaran = "=0.1.0"
-```
+>
+> THIS IS BEING REWRITTEN
 
 ## What exists today
 
@@ -41,45 +34,29 @@ Aldebaran does not try to define the semantic phases of every language built on
 top of it. Type checking, lowering, evaluation, or other language-specific work
 can live in the consuming project.
 
-## mini-lisp
-
-[`mini-lisp`](https://github.com/wafkse/aldebaran/tree/development/examples/mini-lisp) is the best place to see the
-pieces working together. It has a lexer, persistent symbol internment, a live
-token stream, a recursive-descent parser, a spanned AST, an evaluator, and
-diagnostics for lexing, parsing, and evaluation errors.
-
-```sh
-cargo run -p aldebaran-example-mini-lisp
-```
-
-The example also uses derived reports and multi-span annotations.
+The example crates are not present in this working tree. The runtime crates
+remain independently buildable, and the code below shows their current public
+module paths.
 
 ## Crates
 
 Use `aldebaran` if you want the whole framework. The individual crates are
 also public and can be depended on directly.
 
-- **Facade:** [`aldebaran`](https://github.com/wafkse/aldebaran/tree/development/aldebaran)
-- **Source/core:** [`aldebaran-span`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-span),
-  [`aldebaran-source`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-source),
-  [`aldebaran-id`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-id),
-  [`aldebaran-interner`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-interner),
-  [`aldebaran-primitive`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-primitive),
-  [`aldebaran-dsa`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-dsa)
-- **Language processing:** [`aldebaran-logic`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-logic),
-  [`aldebaran-text`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-text),
-  [`aldebaran-grammar`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-grammar)
-- **Diagnostics:** [`aldebaran-report`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-report)
-- **Presentation:** [`aldebaran-print`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-print),
-  [`aldebaran-style`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-style),
-  [`aldebaran-ansi`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-ansi),
-  [`aldebaran-visualize`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-visualize)
-- **Support:** [`aldebaran-heap`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-heap),
-  [`aldebaran-hash`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-hash),
-  [`aldebaran-ice`](https://github.com/wafkse/aldebaran/tree/development/aldebaran-ice)
+- **Facade:** [`aldebaran`](crates/aldebaran)
+- **Foundations and identity:** [`aldebaran-baseline`](crates/aldebaran-baseline),
+  [`aldebaran-ice`](crates/aldebaran-ice), [`aldebaran-id`](crates/aldebaran-id)
+- **Source processing:** [`aldebaran-source`](crates/aldebaran-source),
+  [`aldebaran-interner`](crates/aldebaran-interner), [`aldebaran-grammar`](crates/aldebaran-grammar),
+  [`aldebaran-text`](crates/aldebaran-text)
+- **Logic and presentation:** [`aldebaran-logic`](crates/aldebaran-logic),
+  [`aldebaran-print`](crates/aldebaran-print), [`aldebaran-ansi`](crates/aldebaran-ansi)
+- **Diagnostics:** [`aldebaran-report`](crates/aldebaran-report)
+- **Derive implementations:** [`aldebaran-logic-macro`](crates/aldebaran-logic/aldebaran-logic-macro),
+  [`aldebaran-report-macro`](crates/aldebaran-report/aldebaran-report-macro)
 
-The proc-macro/codegen crates are implementation details for the public crates
-above.
+Allocator support is an optional feature of `aldebaran-baseline`. The proc-macro
+packages are implementation dependencies of their corresponding runtime crates.
 
 ## Source processing
 
@@ -87,22 +64,22 @@ The lower-level text API keeps track of source position while assertions decide
 what can be consumed:
 
 ```rust,ignore
-use aldebaran::text::prelude::{AsciiAlphabetic, AsciiAlphanumeric, Text};
+use aldebaran::text::prelude::{AsciiAlphabetic, AsciiAlphanumeric, Cursor};
 
-let mut text = Text::create("aldebaran42");
+let mut cursor = Cursor::create("aldebaran42");
 
-let first = text
+let first = cursor
     .expect_is_next(AsciiAlphabetic)
     .expect("identifier start");
 
-text.ignore_while(AsciiAlphanumeric);
+cursor.ignore_while(AsciiAlphanumeric);
 
 assert_eq!(first, 'a');
-assert_eq!(text.peek(), None);
+assert_eq!(cursor.peek(), None);
 ```
 
-For the full lexing path, including internment and `LexStream`, see
-[`lexing`](https://github.com/wafkse/aldebaran/tree/development/examples/lexing).
+The two-phase lexer contract is available at
+[`aldebaran::text::cursor::consume::Lex`](crates/aldebaran-text/src/cursor/consume.rs).
 
 ## Diagnostics
 
@@ -110,7 +87,7 @@ Reports carry their source locations separately from rendering. The
 `report-codegen` feature adds the derive macro:
 
 ```rust,ignore
-use aldebaran::{report::codegen::Report, span::prelude::Span};
+use aldebaran::{report::codegen::Report, baseline::span::Span};
 
 #[derive(Debug, Report)]
 #[error("unexpected token")]
@@ -119,11 +96,11 @@ struct Unexpected(Span);
 ```
 
 The renderers can add source context, annotations, multiple spans, and terminal
-styling. See [`diagnostics`](https://github.com/wafkse/aldebaran/tree/development/examples/diagnostics) and
-[`mini-lisp`](https://github.com/wafkse/aldebaran/tree/development/examples/mini-lisp) for complete examples.
+styling. `report-codegen` enables the derive macro in the facade; the report
+runtime remains usable without it.
 
-The diagnostics example uses UTF-8 identifiers and deliberately overlapping
-annotations. By default it uses Unicode framing with ANSI color:
+This rendered diagnostic illustrates UTF-8 source locations and overlapping
+annotations with Unicode framing and ANSI color:
 
 ![ANSI-colored duplicate-binding diagnostic with overlapping UTF-8 spans](https://raw.githubusercontent.com/wafkse/aldebaran/development/docs/diagnostics-ansi.svg)
 
@@ -160,30 +137,11 @@ error: duplicate binding
 
 </details>
 
-Run it with independent ANSI and Unicode controls:
+## Examples
 
-```sh
-cargo run -p aldebaran-example-diagnostics
-cargo run -p aldebaran-example-diagnostics -- --no-ansi
-cargo run -p aldebaran-example-diagnostics -- --no-unicode
-cargo run -p aldebaran-example-diagnostics -- --no-ansi --no-unicode
-```
-
-The corresponding inverse flags are `--ansi` and `--unicode`; when a switch is
-repeated, the last value wins. Use `--help` for the full CLI usage.
-
-## More examples
-
-The [`examples`](https://github.com/wafkse/aldebaran/tree/development/examples) directory also contains:
-
-| Example | Covers |
-| --- | --- |
-| [`lexing`](https://github.com/wafkse/aldebaran/tree/development/examples/lexing) | Source traversal, assertions, lexing, internment, token streams, lookahead |
-| [`diagnostics`](https://github.com/wafkse/aldebaran/tree/development/examples/diagnostics) | UTF-8 source, overlapping annotations, multi-span reports, diagnostic rendering |
-| [`presentation`](https://github.com/wafkse/aldebaran/tree/development/examples/presentation) | Printing, styles, ANSI output, visualization |
-| [`foundations`](https://github.com/wafkse/aldebaran/tree/development/examples/foundations) | IDs, spans, primitives, collections, hashing, heap support |
-
-See [`examples/README.md`](https://github.com/wafkse/aldebaran/blob/development/examples/README.md) for the full coverage map.
+Runnable example packages are not included in this working tree. The runtime
+tests cover the crate-level behavior; the examples can be restored as separate
+workspace members when their migration is ready.
 
 ## Compatibility
 

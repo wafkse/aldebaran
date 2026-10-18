@@ -1,0 +1,27 @@
+[package]
+name = "aldebaran-report"
+version.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Allocation-free diagnostic reports and source annotations"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran-report"
+edition = "2024"
+
+[features]
+default = []
+codegen = ["dep:aldebaran-report-macro"]
+
+[dependencies]
+aldebaran-report-macro = { workspace = true, optional = true }
+aldebaran-ansi.workspace = true
+aldebaran-baseline.workspace = true
+aldebaran-logic.workspace = true
+aldebaran-print.workspace = true
+aldebaran-source.workspace = true
+hashbrown.workspace = true
+
+[lints]
+workspace = true

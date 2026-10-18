@@ -1,0 +1,23 @@
+[package]
+name = "aldebaran-id"
+version.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Strongly typed object identities and ID-indexed collections"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aldebaran-id"
+edition = "2024"
+
+[features]
+default = []
+
+[dependencies]
+tokel.workspace = true
+aldebaran-baseline.workspace = true
+hashbrown.workspace = true
+rustc-hash.workspace = true
+
+[lints]
+workspace = true
