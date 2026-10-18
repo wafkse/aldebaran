@@ -1,8 +1,4 @@
-//! Logical disjunction over two assertion values.
-//!
-//! [`Or`] accepts when either operand accepts. Semantic classification preserves
-//! which branch produced the accepted unit through [`Select`](crate::select::Select)
-//! without erasing the distinct unit types.
+//! Disjunction over a shared input with left-biased classification.
 
 use core::fmt;
 
@@ -14,15 +10,14 @@ use crate::{
     select::Select,
 };
 
-/// Logical disjunction between two assertions.
-///
-/// The concrete operand types remain visible, which allows classification to
-/// return a typed branch selection rather than a normalized common value.
+/// Accepts either operand on the same input and preserves the selected branch
+/// in [`Select`]. When both operands classify the input, the left result wins.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+// NOTE(invariant): None.
 pub struct Or<A1, A2>(A1, A2);
 
 impl<A1, A2> Or<A1, A2> {
-    /// The disjunction between two distinct assertions.
+    /// Prefer `lhs` when both predicates can classify the same input.
     #[inline]
     pub const fn one(lhs: A1, rhs: A2) -> Self {
         Self(lhs, rhs)
@@ -75,6 +70,7 @@ where
     #[inline]
     fn choose(&self, input: I) -> Option<Self::Unit> {
         let Self(lhs, rhs) = self;
+
         let lhs = lhs.choose(input);
 
         match lhs {

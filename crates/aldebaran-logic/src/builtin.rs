@@ -1,7 +1,4 @@
-//! Generic predicates that do not depend on a particular input domain.
-//!
-//! These predicates implement the logic contracts directly and can be composed
-//! with the crate's connective types.
+//! The [`Anything`] wildcard can be combined with user-defined assertions.
 
 use core::fmt;
 
@@ -13,7 +10,7 @@ use crate::{
 
 use aldebaran_print::print::Print;
 
-/// An assertion that accepts every input value.
+/// A wildcard assertion that accepts every input and prints as `<anything>`.
 #[derive(Debug, Clone, Copy, Hash, Default)]
 pub struct Anything;
 

@@ -1,22 +1,19 @@
-//! Semantic classification layered on top of logical assertions.
-//!
-//! [`Choose`] refines `Assert` by returning a structured unit when an input is
-//! accepted. Implementations preserve the same acceptance boundary, allowing
-//! callers to classify once instead of repeating a predicate after validation.
+//! Classification of inputs accepted by an assertion. [`Choose`] adds a typed
+//! result whose presence must agree with the predicate's acceptance decision.
 
 use crate::{assert::Assert, input::Input};
 
-/// A classifier that produces a semantic unit for accepted input.
+/// Adds a classification result to an [`Assert`] predicate.
 ///
-/// Classification refines [`Assert`]. Implementations must return `Some` exactly
-/// when the corresponding assertion accepts the same input.
+/// Implementers must make [`choose`](Self::choose) return `Some` exactly when
+/// [`Assert::assert`] accepts the same input.
 pub trait Choose<I>: Assert<I>
 where
     I: Input,
 {
-    /// Semantic value produced for one accepted input.
+    /// Classification identifying an accepted form, retained when classifiers are composed.
     type Unit;
 
-    /// Classify one input accepted by this assertion.
+    /// Return this input's classification, or `None` when the assertion rejects it.
     fn choose(&self, input: I) -> Option<Self::Unit>;
 }

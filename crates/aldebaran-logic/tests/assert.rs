@@ -1,4 +1,4 @@
-//! Integration coverage for assertion derives and logical combinators.
+//! Shared predicates and branch-preserving classification over bytes and characters.
 
 #[cfg(test)]
 mod tests {

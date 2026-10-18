@@ -1,8 +1,4 @@
-//! Logical negation of one assertion value.
-//!
-//! [`Not`] transparently owns one assertion and reverses its acceptance result.
-//! Formatting delegates to the wrapped assertion with negation precedence while
-//! dereference access preserves the concrete underlying assertion type.
+//! Negation represents the complement of an assertion predicate.
 
 use core::{
     fmt,
@@ -15,16 +11,15 @@ use crate::{
     input::Input,
 };
 
-/// Logical negation of one assertion.
-///
-/// The wrapper retains the original assertion value while reversing only the
-/// predicate result and adding the appropriate formatter precedence.
+/// Accepts inputs rejected by the wrapped predicate. Negation provides no
+/// [`Choose`](crate::choose::Choose) result for this complementary set.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 #[repr(transparent)]
+// NOTE(invariant): None.
 pub struct Not<A>(A);
 
 impl<A> Not<A> {
-    /// Negate the target assertion.
+    /// Use rejection by `one` as the acceptance rule.
     #[inline]
     pub const fn that(one: A) -> Self {
         Self(one)

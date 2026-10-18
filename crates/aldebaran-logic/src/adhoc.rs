@@ -1,8 +1,6 @@
-//! Formatting adaptors for using assertions in ordinary Rust diagnostics.
-//!
-//! The wrappers borrow an assertion and project its structured formatter output
-//! through `Display` or `Debug`. Type and precedence markers remain zero-sized,
-//! so adapting an assertion does not allocate or copy the assertion itself.
+//! Assertion descriptions usable with Rust's display and debug formatting.
+//! The adapters select an input type and notation policy, with optional precedence
+//! for embedding a description in a surrounding expression.
 
 use core::{fmt, marker, ops::Deref};
 
@@ -13,9 +11,11 @@ use crate::{
     prelude::DefaultFormatter,
 };
 
-/// A zero-cost ad-hoc adaptor that makes a [`Assert`] implementation be able to be used as a regular [`fmt::Display`] implementor.
+/// Makes an assertion's description available to [`fmt::Display`] without requiring
+/// that trait on the assertion itself. `F` selects notation with no surrounding operator.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 #[repr(transparent)]
+// NOTE(invariant): None.
 pub struct Displayed<'a, A, I, F = DefaultFormatter>(&'a A, marker::PhantomData<(I, F)>)
 where
     A: Assert<I>,
@@ -28,7 +28,7 @@ where
     I: Input,
     F: Formatter,
 {
-    /// Make the target [`Assert`] `A` be able to be used as a regular [`fmt::Display`] implementor.
+    /// Describe this predicate independently of any surrounding connective.
     #[inline]
     pub const fn now(target_value: &'a A) -> Self {
         Self(target_value, marker::PhantomData)
@@ -65,21 +65,23 @@ where
     }
 }
 
-/// A zero-cost ad-hoc adaptor that makes a [`Assert`] implementation be able to be used as a regular [`fmt::Display`] implementor.
+/// Makes an assertion's description available to [`fmt::Display`] inside an expression.
+/// `F` selects notation and uses the supplied precedence to preserve grouping.
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+// NOTE(invariant): None.
 pub struct DisplayedWith<'a, A, I, F = DefaultFormatter>
 where
     I: Input,
     A: Assert<I>,
     F: Formatter,
 {
-    /// The target [`Assert`] implementation.
+    /// Assertion whose description is rendered.
     target_value: &'a A,
 
-    /// The context to use when asserting the target value.
+    /// Binding strength of the expression surrounding this description.
     precedence: Precedence,
 
-    /// Marker field to ensure that both [`Input`] `I` and [`Formatter`] `F` are deemed part of this type.
+    /// The input type and formatter selected for this adapter.
     marker: marker::PhantomData<(F, I)>,
 }
 
@@ -89,9 +91,7 @@ where
     A: Assert<I>,
     F: Formatter,
 {
-    /// Make the target [`Assert`] `A` be able to be used as a regular [`fmt::Display`] implementor.
-    ///
-    /// Takes an additional [`Precedence`] to use for the respective [`Assert::output_with`] method.
+    /// Embed this predicate's display description in the supplied operator context.
     #[inline]
     pub const fn now(target_value: &'a A, precedence: Precedence) -> Self {
         Self {
@@ -133,9 +133,11 @@ where
         Assert::output_with::<fmt::Formatter, F>(target_value, f, precedence)
     }
 }
-/// A zero-cost ad-hoc adaptor that makes a [`Assert`] implementation be able to be used as a regular [`fmt::Debug`] implementor.
+/// Makes an assertion's description available to [`fmt::Debug`] without requiring
+/// that trait on the assertion itself. `F` selects notation with no surrounding operator.
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 #[repr(transparent)]
+// NOTE(invariant): None.
 pub struct Debugged<'a, A, I, F = DefaultFormatter>(&'a A, marker::PhantomData<(I, F)>)
 where
     A: Assert<I>,
@@ -148,7 +150,7 @@ where
     I: Input,
     F: Formatter,
 {
-    /// Make the target [`Assert`] `A` be able to be used as a regular [`fmt::Debug`] implementor.
+    /// Use the predicate's description as debug output without a surrounding connective.
     #[inline]
     pub const fn now(target_value: &'a A) -> Self {
         Self(target_value, marker::PhantomData)
@@ -185,21 +187,23 @@ where
     }
 }
 
-/// A zero-cost ad-hoc adaptor that makes a [`Assert`] implementation be able to be used as a regular [`fmt::Debug`] implementor.
+/// Makes an assertion's description available to [`fmt::Debug`] inside an expression.
+/// `F` selects notation and uses the supplied precedence to preserve grouping.
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+// NOTE(invariant): None.
 pub struct DebuggedWith<'a, A, I, F = DefaultFormatter>
 where
     I: Input,
     A: Assert<I>,
     F: Formatter,
 {
-    /// The target [`Assert`] implementation.
+    /// Assertion whose description is rendered.
     target_value: &'a A,
 
-    /// The context to use when asserting the target value.
+    /// Binding strength of the expression surrounding this description.
     precedence: Precedence,
 
-    /// Marker field to ensure that both [`Input`] `I` and [`Formatter`] `F` are deemed part of this type.
+    /// The input type and formatter selected for this adapter.
     marker: marker::PhantomData<(F, I)>,
 }
 
@@ -209,9 +213,7 @@ where
     A: Assert<I>,
     F: Formatter,
 {
-    /// Make the target [`Assert`] `A` be able to be used as a regular [`fmt::Debug`] implementor.
-    ///
-    /// Takes an additional [`Precedence`] to use for the respective [`Assert::output_with`] method.
+    /// Embed this predicate's debug description in the supplied operator context.
     #[inline]
     pub const fn now(target_value: &'a A, precedence: Precedence) -> Self {
         Self {

@@ -1,8 +1,4 @@
-//! Fixed and borrowed disjunctions over homogeneous assertions.
-//!
-//! [`OneOf`] stores a compile-time array while [`Sliced`] borrows an arbitrary
-//! slice. Both accept when any candidate accepts and semantic classification
-//! returns the first candidate that can classify the input.
+//! Ordered disjunctions over assertion values.
 
 use core::fmt;
 use core::ops::{Deref, DerefMut};
@@ -14,18 +10,20 @@ use crate::{
     input::Input,
 };
 
-/// A N-ary logical disjunction between N distinct assertions.
+/// Accepts any candidate and retains the first matching candidate's classification.
+/// Candidate order resolves overlapping matches, and an empty array rejects all input.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+// NOTE(invariant): None.
 pub struct OneOf<A, const N: usize>([A; N]);
 
 impl<A, const N: usize> OneOf<A, N> {
-    /// Disjunt N distinct assertions.
+    /// Give earlier array entries priority when classifications overlap.
     #[inline]
     pub const fn these(target_value: [A; N]) -> Self {
         Self(target_value)
     }
 
-    /// Determine the underlying storage of the target assertions.
+    /// Candidate order defining priority when several predicates classify an input.
     #[inline]
     pub const fn storage(&self) -> &[A; N] {
         let Self(storage) = self;
@@ -93,19 +91,21 @@ impl<A, const N: usize> DerefMut for OneOf<A, N> {
     }
 }
 
-/// A `N`-ary logical disjunction between N distinct assertions of the same type.
+/// Borrows candidates and retains the first matching candidate's classification.
+/// Slice order resolves overlapping matches, and an empty slice rejects all input.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
+// NOTE(invariant): None.
 pub struct Sliced<'a, A>(&'a [A]);
 
 impl<'a, A> Sliced<'a, A> {
-    /// Disjunt `N` distinct assertions.
+    /// Give earlier slice entries priority without taking ownership of the candidates.
     #[inline]
     pub const fn these(target_value: &'a [A]) -> Self {
         Self(target_value)
     }
 
-    /// Determine the underlying storage of the target assertions.
+    /// Candidate order defining priority when several predicates classify an input.
     #[inline]
     pub const fn storage(&self) -> &[A] {
         let Self(storage) = self;

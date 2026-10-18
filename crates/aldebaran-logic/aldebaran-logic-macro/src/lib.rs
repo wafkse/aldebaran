@@ -1,8 +1,4 @@
-//! Derive support for Aldebaran logical assertions and classifications.
-//!
-//! The `Assert` derive lowers declarative assertion metadata into predicate and
-//! formatting implementations. The `Choose` derive reuses that predicate to
-//! return the asserted value only when the input satisfies it.
+#![doc = include_str!("../README.md")]
 
 use proc_macro::TokenStream;
 
@@ -18,11 +14,9 @@ use syn::{
 };
 
 #[proc_macro_derive(Choose)]
-/// Derive `Choose` from the target type's `Assert` implementation.
-///
-/// The generated implementation returns a clone of the asserted value when the
-/// input satisfies the assertion and returns `None` otherwise.
-// Procedural macro expansion is substantial and is intentionally not inlined.
+/// Derive [`Choose`](https://docs.rs/aldebaran-logic/latest/aldebaran_logic/choose/trait.Choose.html)
+/// for a type implementing [`Assert`](https://docs.rs/aldebaran-logic/latest/aldebaran_logic/assert/trait.Assert.html)
+/// and [`Clone`]. Accepted inputs return a clone of the value.
 #[inline]
 pub fn derive_choose(input: TokenStream) -> TokenStream {
     let DeriveInput {
@@ -34,6 +28,7 @@ pub fn derive_choose(input: TokenStream) -> TokenStream {
     let (.., ty_generics, _) = generics.split_for_impl();
 
     let mut choose_generics = generics.clone();
+
     choose_generics
         .params
         .push(parse_quote!(__ChooseTy: ::aldebaran_logic::prelude::Input));
@@ -62,11 +57,22 @@ pub fn derive_choose(input: TokenStream) -> TokenStream {
     })
 }
 
-/// Derive composable assertion behavior from `assert` attributes.
+/// Derive assertion behavior from `assert` attributes on a struct or enum.
 ///
-/// Struct metadata defines one assertion composition. Enum metadata defines one
-/// assertion per variant and expands the corresponding predicate and formatter
-/// implementations.
+/// `#[assert(conjunctive)]` requires every field predicate and
+/// `#[assert(disjunctive)]` accepts any field predicate, with each field type
+/// implementing [`Assert`](https://docs.rs/aldebaran-logic/latest/aldebaran_logic/assert/trait.Assert.html)
+/// for the same input. Field predicates have declaration-order, short-circuit
+/// semantics, while descriptions include all fields. Empty conjunctions accept
+/// and empty disjunctions reject.
+///
+/// `#[assert(use EXPR type TY)]` instead assigns acceptance and descriptions to
+/// an expression of type `TY`, which must implement `Assert` for the input.
+/// The expression is evaluated separately for each predicate or formatting call,
+/// and unused field types need not implement `Assert`.
+///
+/// A struct or each enum variant requires exactly one supported attribute.
+/// Enums use the active variant's rule, and unions are unsupported.
 #[proc_macro_derive(Assert, attributes(assert))]
 #[inline]
 pub fn derive_assert(input: TokenStream) -> TokenStream {
@@ -150,18 +156,18 @@ pub fn derive_assert(input: TokenStream) -> TokenStream {
     }
 }
 
-/// A sum-type that represents either a struct or an enum.
+/// An assertion declaration whose rule belongs to a struct or its enum variants.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Target {
-    /// The target struct.
+    /// A declaration with a shared rule for its fields.
     Struct(Box<Struct>),
 
-    /// The target enum.
+    /// A declaration whose active variant determines its rule.
     Enum(Enum),
 }
 
 impl Target {
-    /// Expand this target into a [`TokenStream2`].
+    /// Produce acceptance and descriptions governed by the declaration's rule.
     #[inline]
     pub fn expand(self) -> syn::Result<TokenStream2> {
         match self {
@@ -171,30 +177,27 @@ impl Target {
     }
 }
 
-/// Validated derive state for one assertion structure.
-///
-/// This representation retains the assertion policy, generics, attributes, name,
-/// and fields required to generate predicate and formatting implementations.
+/// A struct's predicate rule and the declaration it applies to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Struct {
-    /// The assertion parameter for this struct.
+    /// Rule applied to the struct's fields.
     pub param: Param,
 
-    /// The generic parameters of the struct.
+    /// Parameters and bounds required wherever this declaration is used.
     pub generics: Generics,
 
-    /// The attributes of the struct.
+    /// Non-assertion metadata supplied with the declaration.
     pub attribute_list: Vec<Attribute>,
 
-    /// The name of the struct.
+    /// Identity of the type receiving the assertion contract.
     pub name_ident: Ident,
 
-    /// The fields of the struct.
+    /// Predicate operands for field-based rules, including their declaration order.
     pub field_list: Fields,
 }
 
 impl Struct {
-    /// Generate assertion implementations for the validated structure.
+    /// Apply the struct's rule to acceptance and descriptions for a shared input type.
     pub fn expand(self) -> syn::Result<TokenStream2> {
         let Self {
             param,
@@ -205,7 +208,9 @@ impl Struct {
         } = self;
 
         let (.., ty_generics, _) = generics.split_for_impl();
+
         let mut assert_generics = generics.clone();
+
         assert_generics
             .params
             .push(parse_quote!(__AssertTy: ::aldebaran_logic::prelude::Input));
@@ -357,6 +362,7 @@ impl Struct {
                         .predicates
                         .push(parse_quote!(#ty: ::aldebaran_logic::prelude::Assert<__AssertTy>));
                 }
+
                 let (impl_generics, _, where_clause) = assert_generics.split_for_impl();
 
                 Ok(quote! {
@@ -390,6 +396,7 @@ impl Struct {
                     .make_where_clause()
                     .predicates
                     .push(parse_quote!(#expr_ty: ::aldebaran_logic::prelude::Assert<__AssertTy>));
+
                 let (impl_generics, _, where_clause) = assert_generics.split_for_impl();
 
                 let tokens = quote! {
@@ -422,27 +429,24 @@ impl Struct {
     }
 }
 
-/// Validated derive state for one assertion enum.
-///
-/// Each variant has already been paired with its assertion policy so expansion
-/// can generate one exhaustive predicate and formatter implementation.
+/// Assertion alternatives whose active variant supplies the acceptance rule.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Enum {
-    /// The attributes of the enum.
+    /// Non-assertion metadata supplied with the declaration.
     pub attribute_list: Vec<Attribute>,
 
-    /// The generic parameters of the enum.
+    /// Parameters and bounds shared by all assertion alternatives.
     pub generics: Generics,
 
-    /// The name of the enum.
+    /// Identity of the type receiving the assertion contract.
     pub name_ident: Ident,
 
-    /// The variants of the enum.
+    /// Variants and their assertion rules.
     pub variant_list: Vec<Variant>,
 }
 
 impl Enum {
-    /// Generate assertion implementations for the validated enum.
+    /// Preserve each alternative's acceptance and description rules for a shared input type.
     pub fn expand(self) -> syn::Result<TokenStream2> {
         let Self {
             generics,
@@ -452,7 +456,9 @@ impl Enum {
         } = self;
 
         let (.., ty_generics, _) = generics.split_for_impl();
+
         let mut assert_generics = generics.clone();
+
         assert_generics
             .params
             .push(parse_quote!(__AssertTy: ::aldebaran_logic::prelude::Input));
@@ -695,6 +701,7 @@ impl Enum {
                 .predicates
                 .push(parse_quote!(#ty: ::aldebaran_logic::prelude::Assert<__AssertTy>));
         }
+
         let (impl_generics, _, where_clause) = assert_generics.split_for_impl();
 
         Ok(quote! {
@@ -727,35 +734,33 @@ impl Enum {
     }
 }
 
-/// One validated assertion enum variant used during derive expansion.
-///
-/// The stored policy determines how the variant fields participate in the
-/// generated assertion while the remaining syntax is retained for pattern output.
+/// An assertion alternative with its own field-based or delegated rule.
 #[derive(Debug, Clone, PartialEq, Eq)]
+// NOTE(invariant): None.
 struct Variant {
-    /// The assertion parameter for this variant.
+    /// Rule applied to this variant's fields.
     param: Param,
 
-    /// The attributes of the variant.
+    /// Non-assertion metadata supplied with this alternative.
     pub attribute_list: Vec<Attribute>,
 
-    /// The name of the variant.
+    /// Identity selecting this alternative's assertion rule.
     pub name_ident: Ident,
 
-    /// The fields of the variant.
+    /// Ordered predicate operands or bindings available to a delegated expression.
     pub field_list: Fields,
 }
 
-/// An assertion parameter.
+/// Rule selected by an `assert` attribute.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Param {
-    /// An assertion dictated by an arbitrary expression.
+    /// Delegate to an assertion expression.
     Expr(Box<ParamExpr>),
 
-    /// A conjunctive assertion.
+    /// Require all field assertions to accept.
     Conjunctive,
 
-    /// A disjunctive assertion.
+    /// Require any field assertion to accept.
     Disjunctive,
 }
 
@@ -788,7 +793,7 @@ impl Parse for Param {
 }
 
 impl Param {
-    /// Remove and return the sole assertion attribute from an attribute list.
+    /// An optional assertion rule, with duplicate rules rejected and unrelated metadata retained.
     fn take_attribute(attributes: &mut Vec<Attribute>) -> syn::Result<Option<Attribute>> {
         let mut found = None;
         let mut duplicate = None;
@@ -816,7 +821,7 @@ impl Param {
         }
     }
 
-    /// Parse the target attribute into a [`Param`].
+    /// Accept a delegated expression or exactly one enabled field-composition policy.
     pub fn attribute(target_attr: Attribute) -> syn::Result<Self> {
         let attr_span = target_attr.span();
 
@@ -853,23 +858,24 @@ impl Param {
     }
 }
 
-/// Declarative assertion policies parsed through Darling.
+/// Field-composition options requiring exactly one enabled policy for acceptance.
 #[derive(Debug, Default, FromMeta)]
+// NOTE(invariant): None.
 struct AssertionMetadata {
-    /// Selects conjunction across the structure fields.
+    /// Requires every field predicate when enabled, excluding disjunction.
     conjunctive: Option<bool>,
 
-    /// Selects disjunction across the structure fields.
+    /// Accepts any field predicate when enabled, excluding conjunction.
     disjunctive: Option<bool>,
 }
 
-/// A parameter that indicates an assertion expression.
+/// A delegated assertion expression and type.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ParamExpr {
-    /// The expression itself.
+    /// Predicate expression shared by acceptance and diagnostic descriptions.
     pub expr_value: Expr,
 
-    /// The type of the expression.
+    /// Declared expression type carrying the required input-specific assertion contract.
     pub expr_ty: Type,
 }
 
