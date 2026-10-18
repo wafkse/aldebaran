@@ -7,10 +7,9 @@ pub mod style;
 pub mod visualize;
 
 pub mod prelude {
-    //! A prelude for the `aldebaran-print` crate.
+    //! The `aldebaran-print` prelude.
     //!
-    //! This simply re-exports the most commonly used items in the
-    //! `aldebaran-print` crate.
+    //! Re-exports the most commonly used items from this crate.
 
     pub use crate::combine::Combine;
     pub use crate::print::Print;
