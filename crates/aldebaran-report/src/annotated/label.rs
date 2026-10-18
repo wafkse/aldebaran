@@ -10,16 +10,20 @@ use aldebaran_baseline::span::Span;
 
 use aldebaran_source::prelude::Source;
 
-/// A minimal inline annotation with a message and a nonempty diagnostic span.
+/// A message located by a nonempty span in the renderer's source coordinates.
+///
+/// The span carries no source identity or bounds validation. Callers supply a
+/// compatible source when the enclosing report is rendered.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+// NOTE(invariant): None.
 pub struct Label<C>
 where
     C: Title,
 {
-    /// Annotation message.
+    /// Text explaining the targeted source location.
     message: C,
 
-    /// Nonempty diagnostic span associated with the message.
+    /// Location interpreted in the source paired with the report.
     target: Span,
 }
 
@@ -27,7 +31,7 @@ impl<C> Label<C>
 where
     C: Title,
 {
-    /// Construct a span annotation.
+    /// Associate text with a target without checking its source identity or bounds.
     #[inline]
     #[must_use]
     pub const fn new(message: C, span: Span) -> Self {

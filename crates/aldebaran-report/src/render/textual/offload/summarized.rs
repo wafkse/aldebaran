@@ -1,8 +1,6 @@
-//! Compact textual diagnostics without source snippets.
+//! Compact report view for logs and problem lists where source excerpts are unnecessary.
 //!
-//! [`Summarized`] renders report identity and annotation messages in a short form
-//! suitable for problem lists or logs. It intentionally omits source excerpts and
-//! layout machinery while preserving structured annotation information.
+//! Annotation coordinates remain visible even though source text is not included.
 
 use core::fmt;
 
@@ -16,28 +14,11 @@ use crate::{
 
 use crate::render::textual::{Offload, OffloadContext};
 
-/// A simplistic, summarized offload textual renderer.
+/// Renders the kind and title followed by each annotation's span and message.
 ///
-/// This renders the error report in a summarized format, with the kind and
-/// title, as well as the individual annotations.
-///
-/// This does not include any source snippets or additional context.
-///
-/// This is alike to what you would encounter inside your `problems` tab in your
-/// IDE. It includes general error information, but no way to reference to them.
-///
-/// # Example
-///
-/// Albeit the actual format is not guaranteed to be stable across versions, it
-/// will regardless follow a general style:
-///
-/// ```text
-/// error: cannot find type `Summarized` in this scope
-///     @ L:C  :: similarly named type `Summarizeda` found here
-///     @ L:C  :: an enum with a similar name exists: `Summarizeda`
-///
-/// 2 extraneous annotations found
-/// ```
+/// By omitting source text, this backend can present annotated locations
+/// without printing an excerpt. When annotations are present, the final count
+/// reports how many follow the primary annotation.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum Summarized {}
 

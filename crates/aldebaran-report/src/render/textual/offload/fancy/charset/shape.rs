@@ -1,71 +1,46 @@
-//! A module which hosts character set definitions that are used to shape an
-//! abstract box.
+//! Edge, intersection, and corner symbols for source excerpt framing.
 //!
-//! The primary item of interest in this module is the [`Delimit`] type.
+//! [`Delimit`] combines straight edges with [`Join`] intersections and [`Corner`]
+//! turns. [`Fancy`](super::super::Fancy) uses the left edge as its gutter
+//! separator, the top edge and top-left corner at the source heading, and the
+//! bottom edge and bottom-right corner at the closing gutter. The other frame
+//! symbols remain configurable without being used by the current renderer.
 
-/// A set of delimiting characters.
+/// Straight edges and their connecting symbols for framing source excerpts.
 ///
-/// These characters are used to induce a spatial separation between different
-/// parts of the error report.
-///
-/// This is given as the set of components that make up a box that is segmented
-/// into four frames.
-///
-/// The enumeration of the components is as follows:
-/// - `left`: The leftmost character of the box.
-/// - `right`: The rightmost character of the box.
-/// - `top`: The topmost character of the box.
-/// - `bottom`: The bottommost character of the box.
-/// - `join`: four-way intersection character between the *previous four* characters.
-/// - `corner`: The four corner characters of the box. See [`Corner`] for more.
+/// Edge glyphs can vary independently from the intersections in [`Join`] and
+/// turns in [`Corner`]. Fancy uses a subset of these symbols to frame the gutter
+/// and heading rather than enclosing every source row.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+// NOTE(invariant): None.
 pub struct Delimit {
-    /// The left delimiter character.
-    ///
-    /// This is usually the same as [`the right character`](Delimit::right).
-    ///
-    /// The character used for this specific purpose is usually a full-width
-    /// vertical bar, usually centered.
+    /// Vertical separator between the line-number gutter and source content.
     left: char,
-    /// The right delimiter character.
-    ///
-    /// This is usually the same as [`the left character`](Delimit::left).
-    ///
-    /// The character used for this specific purpose is usually a full-width
-    /// vertical bar, usually centered.
+
+    /// Right boundary symbol, unused by the current Fancy renderer.
     right: char,
-    /// A top delimiter character.
-    ///
-    /// This is usually the same as [`the left character`](Delimit::bottom).
-    ///
-    /// The character used for this specific purpose is usually a full-width
-    /// horizontal bar, usually centered.
+
+    /// Horizontal stroke between the opening corner and source heading.
     top: char,
-    /// A bottom delimiter character.
-    ///
-    /// This is usually the same as [`the top character`](Delimit::top).
-    ///
-    /// The character used for this specific purpose is usually a full-width
-    /// horizontal bar, usually centered.
+
+    /// Horizontal stroke repeated across the gutter at the excerpt end.
     bottom: char,
-    /// The subset of joiner characters.
+
+    /// Symbols for crossings and branches, separate from corner turns.
     join: Join,
-    /// The subset of box corner characters.
+
+    /// Turns connecting horizontal and vertical edges at frame corners.
     corner: Corner,
 }
 
 impl Delimit {
-    /// The delimit characters of a box with **strictly** *ASCII* characters.
-    ///
-    /// This is also the [`default`](Default) value for [`Delimit`].
+    /// ASCII glyphs for frame edges, intersections, and corners.
     pub const ASCII: Self = Self::tuple(('|', '|', '-', '-', Join::ASCII, Corner::ASCII));
 
-    /// The delimit characters of a box with *unicode* characters.
+    /// Unicode glyphs for frame edges, intersections, and corners.
     pub const UNICODE: Self = Self::tuple(('│', '│', '─', '─', Join::UNICODE, Corner::UNICODE));
 
-    /// The standard delimit character set.
-    ///
-    /// Currently, this is set to [`ASCII`](Delimit::ASCII).
+    /// ASCII edges and `+` connections used by [`Default`].
     #[inline]
     pub const fn standard() -> Self {
         Self::ASCII
@@ -73,8 +48,7 @@ impl Delimit {
 }
 
 impl Delimit {
-    /// Create a new [`Delimit`] from a tuple of each delimiter kind and a
-    /// [`Corner`].
+    /// Order frame parts as left, right, top, bottom, intersections, and corners.
     #[inline]
     pub const fn tuple((left, right, top, bottom, join, corner): (char, char, char, char, Join, Corner)) -> Self {
         Self {
@@ -87,7 +61,7 @@ impl Delimit {
         }
     }
 
-    /// Retrieve the *left* delimiter character for [`this set`](Delimit).
+    /// Separator repeated beside source, marker, and annotation-message rows.
     #[inline]
     pub const fn left(&self) -> char {
         let &Self { left, .. } = self;
@@ -95,8 +69,7 @@ impl Delimit {
         left
     }
 
-    /// Retrieve *(an immutable reference)* to the *left* delimiter character
-    /// for [`this set`](Delimit).
+    /// Vertical gutter separator, `|` in ASCII and `│` in Unicode.
     #[inline]
     pub const fn left_ref(&self) -> &char {
         let &Self { ref left, .. } = self;
@@ -104,8 +77,7 @@ impl Delimit {
         left
     }
 
-    /// Retrieve *(a mutable reference)* to the *left* delimiter character for
-    /// [`this set`](Delimit).
+    /// Customize the separator that aligns source and annotation rows.
     #[inline]
     pub const fn left_mut(&mut self) -> &mut char {
         let &mut Self { ref mut left, .. } = self;
@@ -113,7 +85,7 @@ impl Delimit {
         left
     }
 
-    /// Retrieve the *right* delimiter character for [`this set`](Delimit).
+    /// Right boundary symbol available for framing beyond the gutter.
     #[inline]
     pub const fn right(&self) -> char {
         let &Self { right, .. } = self;
@@ -121,8 +93,7 @@ impl Delimit {
         right
     }
 
-    /// Retrieve *(an immutable reference)* to the *right* delimiter character
-    /// for [`this set`](Delimit).
+    /// Configured right edge, unused by the current Fancy renderer.
     #[inline]
     pub const fn right_ref(&self) -> &char {
         let &Self { ref right, .. } = self;
@@ -130,8 +101,7 @@ impl Delimit {
         right
     }
 
-    /// Retrieve *(a mutable reference)* to the *right* delimiter character for
-    /// [`this set`](Delimit).
+    /// Customize the right boundary independently of the gutter separator.
     #[inline]
     pub const fn right_mut(&mut self) -> &mut char {
         let &mut Self { ref mut right, .. } = self;
@@ -139,7 +109,7 @@ impl Delimit {
         right
     }
 
-    /// Retrieve the *top* delimiter character for [`this set`](Delimit).
+    /// Horizontal stroke following the opening corner before the source heading.
     #[inline]
     pub const fn top(&self) -> char {
         let &Self { top, .. } = self;
@@ -147,8 +117,7 @@ impl Delimit {
         top
     }
 
-    /// Retrieve *(an immutable reference)* to the *top* delimiter character for
-    /// [`this set`](Delimit).
+    /// Opening horizontal stroke, `-` in ASCII and `─` in Unicode.
     #[inline]
     pub const fn top_ref(&self) -> &char {
         let &Self { ref top, .. } = self;
@@ -156,8 +125,7 @@ impl Delimit {
         top
     }
 
-    /// Retrieve *(a mutable reference)* to the *top* delimiter character for
-    /// [`this set`](Delimit).
+    /// Customize the stroke connecting the opening corner to source metadata.
     #[inline]
     pub const fn top_mut(&mut self) -> &mut char {
         let &mut Self { ref mut top, .. } = self;
@@ -165,7 +133,7 @@ impl Delimit {
         top
     }
 
-    /// Retrieve the *bottom* delimiter character for [`this set`](Delimit).
+    /// Stroke repeated below the line-number gutter at the excerpt end.
     #[inline]
     pub const fn bottom(&self) -> char {
         let &Self { bottom, .. } = self;
@@ -173,8 +141,7 @@ impl Delimit {
         bottom
     }
 
-    /// Retrieve *(an immutable reference)* to the *bottom* delimiter character
-    /// for [`this set`](Delimit).
+    /// Closing horizontal stroke, configured independently of the heading stroke.
     #[inline]
     pub const fn bottom_ref(&self) -> &char {
         let &Self { ref bottom, .. } = self;
@@ -182,8 +149,7 @@ impl Delimit {
         bottom
     }
 
-    /// Retrieve *(a mutable reference)* to the *bottom* delimiter character for
-    /// [`this set`](Delimit).
+    /// Customize the line that closes the gutter beneath the excerpt.
     #[inline]
     pub const fn bottom_mut(&mut self) -> &mut char {
         let &mut Self { ref mut bottom, .. } = self;
@@ -191,7 +157,7 @@ impl Delimit {
         bottom
     }
 
-    /// Retrieve the *join* delimiter character for [`this set`](Delimit).
+    /// Crossing and branch symbols for connections involving at least three directions.
     #[inline]
     pub const fn join(&self) -> Join {
         let &Self { join, .. } = self;
@@ -199,8 +165,7 @@ impl Delimit {
         join
     }
 
-    /// Retrieve *(an immutable reference)* to the *join* delimiter character
-    /// for [`this set`](Delimit).
+    /// Intersection configuration, unused by the current Fancy renderer.
     #[inline]
     pub const fn join_ref(&self) -> &Join {
         let &Self { ref join, .. } = self;
@@ -208,8 +173,7 @@ impl Delimit {
         join
     }
 
-    /// Retrieve *(a mutable reference)* to the *join* delimiter character for
-    /// [`this set`](Delimit).
+    /// Customize crossings and branches without changing edges or corners.
     #[inline]
     pub const fn join_mut(&mut self) -> &mut Join {
         let &mut Self { ref mut join, .. } = self;
@@ -217,7 +181,7 @@ impl Delimit {
         join
     }
 
-    /// Retrieve the *corner* characters for [`this set`](Delimit).
+    /// Turns that connect pairs of perpendicular frame edges.
     #[inline]
     pub const fn corner(&self) -> Corner {
         let &Self { corner, .. } = self;
@@ -225,8 +189,7 @@ impl Delimit {
         corner
     }
 
-    /// Retrieve *(an immutable reference)* to the *corner* characters for
-    /// [`this set`](Delimit).
+    /// Corner configuration containing the opening and closing gutter turns.
     #[inline]
     pub const fn corner_ref(&self) -> &Corner {
         let &Self { ref corner, .. } = self;
@@ -234,8 +197,7 @@ impl Delimit {
         corner
     }
 
-    /// Retrieve *(a mutable reference)* to the *corner* characters for
-    /// [`this set`](Delimit).
+    /// Customize heading and closing turns independently of straight edges.
     #[inline]
     pub const fn corner_mut(&mut self) -> &mut Corner {
         let &mut Self { ref mut corner, .. } = self;
@@ -251,37 +213,27 @@ impl Default for Delimit {
     }
 }
 
-/// A set of join characters.
+/// Symbols for crossings and branches between frame edges.
 ///
-/// This is used to extend the [`Delimit`] set to include characters that join
-/// the different intersection points of the box.
-///
-/// This set serves a purely descriptive purpose, so, in the cases where the
-/// character cannot be used, it is recommended to use the nearest available
-/// to the desired character. A key example of this is the use of the `+` symbol
-/// when constrained to strictly *ASCII* characters.
+/// Names identify the directions of strokes leaving the intersection. The
+/// Unicode set distinguishes those connections, while ASCII uses `+` for all
+/// of them.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+// NOTE(invariant): None.
 pub struct Join {
-    /// The character used to join the left, right, up, and down parts of the
-    /// box.
-    ///
-    /// Example: `┼`
+    /// Crossing with strokes in all four directions.
     four_way: char,
-    /// The character used to join the left, right, and up parts of the box.
-    ///
-    /// Example: `┴`
+
+    /// Horizontal branch whose third stroke extends upward.
     left_right_up: char,
-    /// The character used to join the left, right, and down parts of the box.
-    ///
-    /// Example: `┬`
+
+    /// Horizontal branch whose third stroke extends downward.
     left_right_down: char,
-    /// The character used to join the left, up, and down parts of the box.
-    ///
-    /// Example:  `┤`
+
+    /// Vertical branch whose third stroke extends leftward.
     left_up_down: char,
-    /// The character used to join the right, up, and down parts of the box.
-    ///
-    /// Example: `├`
+
+    /// Vertical branch whose third stroke extends rightward.
     right_up_down: char,
 }
 
@@ -293,17 +245,13 @@ impl Default for Join {
 }
 
 impl Join {
-    /// The join characters of a box with **strictly** *ASCII* characters.
-    ///
-    /// This is also the [`default`](Default) value for [`Join`].
+    /// ASCII glyphs for frame intersections.
     pub const ASCII: Self = Self::tuple(('+', '+', '+', '+', '+'));
 
-    /// The join characters of a box with *unicode* characters.
+    /// Unicode glyphs for frame intersections.
     pub const UNICODE: Self = Self::tuple(('┼', '┴', '┬', '┤', '├'));
 
-    /// The standard join character set.
-    ///
-    /// Currently, this is set to [`ASCII`](Join::ASCII).
+    /// Use `+` for every crossing and branch, as [`Default`] does.
     #[inline]
     pub const fn standard() -> Self {
         Self::ASCII
@@ -311,7 +259,7 @@ impl Join {
 }
 
 impl Join {
-    /// Create a new [`Join`] from its raw parts: each joiner kind.
+    /// Configure a crossing and four branches by their outgoing stroke directions.
     #[inline]
     pub const fn from_raw_parts(
         four_way: char,
@@ -329,7 +277,7 @@ impl Join {
         }
     }
 
-    /// Create a new [`Join`] from a 5-element tuple of each joiner kind.
+    /// Order connections as four-way, left-right-up, left-right-down, left-up-down, and right-up-down.
     #[inline]
     pub const fn tuple((four_way, left_right_up, left_right_down, left_up_down, right_up_down): (char, char, char, char, char)) -> Self {
         Self {
@@ -341,7 +289,7 @@ impl Join {
         }
     }
 
-    /// Create a new [`Join`] from a 5-element array of each joiner kind.
+    /// Use the same crossing and branch order as [`Self::tuple`].
     #[inline]
     pub const fn array([four_way, left_right_up, left_right_down, left_up_down, right_up_down]: [char; 5]) -> Self {
         Self {
@@ -353,7 +301,7 @@ impl Join {
         }
     }
 
-    /// Retrieve the *four-way* join character for [`this set`](Join).
+    /// Crossing with horizontal and vertical strokes, `┼` in Unicode.
     #[inline]
     pub const fn four_way(&self) -> char {
         let &Self { four_way, .. } = self;
@@ -361,8 +309,7 @@ impl Join {
         four_way
     }
 
-    /// Retrieve *(an immutable reference)* to the *four-way* join character for
-    /// [`this set`](Join).
+    /// Interior crossing that connects all four neighboring edge segments.
     #[inline]
     pub const fn four_way_ref(&self) -> &char {
         let &Self { ref four_way, .. } = self;
@@ -370,8 +317,7 @@ impl Join {
         four_way
     }
 
-    /// Retrieve *(a mutable reference)* to the *four-way* join character for
-    /// [`this set`](Join).
+    /// Customize the crossing independently of three-direction branches.
     #[inline]
     pub const fn four_way_mut(&mut self) -> &mut char {
         let &mut Self { ref mut four_way, .. } = self;
@@ -379,7 +325,7 @@ impl Join {
         four_way
     }
 
-    /// Retrieve the *left-right-up* join character for [`this set`](Join).
+    /// Horizontal connection with an upward branch, `┴` in Unicode.
     #[inline]
     pub const fn left_right_up(&self) -> char {
         let &Self { left_right_up, .. } = self;
@@ -387,8 +333,7 @@ impl Join {
         left_right_up
     }
 
-    /// Retrieve *(an immutable reference)* to the *left-right-up* join
-    /// character for [`this set`](Join).
+    /// Branch open to the left, right, and above, with no downward stroke.
     #[inline]
     pub const fn left_right_up_ref(&self) -> &char {
         let &Self { ref left_right_up, .. } = self;
@@ -396,8 +341,7 @@ impl Join {
         left_right_up
     }
 
-    /// Retrieve *(a mutable reference)* to the *left-right-up* join character
-    /// for [`this set`](Join).
+    /// Customize the upward branch of a horizontal frame edge.
     #[inline]
     pub const fn left_right_up_mut(&mut self) -> &mut char {
         let &mut Self { ref mut left_right_up, .. } = self;
@@ -405,7 +349,7 @@ impl Join {
         left_right_up
     }
 
-    /// Retrieve the *left-right-down* join character for [`this set`](Join).
+    /// Horizontal connection with a downward branch, `┬` in Unicode.
     #[inline]
     pub const fn left_right_down(&self) -> char {
         let &Self { left_right_down, .. } = self;
@@ -413,8 +357,7 @@ impl Join {
         left_right_down
     }
 
-    /// Retrieve *(an immutable reference)* to the *left-right-down* join
-    /// character for [`this set`](Join).
+    /// Branch open to the left, right, and below, with no upward stroke.
     #[inline]
     pub const fn left_right_down_ref(&self) -> &char {
         let &Self { ref left_right_down, .. } = self;
@@ -422,8 +365,7 @@ impl Join {
         left_right_down
     }
 
-    /// Retrieve *(a mutable reference)* to the *left-right-down* join character
-    /// for [`this set`](Join).
+    /// Customize the downward branch of a horizontal frame edge.
     #[inline]
     pub const fn left_right_down_mut(&mut self) -> &mut char {
         let &mut Self {
@@ -433,7 +375,7 @@ impl Join {
         left_right_down
     }
 
-    /// Retrieve the *left-up-down* join character for [`this set`](Join).
+    /// Vertical connection with a leftward branch, `┤` in Unicode.
     #[inline]
     pub const fn left_up_down(&self) -> char {
         let &Self { left_up_down, .. } = self;
@@ -441,8 +383,7 @@ impl Join {
         left_up_down
     }
 
-    /// Retrieve *(an immutable reference)* to the *left-up-down* join character
-    /// for [`this set`](Join).
+    /// Branch open above, below, and to the left, with no rightward stroke.
     #[inline]
     pub const fn left_up_down_ref(&self) -> &char {
         let &Self { ref left_up_down, .. } = self;
@@ -450,8 +391,7 @@ impl Join {
         left_up_down
     }
 
-    /// Retrieve *(a mutable reference)* to the *left-up-down* join character
-    /// for [`this set`](Join).
+    /// Customize the leftward branch of a vertical frame edge.
     #[inline]
     pub const fn left_up_down_mut(&mut self) -> &mut char {
         let &mut Self { ref mut left_up_down, .. } = self;
@@ -459,7 +399,7 @@ impl Join {
         left_up_down
     }
 
-    /// Retrieve the *right-up-down* join character for [`this set`](Join).
+    /// Vertical connection with a rightward branch, `├` in Unicode.
     #[inline]
     pub const fn right_up_down(&self) -> char {
         let &Self { right_up_down, .. } = self;
@@ -467,8 +407,7 @@ impl Join {
         right_up_down
     }
 
-    /// Retrieve *(an immutable reference)* to the *right-up-down* join
-    /// character for [`this set`](Join).
+    /// Branch open above, below, and to the right, with no leftward stroke.
     #[inline]
     pub const fn right_up_down_ref(&self) -> &char {
         let &Self { ref right_up_down, .. } = self;
@@ -476,8 +415,7 @@ impl Join {
         right_up_down
     }
 
-    /// Retrieve *(a mutable reference)* to the *right-up-down* join character
-    /// for [`this set`](Join).
+    /// Customize the rightward branch of a vertical frame edge.
     #[inline]
     pub const fn right_up_down_mut(&mut self) -> &mut char {
         let &mut Self { ref mut right_up_down, .. } = self;
@@ -486,21 +424,24 @@ impl Join {
     }
 }
 
-/// The four corners of a box.
+/// Turns connecting perpendicular edges of a [`Delimit`] frame.
 ///
-/// See [`Delimit`] for further information.
+/// Corner names describe positions in a surrounding frame. Their strokes face
+/// inward, so the top-left corner connects rightward and downward, while the
+/// bottom-right connects leftward and upward.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+// NOTE(invariant): None.
 pub struct Corner {
-    /// Top-left corner glyph.
+    /// Rightward and downward turn used at the source heading.
     top_left: char,
 
-    /// Top-right corner glyph.
+    /// Leftward and downward turn at a frame's upper-right boundary.
     top_right: char,
 
-    /// Bottom-left corner glyph.
+    /// Rightward and upward turn at a frame's lower-left boundary.
     bottom_left: char,
 
-    /// Bottom-right corner glyph.
+    /// Leftward and upward turn used to close the gutter.
     bottom_right: char,
 }
 
@@ -512,19 +453,13 @@ impl Default for Corner {
 }
 
 impl Corner {
-    /// The corners of a box with **strictly** *ASCII* characters.
-    ///
-    /// This is also the [`default`](Default) value for [`Corner`].
-    ///
-    /// Note that this does not make use of the
+    /// ASCII glyphs for frame corners.
     pub const ASCII: Self = Self::tuple(('+', '+', '+', '+'));
 
-    /// The corners of a box with *unicode* characters.
+    /// Unicode glyphs for frame corners.
     pub const UNICODE: Self = Self::tuple(('┌', '┐', '└', '┘'));
 
-    /// The standard corner character set.
-    ///
-    /// Currently, this is set to [`ASCII`](Corner::ASCII).
+    /// Use `+` for every frame turn, as [`Default`] does.
     #[inline]
     pub const fn standard() -> Self {
         Self::ASCII
@@ -532,7 +467,7 @@ impl Corner {
 }
 
 impl Corner {
-    /// Create a new [`Corner`] from its raw parts: each corner kind.
+    /// Configure turns for the top-left, top-right, bottom-left, and bottom-right positions.
     #[inline]
     pub const fn from_raw_parts(top_left: char, top_right: char, bottom_left: char, bottom_right: char) -> Self {
         Self {
@@ -543,7 +478,7 @@ impl Corner {
         }
     }
 
-    /// Create a new [`Corner`] from a 4-element tuple of each corner kind.
+    /// Order turns as top-left, top-right, bottom-left, and bottom-right.
     #[inline]
     pub const fn tuple((top_left, top_right, bottom_left, bottom_right): (char, char, char, char)) -> Self {
         Self {
@@ -554,7 +489,7 @@ impl Corner {
         }
     }
 
-    /// Create a new [`Corner`] from a 4-elenent array of each corner kind.
+    /// Use top-left, top-right, bottom-left, and bottom-right turns, matching [`Self::tuple`].
     #[inline]
     pub const fn array([top_left, top_right, bottom_left, bottom_right]: [char; 4]) -> Self {
         Self {
@@ -565,7 +500,7 @@ impl Corner {
         }
     }
 
-    /// Retrieve the *top-left* corner character for [`this set`](Corner).
+    /// Opening turn from the gutter separator toward the source heading.
     #[inline]
     pub const fn top_left(&self) -> char {
         let &Self { top_left, .. } = self;
@@ -573,8 +508,7 @@ impl Corner {
         top_left
     }
 
-    /// Retrieve *(an immutable reference)* to the *top-left* corner character
-    /// for [`this set`](Corner).
+    /// Rightward and downward corner, `┌` in the Unicode preset.
     #[inline]
     pub const fn top_left_ref(&self) -> &char {
         let &Self { ref top_left, .. } = self;
@@ -582,8 +516,7 @@ impl Corner {
         top_left
     }
 
-    /// Retrieve *(a mutable reference)* to the *top-left* corner character for
-    /// [`this set`](Corner).
+    /// Customize the turn at the start of the source heading.
     #[inline]
     pub const fn top_left_mut(&mut self) -> &mut char {
         let &mut Self { ref mut top_left, .. } = self;
@@ -591,7 +524,7 @@ impl Corner {
         top_left
     }
 
-    /// Retrieve the *top-right* corner character for [`this set`](Corner).
+    /// Upper-right turn connecting leftward and downward strokes.
     #[inline]
     pub const fn top_right(&self) -> char {
         let &Self { top_right, .. } = self;
@@ -599,8 +532,7 @@ impl Corner {
         top_right
     }
 
-    /// Retrieve *(an immutable reference)* to the *top-right* corner character
-    /// for [`this set`](Corner).
+    /// Leftward and downward corner, `┐` in the Unicode preset.
     #[inline]
     pub const fn top_right_ref(&self) -> &char {
         let &Self { ref top_right, .. } = self;
@@ -608,8 +540,7 @@ impl Corner {
         top_right
     }
 
-    /// Retrieve *(a mutable reference)* to the *top-right* corner character for
-    /// [`this set`](Corner).
+    /// Customize the upper-right turn independently of the heading corner.
     #[inline]
     pub const fn top_right_mut(&mut self) -> &mut char {
         let &mut Self { ref mut top_right, .. } = self;
@@ -617,7 +548,7 @@ impl Corner {
         top_right
     }
 
-    /// Retrieve the *bottom-left* corner character for [`this set`](Corner).
+    /// Lower-left turn connecting rightward and upward strokes.
     #[inline]
     pub const fn bottom_left(&self) -> char {
         let &Self { bottom_left, .. } = self;
@@ -625,8 +556,7 @@ impl Corner {
         bottom_left
     }
 
-    /// Retrieve *(an immutable reference)* to the *bottom-left* corner
-    /// character for [`this set`](Corner).
+    /// Rightward and upward corner, `└` in the Unicode preset.
     #[inline]
     pub const fn bottom_left_ref(&self) -> &char {
         let &Self { ref bottom_left, .. } = self;
@@ -634,8 +564,7 @@ impl Corner {
         bottom_left
     }
 
-    /// Retrieve *(a mutable reference)* to the *bottom-left* corner character
-    /// for [`this set`](Corner).
+    /// Customize the lower-left turn independently of the closing gutter corner.
     #[inline]
     pub const fn bottom_left_mut(&mut self) -> &mut char {
         let &mut Self { ref mut bottom_left, .. } = self;
@@ -643,7 +572,7 @@ impl Corner {
         bottom_left
     }
 
-    /// Retrieve the *bottom-right* corner character for [`this set`](Corner).
+    /// Closing turn from the gutter separator toward the bottom stroke.
     #[inline]
     pub const fn bottom_right(&self) -> char {
         let &Self { bottom_right, .. } = self;
@@ -651,8 +580,7 @@ impl Corner {
         bottom_right
     }
 
-    /// Retrieve *(an immutable reference)* to the *bottom-right* corner
-    /// character for [`this set`](Corner).
+    /// Leftward and upward corner, `┘` in the Unicode preset.
     #[inline]
     pub const fn bottom_right_ref(&self) -> &char {
         let &Self { ref bottom_right, .. } = self;
@@ -660,8 +588,7 @@ impl Corner {
         bottom_right
     }
 
-    /// Retrieve *(a mutable reference)* to the *bottom-right* corner character
-    /// for [`this set`](Corner).
+    /// Customize the turn at the end of the closing gutter stroke.
     #[inline]
     pub const fn bottom_right_mut(&mut self) -> &mut char {
         let &mut Self { ref mut bottom_right, .. } = self;

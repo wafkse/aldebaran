@@ -1,8 +1,7 @@
-//! A module containing the [`Oneshot`] error type.
+//! Compact report forms for diagnostics assembled at the call site.
 //!
-//! The main rationale behind this error type is to provide a simple, one-shot
-//! error type that can be in contexts where declaring a new error type can be
-//! cumbersome.
+//! Their title can be supplied separately or taken from an annotation, and the
+//! kind can use its default or a caller-selected value.
 
 mod concise;
 mod kinded;
@@ -22,26 +21,24 @@ use crate::{
     report::SourceReport,
 };
 
-/// A simple, one-shot error type.
+/// A source-aware report with a separate title and one annotation.
 ///
-/// This contains a static, known amount of annotations, and is meant to be used
-/// in contexts where a full-blown error type is not necessary.
-///
-/// Albeit many extraneous items refer to this type, there are other types that
-/// provide the same functionality, but with other quirks regarding what data
-/// they require.
+/// It uses the default [`Simple::Error`] kind.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+// NOTE(invariant): None.
 pub struct Oneshot<'source, T, A, S = str>
 where
     T: Title,
     A: Annotated,
     S: SourceLines<'source> + SourceMetadata<'source> + ?Sized,
 {
-    /// The title of this error.
+    /// Heading displayed independently of the annotation message.
     title: T,
-    /// The source of this error.
+
+    /// Source whose coordinates interpret the annotation target.
     source: &'source S,
-    /// The singular annotation of this error.
+
+    /// Message and target identifying the diagnostic location.
     annotation: A,
 }
 
@@ -51,15 +48,14 @@ where
     A: Annotated,
     S: SourceLines<'source> + SourceMetadata<'source> + ?Sized,
 {
-    /// Create a new [`Oneshot`] error with the given title, source, and
-    /// annotation.
+    /// Use a separate heading and primary annotation under the error classification.
     #[inline]
     #[doc(alias = "from_raw_parts")]
     pub const fn new(title: T, source: &'source S, annotation: A) -> Self {
         Self { title, source, annotation }
     }
 
-    /// Retrieve the title of this error.
+    /// Heading displayed independently of the primary annotation message.
     #[inline]
     pub const fn title(&self) -> &T {
         let &Self { ref title, .. } = self;
@@ -67,7 +63,7 @@ where
         title
     }
 
-    /// Retrieve the source of this error.
+    /// Source against which the primary annotation target is interpreted.
     #[inline]
     pub const fn source(&self) -> &'source S {
         let &Self { source, .. } = self;
@@ -75,7 +71,7 @@ where
         source
     }
 
-    /// Retrieve the annotation of this error.
+    /// Location and message displayed beneath the separate report heading.
     #[inline]
     pub const fn annotation(&self) -> &A {
         let &Self { ref annotation, .. } = self;
@@ -146,11 +142,7 @@ where
     }
 }
 
-/// Create a new concise [`oneshot error`](Oneshot) where the title is
-/// inferred from the annotation.
-///
-/// Note that this is not an [`Oneshot`] type but a [`OneshotConcise`]
-/// type.
+/// Use the annotation message as the report title and its span as the target.
 #[inline]
 pub const fn single<'source, A, S>(source: &'source S, annotation: A) -> OneshotConcise<'source, A, S>
 where
@@ -160,10 +152,10 @@ where
     OneshotConcise::from_raw_parts(source, annotation)
 }
 
-/// Create a new [`oneshot error`](Oneshot) where the title is inferred from
-/// the annotation and the error spans all of the available source.
+/// Build a concise report whose label covers the source footprint.
 ///
-/// The underlying annotation is a [`Label`] with the printable `P`.
+/// For an empty source, the label uses [`crate::reexport::Span::MIN`] as the
+/// boundary at zero.
 #[inline]
 pub fn all<'source, T, S>(source: &'source S, reason: T) -> OneshotConcise<'source, Label<T>, S>
 where
@@ -175,11 +167,8 @@ where
     OneshotConcise::from_raw_parts(source, annotation)
 }
 
-/// Create a new kinded [`oneshot error`](Oneshot) where the title is
-/// inferred from the annotation.
-///
-/// Note that this is not an [`Oneshot`] type but a [`OneshotKinded`]
-/// type.
+/// Build a report whose title comes from the annotation and whose kind is
+/// supplied by the caller.
 #[inline]
 pub const fn kinded<'source, A, K, S>(source: &'source S, annotation: A, kind: K) -> OneshotKinded<'source, A, K, S>
 where
@@ -190,8 +179,7 @@ where
     OneshotKinded::from_raw_parts(source, annotation, kind)
 }
 
-/// Create a new [`oneshot error`](Oneshot) with a title and an unspecified
-/// number of annotations.
+/// Build a report with a separate title and a nonempty annotation collection.
 #[inline]
 pub const fn many<'source, 'borrow, S, T, A>(
     source: &'source S,

@@ -16,9 +16,10 @@ use super::Annotated;
 
 /// A printable view of a source and its related annotations.
 ///
-/// Printing discovers contiguous annotation groups, selects the source lines
-/// covered by each group, and forwards those lines to the source printing
-/// machinery. The view borrows both source and annotations for its full lifetime.
+/// Printing groups annotations by contiguity so each related region can select
+/// and print its source lines together. Because the view borrows both inputs
+/// for its lifetime, this discovery operates on the original source and
+/// annotation collection.
 #[derive(Debug)]
 pub struct Snippet<'a, S, A>
 where
@@ -37,7 +38,7 @@ where
     S: Source<'a>,
     A: Annotated,
 {
-    /// Create a new [`Snippet`] with the specified write, target source, total span, and annotations.
+    /// Borrow the source and its primary and remaining annotations for rendering.
     #[inline]
     pub const fn new(target_source: &'a S, annotations: (&'a A, &'a [A])) -> Self {
         Self {
@@ -65,7 +66,8 @@ where
         let mut target_iter = Contiguous::new(OneOrMore::pair(annotations), target_source);
 
         while let Some::<ContiguousFor<'a, A, S>>(target_related) = target_iter.next() {
-            // TODO: either figure this shit out or JUST USE ALLOCATION
+            // TODO: Decide whether annotation grouping should retain iterator state
+            // or collect groups into allocated storage.
 
             let target_lines = {
                 let span = target_related.iter().fold(Span::MIN, |acc, annot| acc.superset(annot.span()));

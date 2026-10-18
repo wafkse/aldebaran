@@ -1,15 +1,9 @@
-//! Dynamic [`Report`] type.
+//! Report forms for annotation collections assembled at runtime.
 //!
-//! This module provides the [`DynamicError`] type, which is a dynamic error
-//! type that allows an arbitrary number of annotations to be attached to it.
-//!
-//! This is useful for errors that are generated at runtime, where the number of
-//! eventual annotations is not known at compile-time.
-//!
-//! The typology of the [`Annotation`] is not known either, and is given as a
-//! generic parameter instead.
-//!
-//! [`Annotation`]: crate::prelude::Annotated
+//! [`DynamicError`] accommodates diagnostics whose annotation count is not known
+//! in advance. When the number of related annotations is fixed instead,
+//! [`InlineAnnotations`](crate::annotated::InlineAnnotations) provides inline
+//! storage for that collection.
 
 use core::{
     clone::Clone,
@@ -28,11 +22,12 @@ use crate::{
     report::SourceReport,
 };
 
-/// A dynamic [`Report`] type.
+/// An owned annotation collection paired with a borrowed source.
 ///
-/// This type is a type that allows for an arbitrary type of [`Report`]
-/// components to be attached to it.
+/// The primary annotation remains present while related annotations can grow or
+/// shrink through [`Self::annotations_mut`], which may allocate when growing the tail.
 #[derive(Debug)]
+// NOTE(invariant): None.
 pub struct DynamicError<'source, S, A, T, K = Simple>
 where
     S: Source<'source>,
@@ -165,7 +160,7 @@ where
     T: Title,
     K: ErrorKind,
 {
-    /// Retrieve the [`Source`] `S` attached to this error.
+    /// Source whose coordinates interpret the stored annotation targets.
     #[inline]
     pub const fn source(&self) -> &'a S {
         let &Self { source, .. } = self;
@@ -173,7 +168,7 @@ where
         source
     }
 
-    /// Retrieve the [`Title`] `T` attached to this error.
+    /// Heading displayed independently of the annotation messages.
     #[inline]
     pub const fn title(&self) -> &T {
         let &Self { ref title, .. } = self;
@@ -181,9 +176,7 @@ where
         title
     }
 
-    /// Retrieve the error [`Kind`] `K` attached to this error.
-    ///
-    /// [`Kind`]: ErrorKind
+    /// Classification supplying descriptor text and styling metadata.
     #[inline]
     pub const fn kind(&self) -> &K {
         let &Self { ref kind, .. } = self;
@@ -191,7 +184,7 @@ where
         kind
     }
 
-    /// Retrieve the underlying annotations attached to this error.
+    /// Primary annotation followed by related context in caller order.
     #[inline]
     pub const fn annotations(&self) -> &OneOrMore<A> {
         let &Self { ref annotations, .. } = self;
@@ -199,8 +192,10 @@ where
         annotations
     }
 
-    /// Retrieve the underlying annotations attached to this error in a mutable
-    /// manner.
+    /// Edit the primary annotation or grow and shrink its related context.
+    ///
+    /// The collection retains a primary value even when its tail is cleared.
+    /// Growing the tail may allocate.
     #[inline]
     pub const fn annotations_mut(&mut self) -> &mut OneOrMore<A> {
         let &mut Self { ref mut annotations, .. } = self;
@@ -216,10 +211,7 @@ where
     T: Title,
     K: ErrorKind,
 {
-    /// Create a new [`DynamicError`] with the given source, title, and
-    /// primary annotation.
-    ///
-    /// Error kind is left to the default value for its type.
+    /// Start with a primary annotation and the kind type's default classification.
     #[inline]
     pub fn new(source: &'a S, title: T, annotation: A) -> Self
     where
@@ -237,8 +229,7 @@ where
         }
     }
 
-    /// Create a new [`DynamicError`] with the given source, title, primary
-    /// annotation, and its error kind.
+    /// Start with a primary annotation and an explicit diagnostic classification.
     #[inline]
     pub fn new_with_kind(source: &'a S, title: T, annotation: A, kind: K) -> Self {
         let annotations = OneOrMore::single(annotation);
@@ -251,9 +242,7 @@ where
         }
     }
 
-    /// Create a new [`DynamicError`] with the given source, title, annotations.
-    ///
-    /// Error kind is left to the default value for its type.
+    /// Retain an existing primary and related collection under the default kind.
     #[inline]
     pub fn new_with_annotations(source: &'a S, title: T, annotations: OneOrMore<A>) -> Self
     where
@@ -269,8 +258,7 @@ where
         }
     }
 
-    /// Create a new [`DynamicError`] from its individual components: source,
-    /// title, annotations, and kind.
+    /// Retain the supplied collection order and diagnostic classification.
     #[inline]
     pub const fn from_raw_parts(source: &'a S, title: T, annotations: OneOrMore<A>, kind: K) -> Self {
         Self {

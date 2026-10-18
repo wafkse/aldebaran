@@ -1,8 +1,11 @@
 //! Presentation settings for the fancy textual renderer.
 //!
-//! Fancyness controls how much contextual structure is shown, while color policy
-//! and theme-specific settings determine styling. [`FancySettings`] carries these
-//! policies together as the explicit input to the rendering backend.
+//! [`Fancyness`] supplies a color and glyph preset. [`FancySettings`] combines
+//! those choices with gutter spacing and a [`Theme`], keeping style selection
+//! separate from whether the renderer emits ANSI styling. Layout settings govern
+//! the gutter, while the viewport supplied with the render governs source wrapping.
+//!
+//! [`Fancy`]: super::Fancy
 
 use crate::render::textual::offload::fancy::{
     charset::Charset,
@@ -10,24 +13,27 @@ use crate::render::textual::offload::fancy::{
     theme::{DefaultTheme, Theme},
 };
 
-/// The fancyness level for the [`Fancy`] renderer.
+/// Coordinated ANSI styling and glyph presets for the [`Fancy`] renderer.
+///
+/// [`FancySettings::level`] applies both choices, while the settings' mutable
+/// accessors allow color and glyphs to be customized independently afterward.
 ///
 /// [`Fancy`]: super::Fancy
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default)]
 pub enum Fancyness {
-    /// A colored output with unicode glyphs.
+    /// ANSI styling with Unicode framing and directional cues.
     Outblown,
 
-    /// A colored output with ascii glyphs.
+    /// ANSI styling with ASCII framing and indicators.
     Medium,
 
-    /// No colors, no glyphs. For the simple folk.
+    /// Plain text with ASCII framing and indicators, the default preset.
     #[default]
     Meek,
 }
 
 impl Fancyness {
-    /// Determine whether the current [`Fancyness`] level is colored.
+    /// Whether the preset enables ANSI styling for headings, numbers, and markers.
     #[inline]
     pub const fn colored(&self) -> bool {
         match self {
@@ -36,8 +42,7 @@ impl Fancyness {
         }
     }
 
-    /// Determine whether the current [`Fancyness`] level implies unicode
-    /// glyphs.
+    /// Whether the preset selects Unicode framing and directional cues.
     #[inline]
     pub const fn unicode(&self) -> bool {
         match self {
@@ -47,17 +52,20 @@ impl Fancyness {
     }
 }
 
-/// Whether the output should be colored. Default to no colors.
+/// Permission to emit ANSI styling for diagnostic headings, numbers, and markers.
+///
+/// Disabling styling preserves the selected glyphs and spacing. [`Default`] uses
+/// [`Self::No`], so Unicode output does not require terminal color support.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum Colored {
-    /// Yes, the output should be colored.
+    /// Apply theme colors and text attributes to styled diagnostic content.
     Yes,
-    /// No, the output should not be colored.
+    /// Emit styled diagnostic content as plain text.
     No,
 }
 
 impl Colored {
-    /// The standard [`Colored`] setting.
+    /// Disable ANSI styling, as [`Default`] does.
     #[inline]
     pub const fn standard() -> Self {
         Self::No
@@ -65,14 +73,13 @@ impl Colored {
 }
 
 impl Colored {
-    /// Create a new [`Colored`] setting from a boolean value.
+    /// Treat `true` as permission to emit ANSI styling.
     #[inline]
     pub const fn bool(value: bool) -> Self {
         if value { Self::Yes } else { Self::No }
     }
 
-    /// Determine whether the current [`Colored`] level implies a colored
-    /// output.
+    /// Whether theme colors and attributes may appear in rendered output.
     #[inline]
     pub const fn colored(&self) -> bool {
         match self {
@@ -89,35 +96,38 @@ impl Default for Colored {
     }
 }
 
-/// The settings for the [`Fancy`] offload renderer.
+/// Presentation policy shared by [`Fancy`]'s heading and source excerpt.
+///
+/// The theme selects styles for diagnostic roles and [`Colored`] controls their
+/// emission. The charset selects visible markers and framing independently.
+/// Public constructors install an explicit gutter layout, so changing the render's
+/// viewport affects source wrapping without automatically changing that padding.
 ///
 /// [`Fancy`]: super::Fancy
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+// NOTE(invariant): None.
 pub struct FancySettings<T = DefaultTheme>
 where
     T: Theme,
 {
-    /// Whether rendered output uses terminal color.
+    /// Permission to emit theme colors and attributes on headings, numbers, and markers.
     colored: Colored,
 
-    /// Optional layout policy for source and line-number presentation.
+    /// Gutter override, with `None` selecting spacing from the render's viewport shape.
     layout: Option<LayoutSettings>,
 
-    /// Glyph collection used for structural and annotation markers.
+    /// Framing glyphs and marker sequence used by the source excerpt.
     charset: Charset,
 
-    /// Theme that maps diagnostic roles to styles.
+    /// Style policy for report metadata, line numbers, and annotation markers.
     theme: T,
 }
 
 impl FancySettings {
-    /// The standard [`FancySettings`].
+    /// Use plain ASCII output with [`DefaultTheme`] and fixed standard gutter spacing.
     ///
-    /// Uses the standard setting for each component.
-    ///
-    /// # Remarks
-    ///
-    /// This does not omit any of the settings.
+    /// The gutter has one space before the digits and two before the separator,
+    /// regardless of the viewport supplied for rendering.
     #[inline]
     pub const fn standard() -> Self {
         let colored = Colored::standard();
@@ -138,8 +148,7 @@ impl<T> FancySettings<T>
 where
     T: Theme,
 {
-    /// Create a new set of [`FancySettings`] from the instrinsic fancyness
-    /// level.
+    /// Apply a color and glyph preset with [`LayoutSettings::standard`] and `T`'s default theme.
     #[inline]
     pub fn level(fancyness: Fancyness) -> Self
     where
@@ -158,7 +167,7 @@ where
         }
     }
 
-    /// Create a new set of [`FancySettings`] from a 3-element tuple.
+    /// Fix styling permission, gutter spacing, and glyphs with `T`'s default theme.
     #[inline]
     pub fn tuple((colored, layout, charset): (Colored, LayoutSettings, Charset)) -> Self
     where
@@ -174,7 +183,7 @@ where
             theme,
         }
     }
-    /// Create a new set of [`FancySettings`] from its raw parts.
+    /// Supply all presentation policies, with gutter spacing fixed across viewports.
     #[inline]
     pub const fn from_raw_parts(colored: Colored, layout: LayoutSettings, charset: Charset, theme: T) -> Self {
         let layout = Some(layout);
@@ -187,7 +196,7 @@ where
         }
     }
 
-    /// Retrieve the colored settings of these settings.
+    /// Permission to apply theme colors and attributes in rendered output.
     #[inline]
     pub const fn colored(&self) -> Colored {
         let &Self { colored, .. } = self;
@@ -195,7 +204,7 @@ where
         colored
     }
 
-    /// Retrieve the layout settings of these settings.
+    /// Gutter spacing override, or `None` to derive spacing from the viewport shape.
     #[inline]
     pub const fn layout(&self) -> Option<LayoutSettings> {
         let &Self { layout, .. } = self;
@@ -203,7 +212,7 @@ where
         layout
     }
 
-    /// Retrieve the charset settings of these settings.
+    /// Visible framing and annotation markers, independent of ANSI styling permission.
     #[inline]
     pub const fn charset(&self) -> Charset {
         let &Self { charset, .. } = self;
@@ -211,7 +220,7 @@ where
         charset
     }
 
-    /// Retrieve the theme settings of these settings.
+    /// Style policy shared by the heading, source line numbers, and annotation markers.
     #[inline]
     pub const fn theme(&self) -> &T {
         let &Self { ref theme, .. } = self;
@@ -219,8 +228,7 @@ where
         theme
     }
 
-    /// Retrieve *(an immutable reference)* to the colored settings of these
-    /// settings.
+    /// Stored permission shared by heading, line-number, and marker styling.
     #[inline]
     pub const fn colored_ref(&self) -> &Colored {
         let &Self { ref colored, .. } = self;
@@ -228,8 +236,7 @@ where
         colored
     }
 
-    /// Retrieve *(an immutable reference)* to the layout settings of these
-    /// settings.
+    /// Configured gutter spacing before any viewport-derived fallback.
     #[inline]
     pub const fn layout_ref(&self) -> Option<&LayoutSettings> {
         let &Self { ref layout, .. } = self;
@@ -237,8 +244,7 @@ where
         layout.as_ref()
     }
 
-    /// Retrieve *(an immutable reference)* to the charset settings of these
-    /// settings.
+    /// Framing and indicator configuration, including the marker sequence's current position.
     #[inline]
     pub const fn charset_ref(&self) -> &Charset {
         let &Self { ref charset, .. } = self;
@@ -246,8 +252,7 @@ where
         charset
     }
 
-    /// Retrieve *(an immutable reference)* to the theme settings of these
-    /// settings.
+    /// Theme consulted for styled content even when ANSI emission is disabled.
     #[inline]
     pub const fn theme_ref(&self) -> &T {
         let &Self { ref theme, .. } = self;
@@ -255,8 +260,7 @@ where
         theme
     }
 
-    /// Retrieve *(a mutable reference)* to the colored settings of these
-    /// settings.
+    /// Enable or disable ANSI styling while retaining the chosen glyphs and layout.
     #[inline]
     pub const fn colored_mut(&mut self) -> &mut Colored {
         let &mut Self { ref mut colored, .. } = self;
@@ -264,8 +268,7 @@ where
         colored
     }
 
-    /// Retrieve *(a mutable reference)* to the layout settings of these
-    /// settings.
+    /// Adjust an existing gutter override without changing whether an override is present.
     #[inline]
     pub const fn layout_mut(&mut self) -> Option<&mut LayoutSettings> {
         let &mut Self { ref mut layout, .. } = self;
@@ -273,8 +276,7 @@ where
         layout.as_mut()
     }
 
-    /// Retrieve *(a mutable reference)* to the charset settings of these
-    /// settings.
+    /// Customize framing and marker glyphs independently of the styling permission.
     #[inline]
     pub const fn charset_mut(&mut self) -> &mut Charset {
         let &mut Self { ref mut charset, .. } = self;

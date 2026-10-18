@@ -1,7 +1,4 @@
-//! Procedural entry point for deriving Aldebaran diagnostic reports.
-//!
-//! The macro resolves the runtime crate path, validates report metadata, and
-//! emits both ordinary error behavior and Aldebaran report implementations.
+#![doc = include_str!("../README.md")]
 
 mod report;
 
@@ -12,15 +9,16 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
 use syn::{DeriveInput, parse_macro_input};
 
-/// Runtime path used by generated report implementations.
+/// The report namespace available to the deriving crate, including renamed dependencies.
 #[derive(Debug)]
+// NOTE(invariant): None.
 struct RuntimePath(
-    /// Tokens naming the report runtime visible from generated code.
+    /// Namespace providing the reporting traits and their supporting re-exports.
     TokenStream2,
 );
 
 impl RuntimePath {
-    /// Resolve either the direct runtime crate or the public facade.
+    /// Select an accessible report namespace, preferring the direct runtime over the facade.
     fn resolve() -> syn::Result<Self> {
         match crate_name("aldebaran-report") {
             Ok(found) => Ok(Self(Self::direct(found))),
@@ -34,7 +32,7 @@ impl RuntimePath {
         }
     }
 
-    /// Convert a direct dependency result into a Rust path.
+    /// The direct runtime namespace under its name in the deriving crate.
     fn direct(found: FoundCrate) -> TokenStream2 {
         match found {
             FoundCrate::Itself => quote!(crate),
@@ -46,7 +44,7 @@ impl RuntimePath {
         }
     }
 
-    /// Convert a facade dependency result into its report module path.
+    /// The facade's report namespace under its name in the deriving crate.
     fn facade(found: FoundCrate) -> TokenStream2 {
         match found {
             FoundCrate::Itself => quote!(crate::report),
@@ -57,23 +55,78 @@ impl RuntimePath {
             }
         }
     }
-
-    /// Consume the resolved path.
-    fn into_tokens(self) -> TokenStream2 {
-        let Self(tokens) = self;
-
-        tokens
-    }
 }
 
-/// Derive ordinary error behavior and an allocation-free Aldebaran report.
+/// Derives [`Annotated`](https://docs.rs/aldebaran-report/latest/aldebaran_report/annotated/trait.Annotated.html)
+/// and [`Report`](https://docs.rs/aldebaran-report/latest/aldebaran_report/report/trait.Report.html)
+/// together with [`Display`](core::fmt::Display) and [`Error`](core::error::Error).
+///
+/// Separate `report` and `error` attributes control diagnostic content and standard
+/// error behavior. Supply an `error` declaration such as `#[error("invalid value")]`
+/// on a struct or each enum variant, and provide [`Debug`](core::fmt::Debug)
+/// separately. Report headings and annotation messages are independent of error
+/// display text. Use separate `#[error(transparent(field))]` or
+/// `#[error(transparent(0))]` metadata for standard error forwarding.
+///
+/// # Struct reports
+///
+/// A custom struct requires exactly one of `title = "text"` or `title_with = path`
+/// and exactly one of `message = "text"` or `message_with = path` inside `#[report(...)]`.
+/// Projection functions receive `&Self`, with results coercible to `&str` for
+/// that borrow. Text literals are used verbatim, without format interpolation.
+///
+/// The primary target is inferred from exactly one field whose final type path
+/// segment is `Span`. When no field has that spelling, a sole field must implement
+/// `Annotated` and supplies the target instead. Aliases are not resolved, and
+/// multiple `Span` fields are ambiguous. The struct acts as its own annotation
+/// and uses `Simple::Error` as its classification.
+///
+/// `annotations = field` or `annotations = 0` selects a stored collection implementing
+/// `PrimaryAnnotations`. A title is still required, but a message is optional
+/// because the enclosing value's `Annotated` view uses the collection's primary
+/// message and target by default. A message override changes that view's message
+/// to `str`, while `Report::annotations` still exposes the stored collection unchanged.
+///
+/// `#[report(transparent)]` forwards a sole field, while
+/// `#[report(transparent(field))]` or `#[report(transparent(0))]` selects a field
+/// explicitly. The field must implement both `Annotated` and `Report`, and cannot
+/// have a type path ending in `Span`. This mode preserves the wrapped message,
+/// target, heading, classification, and annotation collection and excludes all
+/// other report options.
+///
+/// # Enum reports
+///
+/// Every variant must wrap exactly one unnamed field. A custom variant requires
+/// `title = "text"` and exactly one of `message = "text"` or `message_with = path`.
+/// Its message projection receives the borrowed payload, with a result coercible
+/// to `&str` for that borrow. A payload type path ending in `Span` supplies the
+/// target directly, while other payloads require `Annotated` to supply it.
+///
+/// `#[report(transparent)]` instead reuses the payload's annotation message and
+/// report heading, each coercible to `&str` for the payload borrow, together with
+/// its annotation target.
+/// Derived enums always expose themselves as their annotation and use `Simple::Error`,
+/// so transparent variants do not expose a wrapped annotation collection or classification.
+/// Enum variants support neither `title_with`, stored annotations, nor explicit
+/// transparent field selectors.
+///
+/// # Dependencies and type requirements
+///
+/// Generated report paths use the deriving crate's direct `aldebaran-report`
+/// dependency or the `aldebaran::report` facade, including renamed dependencies.
+/// Report implementations preserve declared generics and where clauses without
+/// inferring additional field bounds, so those bounds must already support the
+/// chosen report policy. Struct and variant options must have recognized names
+/// and cannot be repeated or conflict, and unions are unsupported.
+/// Targets are not checked against any source, and callers
+/// must pair reports with a source using the same coordinates.
 #[proc_macro_derive(Report, attributes(error, report))]
-// Procedural macro expansion is substantial and is intentionally not inlined.
 #[inline]
 pub fn report_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let expanded = RuntimePath::resolve().and_then(|runtime| {
-        let runtime = runtime.into_tokens();
+        let RuntimePath(runtime) = runtime;
+
         let error = fack_codegen::generate(&input)?;
         let report = report::Report::new(input)?.expand(&runtime);
 

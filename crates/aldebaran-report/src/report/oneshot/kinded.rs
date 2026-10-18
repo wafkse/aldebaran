@@ -1,8 +1,6 @@
-//! One-shot reports with an explicit diagnostic kind.
+//! Compact reports for diagnostics that need a nondefault classification.
 //!
-//! [`OneshotKinded`] combines a borrowed source, an annotation, and a caller
-//! supplied error kind. It keeps kind policy explicit while avoiding a custom
-//! report structure for short-lived diagnostics.
+//! The caller supplies the kind used by the report.
 
 use aldebaran_baseline::prelude::RefOneOrMore;
 use aldebaran_source::prelude::{SourceLines, SourceMetadata};
@@ -13,27 +11,25 @@ use crate::{
     report::SourceReport,
 };
 
-/// A simple, concise one-shot error type.
+/// A diagnostic whose annotation supplies its heading and sole source location.
 ///
-/// This contains a static, known amount of annotations, and is meant to be used
-/// in contexts where a full-blown error type is not necessary.
-///
-/// This is a more concise version of the [`Oneshot`] error type, and is meant
-/// to be used in contexts where both title and annotation are known beforehand.
-///
-/// [`Oneshot`]: super::Oneshot
+/// The caller supplies the [`ErrorKind`] independently, so the annotation message
+/// can be reused under different diagnostic classifications.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+// NOTE(invariant): None.
 pub struct OneshotKinded<'a, A, K, S = str>
 where
     A: Annotated,
     S: SourceLines<'a> + SourceMetadata<'a> + ?Sized,
     K: ErrorKind,
 {
-    /// The source of this error.
+    /// Source whose coordinates interpret the annotation target.
     source: &'a S,
-    /// The singular annotation of this error.
+
+    /// Message and target reused as the report heading and primary location.
     annotation: A,
-    /// The kind of this error.
+
+    /// Caller-selected classification for wording and styling metadata.
     kind: K,
 }
 
@@ -43,16 +39,13 @@ where
     S: SourceLines<'a> + SourceMetadata<'a> + ?Sized,
     K: ErrorKind,
 {
-    /// Create a new [`OneshotConcise`] error with the given source and
-    /// annotation.
-    ///
-    /// [`OneshotConcise`]: super::OneshotConcise
+    /// Reuse the annotation message as the heading under the supplied classification.
     #[inline]
     pub const fn from_raw_parts(source: &'a S, annotation: A, kind: K) -> Self {
         Self { source, annotation, kind }
     }
 
-    /// Retrieve the kind of this error.
+    /// Caller-selected descriptor and semantic metadata for this diagnostic.
     #[inline]
     pub const fn kind(&self) -> &K {
         let &Self { ref kind, .. } = self;
@@ -60,7 +53,7 @@ where
         kind
     }
 
-    /// Retrieve the source of this error.
+    /// Source against which the primary annotation target is interpreted.
     #[inline]
     pub const fn source(&self) -> &'a S {
         let &Self { source, .. } = self;
@@ -68,7 +61,7 @@ where
         source
     }
 
-    /// Retrieve the annotation of this error.
+    /// Annotation supplying the report heading as well as its primary location.
     #[inline]
     pub const fn annotation(&self) -> &A {
         let &Self { ref annotation, .. } = self;

@@ -10,23 +10,20 @@ use aldebaran_print::prelude::Print;
 
 use crate::prelude::{Annotated, Title};
 
-/// An abstract selection between a regular [`Title`] and a [`Annotated`]'s
-/// [`title`](Annotated::Title).
+/// A borrowed report title or annotation message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum UnifiedTitle<'a, T, A>
 where
     T: Title + ?Sized,
     A: Annotated,
 {
-    /// The left-hand side possibility.
+    /// A borrowed report title.
     Left(
-        /// Borrowed ordinary report title.
         &'a T,
     ),
 
-    /// The right-hand side possibility.
+    /// A borrowed annotation.
     Right(
-        /// Borrowed annotation whose message supplies the title view.
         &'a A,
     ),
 }
@@ -36,19 +33,16 @@ where
     T: Title + ?Sized,
     A: Annotated,
 {
-    /// Create an unified title that simply uses the title.
     #[inline]
     pub const fn title(target_value: &'a T) -> Self {
         Self::Left(target_value)
     }
 
-    /// Create an unified title that uses the annotated title.
     #[inline]
     pub const fn annotated(target_value: &'a A) -> Self {
         Self::Right(target_value)
     }
 
-    /// Retrieve the title (left-hand side) of the unified title.
     #[inline]
     pub const fn left(&self) -> Option<&T> {
         match self {
@@ -57,7 +51,6 @@ where
         }
     }
 
-    /// Retrieve the annotated title (right-hand side) of the unified title.
     #[inline]
     pub const fn right(&self) -> Option<&A> {
         match self {

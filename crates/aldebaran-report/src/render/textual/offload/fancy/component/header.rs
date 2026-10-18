@@ -1,10 +1,10 @@
-//! Header rendering for fancy textual reports.
+//! Diagnostic headings styled independently of source excerpts.
 //!
-//! [`Header`] emits the report kind, title, and source location before line-based
-//! snippets are rendered. Styling comes from the active theme and presentation
-//! settings, keeping header layout independent from concrete diagnostic types.
+//! [`Header`] applies the selected theme to a report's kind and title. It shares
+//! [`FancySettings`] with the source renderer so both stages follow the same
+//! color policy.
 
-use core::{fmt, hash, marker::PhantomData};
+use core::{fmt, marker};
 
 use aldebaran_ansi::{brush::Paintable, predicate::Should};
 use aldebaran_print::prelude::{Combine, Print};
@@ -18,60 +18,20 @@ use crate::{
     report::{SourceReport, connotate::Connotate},
 };
 
-/// Rendering stage for the leading report header.
+/// A diagnostic heading styled from kind metadata under [`FancySettings`].
 ///
-/// The stage projects report metadata and source location through the selected
-/// theme, then writes the stable header structure before source annotations begin.
-pub struct Header<T = DefaultTheme>
+/// The kind descriptor and title use their default print contexts, and a
+/// formatting error can leave a partial heading in the destination.
+#[derive(Debug, Copy, Hash, Clone)]
+// NOTE(invariant): None.
+pub struct Header<T = DefaultTheme>(marker::PhantomData<T>)
 where
-    T: Theme,
-{
-    /// Associates this rendering stage with the selected theme type.
-    _marker: PhantomData<T>,
-}
-
-impl<T> Copy for Header<T> where T: Theme {}
-
-impl<T> Clone for Header<T>
-where
-    T: Theme,
-{
-    #[inline]
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<T> hash::Hash for Header<T>
-where
-    T: Theme,
-{
-    #[inline]
-    fn hash<H>(&self, state: &mut H)
-    where
-        H: hash::Hasher,
-    {
-        let Self { _marker, .. } = self;
-
-        _marker.hash(state);
-    }
-}
-
-impl<T> fmt::Debug for Header<T>
-where
-    T: Theme,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self { _marker, .. } = self;
-
-        f.debug_struct("Header").field("_marker", _marker).finish()
-    }
-}
+    T: Theme;
 
 impl<'source, E, T> Offload<'source, E> for Header<T>
 where
     E: SourceReport<'source>,
-    T: Theme + 'static,
+    T: Theme,
     <<E::Kind as ErrorKind>::Descriptor as Print>::Context: Default,
     <E::Title as Title>::Context: Default,
 {

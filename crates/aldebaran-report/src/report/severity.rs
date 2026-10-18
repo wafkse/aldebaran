@@ -1,85 +1,67 @@
-//! Semantic severity and importance metadata for diagnostics.
+//! Independent impact and priority classifications for diagnostic kinds.
 //!
-//! [`Severity`] captures the diagnostic class presented to a user. [`Importance`]
-//! captures ordering significance independently. [`Metadata`] combines those
-//! dimensions so renderers and aggregators can reason about diagnostics structurally.
+//! [`Metadata`] combines [`Severity`] and [`Importance`] so styling and consumer
+//! policy can use structured values independently of a kind's displayed wording.
 
-/// A severity level.
+/// Descriptive severity classification for a diagnostic.
 ///
-/// This is used to expose the intricacies of in a more detailed manner.
-///
-/// Note that the [`default`](Default) severity is deemed a (non-fatal)
-/// [`error`](Severity::Error).
+/// Severity does not determine control flow. Consumers decide how to act on it.
+/// The default is [`Error`](Self::Error).
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default)]
 pub enum Severity {
-    /// A fatal (☠) error.
-    ///
-    /// Albeit the semantics of this are not strictly defined, it is generally
-    /// understood that a fatal error is an error that is so severe that it
-    /// prohibits the program from continuing, forcibly or due to the nature of
-    /// the error itself.
+    /// The relevant operation cannot continue, as determined by the consumer.
     Fatal,
 
-    /// An error, but not world-ending.
+    /// An error without the fatal classification.
     #[default]
     Error,
 
-    /// A warning (non-fatal error).
+    /// A warning that leaves continuation policy to the consumer.
     Warning,
 }
 
-/// An importance level.
+/// Diagnostic priority independently of severity.
 ///
-/// This is used to determine the *intrinsic ordering* of errors, that is, how
-/// to order them based on their importance if coalescing them into a single
-/// list is necessary.
-///
-/// Note that the [`default`](Default) importance is
-/// [`trivial`](Importance::Trivial).
+/// Ascending ordering places [`Critical`](Self::Critical) first and
+/// [`Marginal`](Self::Marginal) last. The default is [`Trivial`](Self::Trivial).
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default)]
 pub enum Importance {
-    /// Very important. At the foremost level.
+    /// Highest priority, sorting before the other importance levels.
     Critical,
 
-    /// Somewhat important. May be at the forefront, but not always.
+    /// Ordinary priority between critical and marginal diagnostics.
     #[default]
     Trivial,
 
-    /// Not important, albeit still noteworthy. At the backmost level.
+    /// Lowest priority, sorting after the other importance levels.
     Marginal,
 }
 
-/// A piece of error-specific metadata.
-///
-/// This is used to provide additional information about an error, such as its
-/// severity or overall importance.
+/// Severity and relative importance carried by a diagnostic kind.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 #[non_exhaustive]
 pub struct Metadata {
-    /// The associated severity of the error.
+    /// Severity used to classify the diagnostic's impact.
     pub severity: Severity,
 
-    /// The intrinsic importance of the error.
+    /// Relative importance used to prioritize the diagnostic.
     pub importance: Importance,
 }
 
 impl Metadata {
-    /// Create a new [`Metadata`] from a 2-tuple composed of [`Severity`] and
-    /// [`Importance`] levels.
+    /// Select impact and priority explicitly without coupling the two classifications.
     #[inline]
     pub const fn tuple((severity, importance): (Severity, Importance)) -> Self {
         Self { severity, importance }
     }
 
-    /// A [`Metadata`] with the least severity and importance.
-    ///
-    /// This is provided as a shortcut to create warnings and lints with ease.
+    /// Warning severity with marginal importance.
     #[inline]
     pub const fn marginal() -> Self {
         Self::tuple((Severity::Warning, Importance::Marginal))
     }
 
-    /// A [`Metadata`] with the default severity and importance.
+    /// Error severity with trivial importance.
     #[doc(alias = "default")]
     #[inline]
     pub const fn whatever() -> Self {
@@ -88,14 +70,13 @@ impl Metadata {
 }
 
 impl Metadata {
-    /// Create a new [`Metadata`] from its raw parts: a [`Severity`] and
-    /// [`Importance`] levels.
+    /// Select impact and priority explicitly without imposing a relationship between them.
     #[inline]
     pub const fn from_raw_parts(severity: Severity, importance: Importance) -> Self {
         Self { severity, importance }
     }
 
-    /// Retrieve the associated severity of this error metadata.
+    /// Impact classification used independently of relative priority.
     #[inline]
     pub const fn severity(&self) -> Severity {
         let &Self { severity, .. } = self;
@@ -103,7 +84,7 @@ impl Metadata {
         severity
     }
 
-    /// Retrieve the intrinsic importance of this error metadata.
+    /// Relative priority within the consumer's diagnostic policy.
     #[inline]
     pub const fn importance(&self) -> Importance {
         let &Self { importance, .. } = self;
@@ -111,8 +92,7 @@ impl Metadata {
         importance
     }
 
-    /// Retrieve *(an immutable reference)* to the associated severity of this
-    /// metadata.
+    /// Shared impact classification for metadata-aware consumers.
     #[inline]
     pub const fn severity_ref(&self) -> &Severity {
         let &Self { ref severity, .. } = self;
@@ -120,8 +100,7 @@ impl Metadata {
         severity
     }
 
-    /// Retrieve *(an immutable reference)* to the intrinsic importance of this
-    /// metadata.
+    /// Shared priority classification, independently of impact.
     #[inline]
     pub const fn importance_ref(&self) -> &Importance {
         let &Self { ref importance, .. } = self;
@@ -129,8 +108,7 @@ impl Metadata {
         importance
     }
 
-    /// Retrieve *(a mutable reference)* to the associated severity of this
-    /// metadata.
+    /// Change the impact classification without changing relative priority.
     #[inline]
     pub const fn severity_mut(&mut self) -> &mut Severity {
         let &mut Self { ref mut severity, .. } = self;
@@ -138,8 +116,7 @@ impl Metadata {
         severity
     }
 
-    /// Retrieve *(a mutable reference)* to the intrinsic importance of this
-    /// metadata.
+    /// Change relative priority without changing the impact classification.
     #[inline]
     pub const fn importance_mut(&mut self) -> &mut Importance {
         let &mut Self { ref mut importance, .. } = self;

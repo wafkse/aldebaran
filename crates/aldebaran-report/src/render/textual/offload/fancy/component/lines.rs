@@ -1,15 +1,19 @@
-//! Line-oriented source rendering for the fancy textual backend.
+//! Selects source lines that intersect report annotations and marks them for Fancy.
 //!
-//! This module projects report annotations onto visible source phases, packs
-//! overlapping markers into separate lanes, and emits annotation messages when
-//! their final relevant line has been rendered. Terminal source boundaries are
-//! preserved as visible insertion markers on the final phase.
+//! When annotations overlap, separate marker lanes keep their targets distinct,
+//! while each message follows the last rendered line its annotation intersects.
+//! This keeps the explanation alongside the final visible part of its target.
+//!
+//! A unit [`Span::unit`] at EOF instead marks an insertion position after
+//! unterminated content, or on a separate display row after the final terminator.
+//! Because that extra row has no source span, it does not change which source
+//! lines are selected.
 
 mod snippet;
 
 pub use self::snippet::{IrrelevantSegment, RelevantSegment, SnippetSegment};
 
-use core::{fmt, hash, marker, num::NonZero};
+use core::{fmt, hash, iter, marker, num::NonZero};
 
 use alloc::vec::Vec;
 
@@ -38,8 +42,9 @@ use crate::{
     report::SourceReport,
 };
 
-/// Formatting sink that counts rendered Unicode scalar values.
+/// Counts Unicode scalar values when positioning annotation markers.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+// NOTE(invariant): None.
 struct VisualWidth(u32);
 
 impl fmt::Write for VisualWidth {
@@ -64,21 +69,18 @@ impl fmt::Write for VisualWidth {
     }
 }
 
-/// Line-by-line rendering stage for the fancy textual report.
-///
-/// This stage selects relevant source lines, splits wide lines into viewport
-/// phases, assigns marker lanes to overlapping annotations, and emits each
-/// annotation message after its final relevant line. The type carries only the
-/// compile-time source, terminator, and theme relationships needed by offloading.
+/// Renders selected source lines and their annotations for
+/// [`Fancy`](crate::render::textual::offload::fancy::Fancy).
+// NOTE(invariant): None.
 pub struct ByLines<'a, E, Te, Th = DefaultTheme>
 where
     E: SourceReport<'a>,
     Th: Theme,
     Te: Terminator<'a, E::Source>,
-    E::Source: SourceLines<'a> + SourceMetadata<'a> + 'a,
+    E::Source: SourceLines<'a> + SourceMetadata<'a>,
     <E::Source as SourceMetadata<'a>>::Metadata: Location,
 {
-    /// Tracks the source lifetime, report, terminator, and theme without storing them.
+    /// Type information for the report, source, terminator, and theme.
     _marker: (
         marker::PhantomData<&'a ()>,
         marker::PhantomData<E>,
@@ -154,28 +156,29 @@ where
     E::Source: SourceLines<'a> + SourceMetadata<'a> + 'a,
     <E::Source as SourceMetadata<'a>>::Metadata: Location,
 {
-    /// Determine whether one source span intersects a rendered source line.
+    /// Determine whether a target overlaps a line or marks EOF at its end.
     #[inline]
     fn line_relevant(target: Span, line_span: Span, source_size: usize) -> bool {
         if target.overlaps(line_span) {
             true
-        } else if target.start() == source_size {
+        } else if target == Span::unit(source_size) {
             line_span.end() == source_size
         } else {
             false
         }
     }
 
-    /// Project one source span onto visible content.
+    /// Clip the target to a visible phase while preserving insertion boundaries.
     ///
-    /// A unit span beginning at the source length is preserved on the final
-    /// visible phase so EOF diagnostics retain their boundary marker.
+    /// Normally, projection returns the intersection with the visible phase.
+    /// When a unit target instead begins at the content's end, it is preserved
+    /// on the final phase so an insertion diagnostic retains its boundary marker.
     #[inline]
     fn phase_target(target: Span, phase_span: Span, content_span: Span) -> Option<Span> {
         match target.intersect(phase_span) {
             Some(span) => Some(span),
             None => {
-                let boundary = target.start() == content_span.end();
+                let boundary = target == Span::unit(content_span.end());
                 let final_phase = phase_span.end() == content_span.end();
 
                 match (boundary, final_phase) {
@@ -186,7 +189,7 @@ where
         }
     }
 
-    /// Count rendered scalar cells in one source interval.
+    /// Count Unicode scalar values emitted for the visible source interval.
     #[inline]
     fn display_width(line: &<E::Source as SourceLines<'a>>::Line, content_span: Span, start: usize, end: usize) -> u32
     where
@@ -204,6 +207,7 @@ where
         };
 
         let relative = Span::new(start - content_span.start(), length);
+
         let Some(view) = line.window(relative) else {
             return u32::try_from(end - start).unwrap_or(u32::MAX);
         };
@@ -212,10 +216,12 @@ where
 
         let _: fmt::Result = view.visualize(&mut width);
 
-        width.0
+        let VisualWidth(width) = width;
+
+        width
     }
 
-    /// Retrieve the number of marker cells occupied by one projected target.
+    /// Reserve marker cells for the projected target, with a minimum width of one.
     #[inline]
     fn marker_width(line: &<E::Source as SourceLines<'a>>::Line, content_span: Span, target: Span) -> u32
     where
@@ -274,33 +280,6 @@ where
 
         let line_range = metadata.lines();
 
-        let line_no_width = line_range
-            .start()
-            .get()
-            .abs_diff(line_range.end().get())
-            .checked_ilog10()
-            .unwrap_or(0)
-            + 1;
-
-        let line_col_padding = layout.line_column_padding();
-
-        let line_col_width = line_no_width + line_col_padding.absolute();
-
-        ' '.times(line_col_width)
-            .sequence(charset.delimit().corner().top_left())
-            .sequence(charset.delimit().top())
-            .sequence(
-                '['.sequence(error.source().metadata())
-                    .sequence(
-                        ':'.sequence(line_range.start().stylable().styled(theme.lines()).only_when(is_colored))
-                            .sequence(':')
-                            .sequence(line_range.end().stylable().styled(theme.lines()).only_when(is_colored)),
-                    )
-                    .sequence(']'),
-            )
-            .sequence('\n')
-            .print(sink)?;
-
         let source_size = error.source().size();
 
         let line_snippets: Vec<_> = extents
@@ -322,6 +301,37 @@ where
                 }
             })
             .collect();
+
+        let terminal_line = line_snippets.last().and_then(|snippet| {
+            let id = snippet.id();
+            let has_boundary = error
+                .annotations()
+                .list()
+                .is_some_and(|annotations| annotations.iter().any(|annotation| annotation.target() == Span::unit(source_size)));
+
+            (id.span().end() == source_size && id.content_break().is_some() && has_boundary).then(|| id.number().get() + 1)
+        });
+        let last_displayed = terminal_line.unwrap_or(line_range.end().get());
+        let line_no_width = last_displayed.ilog10() + 1;
+
+        let line_col_padding = layout.line_column_padding();
+
+        let line_col_width = line_no_width + line_col_padding.absolute();
+
+        ' '.times(line_col_width)
+            .sequence(charset.delimit().corner().top_left())
+            .sequence(charset.delimit().top())
+            .sequence(
+                '['.sequence(error.source().metadata())
+                    .sequence(
+                        ':'.sequence(line_range.start().stylable().styled(theme.lines()).only_when(is_colored))
+                            .sequence(':')
+                            .sequence(line_range.end().stylable().styled(theme.lines()).only_when(is_colored)),
+                    )
+                    .sequence(']'),
+            )
+            .sequence('\n')
+            .print(sink)?;
 
         let mut line_iter = line_snippets.into_iter().peekable();
 
@@ -349,14 +359,33 @@ where
                             let content_span = line_content.span();
                             let line = line_content.value();
 
-                            let burst_iter = content_span
-                                .range()
-                                .step_by(view_extents.width() as usize)
-                                .map(|start| Span::new(start, view_extents.width_raw().into()))
-                                .map(|span| span.intersect(content_span))
-                                .map(|span| span.map(|span| (span, line.window(span.normal()))))
-                                .map(|opt| opt.map(|(span, view)| view.map(|view| (span, view))))
-                                .filter_map(Option::flatten);
+                            let mut phase_start = content_span.start();
+                            let burst_iter = iter::from_fn(|| {
+                                if phase_start == content_span.end() {
+                                    return None;
+                                }
+
+                                let mut phase_end = phase_start.saturating_add(view_extents.width() as usize).min(content_span.end());
+
+                                loop {
+                                    let length = NonZero::new(phase_end - phase_start).expect("a phase contains source content");
+                                    let relative = Span::new(phase_start - content_span.start(), length);
+
+                                    if let Some(view) = line.window(relative) {
+                                        let span = Span::new(phase_start, length);
+
+                                        phase_start = phase_end;
+                                        return Some((span, view));
+                                    }
+                                    // UTF-8 windows must end at a scalar boundary. Extend
+                                    // the byte budget to retain the whole component.
+                                    if phase_end == content_span.end() {
+                                        phase_start = phase_end;
+                                        return None;
+                                    }
+                                    phase_end += 1;
+                                }
+                            });
 
                             let mut is_first = true;
 
@@ -364,7 +393,7 @@ where
                                 if is_first {
                                     is_first = false;
 
-                                    ' '.times(line_col_padding.left())
+                                    ' '.times(line_col_padding.left() + line_no_width - (id.number().get().ilog10() + 1))
                                         .sequence(id.number().stylable().styled(theme.lines()).only_when(is_colored))
                                         .sequence(' '.times(line_col_padding.right()))
                                         .print(sink)?;
@@ -493,6 +522,45 @@ where
                             }
                         }
                         None => {}
+                    }
+
+                    if id.span().end() == source_size
+                        && let Some(number) = terminal_line
+                    {
+                        ' '.times(line_col_padding.left())
+                            .sequence(number.stylable().styled(theme.lines()).only_when(is_colored))
+                            .sequence(' '.times(line_col_padding.right()))
+                            .sequence(charset.delimit().left())
+                            .sequence(' ')
+                            .sequence('\n')
+                            .print(sink)?;
+
+                        for annotation in target_list
+                            .iter()
+                            .filter(|annotation| annotation.target() == Span::unit(source_size))
+                        {
+                            let target = annotation.target();
+                            let marker_char = marker_map
+                                .entry(target)
+                                .or_insert_with(|| marker.next().unwrap_or(marker.default()));
+                            let style = style_map
+                                .entry(target)
+                                .or_insert_with(|| style_iter.next().unwrap_or(default_style));
+
+                            ' '.times(line_col_width)
+                                .sequence(charset.delimit().left())
+                                .sequence(' ')
+                                .sequence(marker_char.stylable().styled(*style).only_when(is_colored))
+                                .sequence('\n')
+                                .sequence(' '.times(line_col_width))
+                                .sequence(charset.delimit().left())
+                                .sequence("   [")
+                                .sequence(marker_char.stylable().styled(*style).only_when(is_colored))
+                                .sequence("]: ")
+                                .sequence(annotation.message().content())
+                                .sequence('\n')
+                                .print(sink)?;
+                        }
                     }
                 }
                 SnippetSegment::Irrelevant(_) => (),

@@ -1,35 +1,34 @@
-//! Terminal viewport characteristics.
+//! Terminal dimensions and the layout preference carried with a textual render.
 //!
-//! This module contains various structures and types that are used to represent
-//! the viewport of a terminal, that is, the area of the terminal that is
-//! suitable for rendering text.
-//!
-//! The main structure of this module is the [`Viewport`] structure, which is
-//! used to represent the extents of a terminal window.
+//! [`Extents`] measures available columns and rows in terminal cells, while
+//! [`Viewport`] pairs those dimensions with a [`ViewportShape`]. The shape normally
+//! follows the longer axis but can be overridden independently.
+//! [`Fancy`](super::offload::fancy::Fancy) uses width to wrap source content and
+//! shape to select gutter padding when no explicit layout is present. Height
+//! does not limit the number of output rows.
 
 use core::num::NonZero;
 
-/// A terminal viewport.
+/// Available terminal dimensions with an independent layout preference.
 ///
-/// Represents the area of the terminal that is suitable for rendering text.
+/// [`Self::from_extents`] derives the preference from the dimensions.
+/// [`Self::wide`] and [`Self::tall`] override it without changing the wrapping
+/// width, so layout policy need not follow the terminal's proportions.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+// NOTE(invariant): None.
 pub struct Viewport {
-    /// Physical width and height of the terminal viewport.
+    /// Available columns and rows, with width used as the source wrapping budget.
     viewport_extents: Extents,
 
-    /// Shape classification used to choose a rendering growth direction.
+    /// Layout preference, which may differ from the proportions of `viewport_extents`.
     viewport_shape: ViewportShape,
 }
 
 impl Viewport {
-    /// The standard terminal viewport.
-    ///
-    /// This constant is the same as calling [`Viewport::standard()`].
+    /// A 140-column, 48-row viewport with a rightward layout preference.
     pub const STANDARD: Self = Self::standard();
 
-    /// Create a new [`Viewport`] with the standard terminal size.
-    ///
-    /// The current standard terminal size is `140x48`.
+    /// Use 140 columns and 48 rows with the corresponding rightward preference.
     #[inline]
     pub const fn standard() -> Self {
         let viewport_extents = Extents::tuple((
@@ -45,8 +44,7 @@ impl Viewport {
         }
     }
 
-    /// Create a new [`Viewport`] from its [`Extents`] part, and determine the
-    /// shape from it.
+    /// Let the dimensions determine the layout preference through [`Extents::shape`].
     #[inline]
     pub const fn from_extents(extents: Extents) -> Self {
         let viewport_shape = extents.shape();
@@ -57,8 +55,11 @@ impl Viewport {
         }
     }
 
-    /// Create a new [`Viewport`] from its raw parts: [`Extents`] and
-    /// [`ViewportShape`].
+    /// Combine [`Extents`] with an explicit [`ViewportShape`].
+    ///
+    /// The explicit shape takes precedence even when it disagrees with the extents,
+    /// allowing callers to supply their own layout classification. When the shape
+    /// should follow the dimensions instead, use [`Viewport::from_extents`].
     #[inline]
     pub const fn from_raw_parts(extents: Extents, shape: ViewportShape) -> Self {
         Self {
@@ -67,7 +68,7 @@ impl Viewport {
         }
     }
 
-    /// Retrieve the physical extents of this [`Viewport`].
+    /// Available columns and rows, independent of any shape override.
     #[inline]
     pub const fn extents(&self) -> Extents {
         let &Self {
@@ -78,7 +79,7 @@ impl Viewport {
         terminal_extents
     }
 
-    /// Retrieve the shape of this [`Viewport`].
+    /// Layout preference used by viewport-derived gutter spacing.
     #[inline]
     pub const fn shape(&self) -> ViewportShape {
         let &Self {
@@ -89,8 +90,9 @@ impl Viewport {
         terminal_shape
     }
 
-    /// Determine the prefered growth trend of rendered text for this
-    /// [`Viewport`].
+    /// Preferred layout axis, including any explicit override.
+    ///
+    /// Squarish shapes have no preferred direction and return `None`.
     #[inline]
     pub const fn trend(&self) -> Option<Trend> {
         match self.shape() {
@@ -99,10 +101,7 @@ impl Viewport {
         }
     }
 
-    /// Reinterpret this [`Viewport`] as a really wide viewport.
-    ///
-    /// This effectively changes the shape of the viewport to be rectangular
-    /// with a [`rightwards growth trend`](Trend::Rightwards).
+    /// Select rightward gutter spacing without changing the available dimensions.
     #[inline]
     pub const fn wide(self) -> Self {
         let Self {
@@ -117,10 +116,7 @@ impl Viewport {
         }
     }
 
-    /// Reinterpret this [`Viewport`] as a really tall viewport.
-    ///
-    /// This effectively changes the shape of the viewport to be rectangular
-    /// with a [`downwards growth trend`](Trend::Downwards).
+    /// Select downward gutter spacing without changing the available dimensions.
     #[inline]
     pub const fn tall(self) -> Self {
         let Self {
@@ -136,31 +132,19 @@ impl Viewport {
     }
 }
 
-/// The approximate physical shape of a viewport.
+/// Layout preference for choosing spacing from viewport proportions.
 ///
-/// This is used to determine the appropriate course-of-action when rendering
-/// text that can be overly wide or tall.
+/// [`Extents::shape`] classifies equal dimensions as [`Self::Squarish`] and
+/// otherwise favors the longer axis. An explicit [`Viewport`] override can use
+/// either preference regardless of the dimensions.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum ViewportShape {
-    /// A squarish viewport.
-    ///
-    /// This configuration will prefer to render text in a square-like shape.
-    ///
-    /// The most common occurence is line-wrapping of text.
+    /// No preferred axis, giving Fancy its minimal gutter padding.
     Squarish,
 
-    /// A rectangular viewport.
-    ///
-    /// While for an arbitrary viewport it is always a rectangle, this
-    /// configuration will prefer to use horizontal space over vertical
-    /// space.
-    ///
-    /// Note that line-wrapping is still possible in this configuration.
-    ///
-    /// This contains a [`Trend`] that indicates the prefered growth trend of
-    /// rendered text for the rectangular viewport.
+    /// A preferred axis for choosing roomier gutter padding.
     Rectangular(
-        /// Preferred direction for using the longer viewport axis.
+        /// Axis favored by the layout policy, not necessarily the longer dimension.
         Trend,
     ),
 }
@@ -172,23 +156,23 @@ impl Default for ViewportShape {
     }
 }
 
-/// The prefered growth trend of rendered text to fit a viewport.
+/// Axis favored when selecting a rectangular viewport's layout.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default)]
 pub enum Trend {
-    /// Text should grow rightwards, i.e make use of the maximum horizontal
-    /// extents of the viewport.
+    /// Favor horizontal space, with wider right padding in Fancy's gutter.
     #[default]
     Rightwards,
 
-    /// Text should grow downwards, i.e make use of the maximum vertical
-    /// extents of the viewport.
+    /// Favor vertical space, with symmetric padding in Fancy's gutter.
     Downwards,
 }
 
-/// A width and height pair.
+/// Available terminal columns and rows, each at least one cell.
 ///
-/// Represents the extents of a terminal window.
+/// These dimensions describe display space rather than source bytes or character
+/// counts. [`Self::shape`] compares the counts directly to derive a layout axis.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+// NOTE(invariant): None.
 pub struct Extents {
     /// Nonzero viewport width in terminal cells.
     width: NonZero<u16>,
@@ -198,19 +182,19 @@ pub struct Extents {
 }
 
 impl Extents {
-    /// Create a new [`Extents`] with a determined width and height tuple pair.
+    /// Interpret the pair as terminal columns followed by rows.
     #[inline]
     pub const fn tuple((width, height): (NonZero<u16>, NonZero<u16>)) -> Self {
         Self { width, height }
     }
 
-    /// Create a new [`Extents`] from a 2-element array.
+    /// Interpret the entries as terminal columns followed by rows.
     #[inline]
     pub const fn array([width, height]: [NonZero<u16>; 2]) -> Self {
         Self { width, height }
     }
 
-    /// Determine the general shape of these [`Extents`].
+    /// Classify equal dimensions as squarish and otherwise follow the longer axis.
     #[inline]
     pub const fn shape(&self) -> ViewportShape {
         let &Self { width, height } = self;
@@ -226,7 +210,7 @@ impl Extents {
         }
     }
 
-    /// Retrieve the width component of these [`Extents`].
+    /// Terminal columns available for each source row before wrapping.
     #[inline]
     pub const fn width(&self) -> u16 {
         let &Self { width, .. } = self;
@@ -234,7 +218,7 @@ impl Extents {
         width.get()
     }
 
-    /// Retrieve the height component of these [`Extents`].
+    /// Available terminal rows, used for shape classification rather than clipping.
     #[inline]
     pub const fn height(&self) -> u16 {
         let &Self { height, .. } = self;
@@ -242,9 +226,7 @@ impl Extents {
         height.get()
     }
 
-    /// Retrieve the width component of these [`Extents`].
-    ///
-    /// This is the raw width value, as per is it stored internally.
+    /// Column budget with its guarantee of at least one terminal cell.
     #[inline]
     pub const fn width_raw(&self) -> NonZero<u16> {
         let &Self { width, .. } = self;
@@ -252,9 +234,7 @@ impl Extents {
         width
     }
 
-    /// Retrieve the height component of these [`Extents`].
-    ///
-    /// This is the raw height value, as per is it stored internally.
+    /// Row count with its guarantee of at least one terminal cell.
     #[inline]
     pub const fn height_raw(&self) -> NonZero<u16> {
         let &Self { height, .. } = self;

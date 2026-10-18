@@ -1,8 +1,9 @@
-//! This module contains the various error compoenents that are used to build an
-//! error report.
+//! Diagnostic content that can be associated with source data for rendering.
 //!
-//! The main component is the [`Report`] trait, which is used to represent an
-//! error that can be reported.
+//! [`Report`] keeps headings, classification, and annotations independent of
+//! source ownership. [`SourceReport`] adds the source needed to interpret those
+//! locations. Use [`oneshot`] for diagnostics assembled at the call site or
+//! [`dynamic::DynamicError`] when the annotation collection needs to grow.
 
 pub mod dynamic;
 
@@ -26,64 +27,36 @@ use crate::{
     prelude::{Annotated, Label, Title},
 };
 
-/*
-TODO: derive(Report):
-
-we should be able to specify assoc params in the following style:
-
-#[report(title = "An error occurred")]
-
-or..
-
-#[report(title)]
-field: type
-
-we can support this by specializing support for literal expressions in the title position, which allows us to use a constant value as the title, without requiring more complex syntax.
-
-same goes for any kind of field, really.
-
-however, #[report(annotation)] denotes the first field annotation, #[report(annotation[...])] the rest field.
-
-#[report(annotation[...])] is optional, and will default to an empty slice if not present.
-
-a top-level #[report(annotation = "Annotation message")] attribute can be used for static annotation messages, but this requires an additional #[report(annotation(span))] attribute to denote the field holding the span for the annotation.
-
-same goes for #[report(source)] and #[report(kind)], albeit source can't be defaulted to a constant value.
-
-TODO: redo this
-
-we can have a &'static str as the title if the item itself has a `#[report(title = "this is the title")]` attribute on the top, otherwise, fall back to a regular field attr
-
-friendly reminder that we have reports act both as a valid reportable entity and a regular error
-*/
-
-/// A source-independent diagnostic report.
+/// Source-independent content describing a diagnostic and its locations.
 ///
-/// Implementations expose diagnostic state already stored by the error value.
-/// Querying a report does not materialize annotations or allocate storage.
+/// The heading is separate from annotation messages, and classification supplies
+/// printable wording and semantic metadata.
 pub trait Report {
-    /// Diagnostic title type.
+    /// Formatting contract for the diagnostic heading.
     type Title: Title + ?Sized;
 
-    /// Diagnostic kind type.
+    /// Classification supplying the heading descriptor and semantic metadata.
     type Kind: kind::ErrorKind;
 
-    /// Inline annotation storage exposed by this report.
+    /// Storage or adapter exposing the diagnostic's primary and related locations.
     type Annotations: Annotations;
 
-    /// Retrieve the diagnostic kind.
+    /// Classification used for the heading descriptor and metadata-based styling.
     fn kind(&self) -> &Self::Kind;
 
-    /// Retrieve the diagnostic title.
+    /// Heading text, independently of individual annotation messages.
     fn title(&self) -> &Self::Title;
 
-    /// Borrow the diagnostic annotation storage.
+    /// Locations and messages that relate this diagnostic to source content.
     fn annotations(&self) -> &Self::Annotations;
 
-    /// Retrieve the smallest source span covering every annotation.
+    /// Return the smallest source span covering every annotation.
     ///
-    /// [`Option::None`] means the report exposes no annotations. Individual
-    /// annotations always carry a concrete [`Span`].
+    /// Returns `None` when there are no annotations.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the bounding span cannot be represented.
     #[inline]
     fn target(&self) -> Option<Span> {
         self.annotations()
@@ -94,9 +67,9 @@ pub trait Report {
             .reduce(|left, right| left.superset(right))
     }
 
-    /// Borrow this report together with a concrete rendering source.
+    /// Interpret this report's targets against `source` without checking their bounds.
     ///
-    /// Attachment stores only references and does not copy or allocate report state.
+    /// The caller must choose a source whose coordinates match the annotation targets.
     #[inline]
     fn attach<'source, 'report, S>(&'report self, source: &'source S) -> Attached<'source, 'report, S, Self>
     where
@@ -107,16 +80,19 @@ pub trait Report {
     }
 }
 
-/// A report borrowed together with a concrete rendering source.
+/// A diagnostic with the source needed to interpret its annotation targets.
+///
+/// Implementers must supply coordinates compatible with every target because
+/// the trait does not check source identity or target bounds.
 pub trait SourceReport<'source>: Report {
-    /// Source used to render this report.
+    /// Source whose coordinate system is used by every annotation target.
     type Source: SourceLines<'source> + SourceMetadata<'source> + ?Sized;
 
-    /// Retrieve the rendering source.
+    /// Rendering input against which the report's targets are interpreted.
     fn source(&self) -> &Self::Source;
 }
 
-/// Assert that the source-independent report trait is object-safe.
+/// Object-safety witness for [`Report`].
 #[doc(hidden)]
 fn _report_must_be_object_safe()
 where
@@ -210,3 +186,6 @@ impl Report for Infallible {
         match *self {}
     }
 }
+
+#[cfg(test)]
+mod tests;
