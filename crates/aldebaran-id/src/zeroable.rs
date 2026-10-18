@@ -1,14 +1,8 @@
-//! A module providing a trait for working with generic `NonZero` types.
+//! Nonzero integer values with a primitive type parameter.
 //!
-//! While regular [`NonZero`] is generic, the trait it uses is private and
-//! cannot be expressed as a bound, therefore, this module provides a public
-//! interface for these types.
-//!
-//! In reality, this still uses the compiler-provided `NonZero` type, but
-//! wraps it around in a new-type.
-//!
-//! See the [`NonZeroed`] type and the [`NonZeroable`] trait for more
-//! information.
+//! [`NonZeroable`] associates supported primitives with [`NonZero`] representations,
+//! allowing [`NonZeroed`] to preserve nonzero validity during generic construction
+//! and mutable access.
 
 use core::{
     cmp::Ordering,
@@ -17,30 +11,24 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
-/// Seals the primitive and nonzero operations to supported integer types.
+/// Limits generic nonzero support to built-in integer representations.
 mod private {
-    /// A sealed trait to prevent external implementations for
-    /// non-[`NonZero<T>`] types.
+    /// Eligibility for the primitive-to-nonzero correspondence used by this module.
     pub trait Sealed {}
 }
 
-/// An abstract trait for types that can be zeroed.
+/// Maps an integer primitive to its corresponding [`NonZero`] type.
 ///
-/// Analogous to the internal [`ZeroablePrimitive`](core::num::ZeroablePrimitive) trait
-/// found in the [`NonZero`] implementation.
+/// Implementations are sealed to the signed and unsigned integer primitives.
 pub trait NonZeroable: private::Sealed + Sized {
-    /// The concrete, non-generic [`NonZero`] type.
-    ///
-    /// This is used to wrap around it in the [`NonZeroed`] new-type.
-    ///
-    /// The trait [`OperateNonZero`] is implemented for this type.
+    /// Representation that excludes zero while preserving the primitive's numeric domain.
     type Type: OperateNonZero<Self>;
 
     /// Number of bits in the built-in integer representation.
     const BITS: u8;
 }
 
-/// Implements the nonzero abstraction for the supplied primitive integer types.
+/// Built-in integer families eligible for generic nonzero construction and extraction.
 macro_rules! nonzeroable {
     () => {};
     (
@@ -77,7 +65,7 @@ macro_rules! nonzeroable {
 
                 #[inline]
                 unsafe fn new_unchecked(value: $target_type) -> Self {
-                    // SAFETY: The caller guarantees that value is nonzero.
+                    // SAFETY: The caller guarantees that `value` is nonzero.
                     unsafe {
                         NonZero::new_unchecked(value)
                     }
@@ -94,14 +82,11 @@ macro_rules! nonzeroable {
 
 nonzeroable!(i8 i16 i32 i64 i128 isize u8 u16 u32 u64 u128 usize);
 
-/// A newtype wrapper for `NonZero` types that can never be zeroed.
-///
-/// Even if this is a newtype, it is still `repr(transparent)` and is still
-/// niche-optimized.
-///
-/// This both [`Deref`]s and [`DerefMut`]s to the inner [`NonZero`] type,
-/// therefore, it can be used as a drop-in replacement.
+/// A nonzero value parameterized by its primitive integer type.
+/// Dereferencing exposes the corresponding [`NonZero`] representation, so safe
+/// mutable access cannot introduce zero.
 #[repr(transparent)]
+// NOTE(invariant): None.
 pub struct NonZeroed<T>(<T as NonZeroable>::Type)
 where
     T: NonZeroable;
@@ -160,6 +145,7 @@ where
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         let &Self(ref lhs) = self;
+
         let &Self(ref rhs) = other;
 
         lhs == rhs
@@ -181,6 +167,7 @@ where
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         let &Self(ref lhs) = self;
+
         let &Self(ref rhs) = other;
 
         lhs.partial_cmp(rhs)
@@ -195,6 +182,7 @@ where
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
         let &Self(ref lhs) = self;
+
         let &Self(ref rhs) = other;
 
         lhs.cmp(rhs)
@@ -258,10 +246,10 @@ impl<T> NonZeroed<T>
 where
     T: NonZeroable,
 {
-    /// The maximum value that this [`NonZeroed`] can have.
+    /// The greatest nonzero value of the backing integer type.
     pub const MAX: Self = Self::raw(T::Type::MAX);
 
-    /// The minimum value that this [`NonZeroed`] can have.
+    /// The least nonzero value of the backing integer type.
     pub const MIN: Self = Self::raw(T::Type::MIN);
 }
 
@@ -269,29 +257,27 @@ impl<T> NonZeroed<T>
 where
     T: NonZeroable,
 {
-    /// A new [`NonZeroed`] value that is created from a value that may be zero.
+    /// Create a nonzero value, returning [`None`] for zero.
     #[inline]
     pub fn new(value: T) -> Option<Self> {
         T::Type::new(value).map(Self)
     }
 
-    /// A new [`NonZeroed`] value that is created from a value that is known to
-    /// be non-zero.
+    /// Construct a nonzero value without checking its input.
     ///
     /// # Safety
     ///
-    /// The value must be non-zero. Otherwise, you risk undefined behavior due
-    /// to niche optimizations.
+    /// `value` must be nonzero. Passing zero violates the validity requirement
+    /// of the underlying [`NonZero`] value and is undefined behavior.
     #[inline]
     pub unsafe fn new_unchecked(value: T) -> Self {
-        // SAFETY: upheld by the caller
+        // SAFETY: The caller guarantees the nonzero input required by `new_unchecked`.
         let inner = unsafe { T::Type::new_unchecked(value) };
 
         Self(inner)
     }
 
-    /// A new [`NonZeroed`] value that is created from its raw inner value, i.e,
-    /// `core`'s `NonZero` type.
+    /// Preserve an existing nonzero value without requiring another validity check.
     #[inline]
     pub const fn raw(target_value: <T as NonZeroable>::Type) -> Self {
         Self(target_value)
@@ -302,7 +288,7 @@ impl<T> NonZeroed<T>
 where
     T: NonZeroable,
 {
-    /// Retrieve the inner value of the [`NonZeroed`] type.
+    /// Numeric value for primitive integer operations, still guaranteed to be nonzero.
     #[inline]
     pub fn get(&self) -> T {
         let &Self(ref inner) = self;
@@ -310,7 +296,7 @@ where
         inner.get()
     }
 
-    /// Retrieve the inner [`NonZero`] type contained in this wrapper.
+    /// Preserve nonzero validity when transferring the value to standard integer APIs.
     #[inline]
     pub fn into_inner(self) -> T::Type {
         let Self(inner) = self;
@@ -319,27 +305,26 @@ where
     }
 }
 
-/// An trait that exposes the individual [`NonZero`] operations as part of a
-/// larger trait.
+/// Construction and extraction shared by built-in [`NonZero`] integer types.
+/// Implementations are sealed so generic consumers retain standard nonzero validity.
 pub trait OperateNonZero<T>: private::Sealed + Sized {
-    /// The minimum value that can be represented by the [`NonZero`] type, i.e,
-    /// `1`.
+    /// The least nonzero value representable by the primitive integer type.
     const MIN: Self;
 
     /// The maximum value that can be represented by the [`NonZero`] type.
     const MAX: Self;
 
-    /// A [`NonZero`] value that checks for zero.
+    /// Return [`None`] for zero and a [`NonZero`] value otherwise.
     fn new(value: T) -> Option<Self>;
 
-    /// A new [`NonZero`] value that does not check for zero.
+    /// Construct a [`NonZero`] value without checking its input.
     ///
     /// # Safety
     ///
-    /// The value must be non-zero. Otherwise, you may risk random
-    /// transmutations due to niche optimizations.
+    /// `value` must be nonzero. Passing zero violates the validity requirement
+    /// of [`NonZero`] and is undefined behavior.
     unsafe fn new_unchecked(value: T) -> Self;
 
-    /// Fetch the inner value of the [`NonZero`] type.
+    /// Numeric value represented by this nonzero integer, unchanged by extraction.
     fn get(&self) -> T;
 }

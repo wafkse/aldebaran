@@ -1,8 +1,7 @@
-//! Identifier traits, generated identifier newtypes, and typed identifier tags.
+//! Nonzero integer identities with optional compile-time type distinctions.
 //!
-//! [`trait@Id`] defines the common nonzero primitive representation used by identifier
-//! types. The `Id!` macro generates fixed-width newtypes, while [`TaggedId`]
-//! attaches a compile-time target type without changing the stored identifier.
+//! [`Id!`](macro@crate::Id) declares fixed-width types implementing [`trait@Id`], and [`TaggedId`]
+//! associates an existing ID with a value type without proving storage membership.
 
 use core::{
     cmp, fmt,
@@ -12,8 +11,8 @@ use core::{
 
 use crate::zeroable::{NonZeroable, NonZeroed};
 
-/// A helper macro that expands to a subordinated macro that aids in the
-/// generation of newtype identifiers.
+/// Declare a macro for fixed-width nonzero IDs, applying caller metadata to each type.
+/// Optional display formatting uses the ID's primitive value.
 #[macro_export]
 macro_rules! Id {
     (
@@ -26,11 +25,11 @@ macro_rules! Id {
             as $target_fmt_str:literal
         )?
     ) => {
-        #[doc = concat!("Expands to a new `", stringify!($target_macro), "Id[N]` new-type using `N` bits as storage.")]
+        #[doc = concat!("Declare fixed-width IDs with the supplied metadata. The `become` form also exposes the type under this macro's name.")]
         macro_rules! $target_macro {
             ($target_bits:literal) => {
                 $crate::reexport::stream! {
-                    #[doc = concat!("A ", stringify!($target_bits), "-bit identifier new-type.")]
+                    #[doc = concat!("A ", stringify!($target_bits), "-bit identity that excludes zero without proving uniqueness or storage membership.")]
                     ///
                     #[must_use = "identifiers may not be lost"]
                     $(
@@ -113,49 +112,52 @@ macro_rules! Id {
     };
 }
 
-/// A trait for types that identify arbitrary structures.
+/// An identity backed by a nonzero integer.
+///
+/// This trait does not guarantee uniqueness or that the referenced object remains
+/// in storage.
 pub trait Id: Hash + PartialEq + Eq + Copy + 'static {
-    /// The primitive type that this identifier is based on.
-    ///
-    /// This is usually a small-sized integer, such as [`u16`], or [`u32`].
+    /// Numeric domain used for lossless construction and extraction of this identity.
     type BackingPrimitive: NonZeroable;
 
-    /// The maximum value that is possible for this [`trait@Id`].
+    /// Identity at the upper bound of the backing numeric domain.
     const MAX: Self;
 
-    /// The minimum value that is possible for this [`trait@Id`].
+    /// Identity at the least nonzero value of the backing numeric domain.
     const MIN: Self;
 
-    /// The number of bits in the underlying storage type.
+    /// Number of bits in the backing integer type.
     const BITS: u8 = Self::BackingPrimitive::BITS;
 
-    /// A raw-constructed [`trait@Id`] from its [`NonZeroed`] primitive.
+    /// Construct an identifier from its nonzero backing value.
+    ///
+    /// The result must expose the same value through [`as_nonzeroed`](Self::as_nonzeroed).
     fn raw(value: NonZeroed<Self::BackingPrimitive>) -> Self;
 
-    /// The backing primitive value of this [`trait@Id`].
+    /// Numeric identity for interchange with callers using primitive integers.
+    /// Its value matches [`Self::as_nonzeroed`] and is never zero.
     #[inline]
     fn primitive(&self) -> Self::BackingPrimitive {
         self.as_nonzeroed().get()
     }
 
-    /// Reinterpret this [`trait@Id`] as a [`NonZeroed`] value.
+    /// Nonzero identity used to reconstruct this ID through [`Self::raw`].
+    /// Implementations must preserve the value supplied at construction.
     fn as_nonzeroed(&self) -> NonZeroed<Self::BackingPrimitive>;
 }
 
-/// A tagged [`trait@Id`] that is associated with a specific type.
-///
-/// This type serves as a hint to the reader regarding which type the [`trait@Id`]
-/// is associated with.
+/// Distinguish IDs for different value types without changing their representation.
+/// The tag carries no value of `T` and proves neither storage ownership nor membership.
 #[repr(transparent)]
+// NOTE(invariant): None.
 pub struct TaggedId<T: ?Sized, I>
 where
     I: Id,
 {
-    /// The target [`trait@Id`] that is tagged with a specific type.
+    /// Identity used for comparison, hashing, and primitive conversion independently of `T`.
     target_id: I,
 
-    /// A marker to indicate the type of the target [`trait@Id`].
-    // TODO: use new Phantom.. style types to indicate variance explicitly
+    /// Type distinction that requires no stored or owned value of `T`.
     _marker: PhantomData<fn() -> T>,
 }
 
@@ -163,7 +165,7 @@ impl<T: ?Sized, I> TaggedId<T, I>
 where
     I: Id,
 {
-    /// Extract the inner [`trait@Id`] from this [`TaggedId`].
+    /// Erase the value-type distinction while preserving the original identity.
     #[inline]
     pub const fn into_inner(self) -> I {
         let Self { target_id, .. } = self;
@@ -188,7 +190,7 @@ impl<T: ?Sized, I> TaggedId<T, I>
 where
     I: Id,
 {
-    /// Tag the target [`trait@Id`] with a specific type.
+    /// Associate an existing identity with `T` without validating storage membership.
     #[inline]
     pub const fn new(target_id: I) -> Self {
         Self {

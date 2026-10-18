@@ -1,8 +1,7 @@
-//! Fixed-size collections of identifiers.
+//! Positional groups of identifiers with a fixed cardinality.
 //!
-//! [`IdArray`] stores a compile-time number of identifiers and provides indexed
-//! access while preserving the concrete identifier type. The collection is used
-//! where identifier cardinality is part of the surrounding type contract.
+//! [`IdArray`] groups IDs by position and permits duplicates, with
+//! named slot accessors available for lengths 1 through 32.
 
 use core::{
     fmt,
@@ -13,23 +12,20 @@ use aldebaran_baseline::tuple::Uniform;
 
 use crate::prelude::Id;
 
-/// An array of [`trait@Id`]'s of length `N`.
-///
-/// This exposes various methods for accessing each individual [`trait@Id`] in the
-/// array, this is given as a sequence of `IdArray::i{{N}}`, where `N` is the
-/// index of the [`trait@Id`] in the array plus one, i.e these methods follow the
-/// trend `id1..id{{N}}`.
+/// A positional group of IDs whose length is part of its type.
+/// Slots remain independently replaceable and need not contain distinct IDs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+// NOTE(invariant): None.
 pub struct IdArray<I: Id, const N: usize>([I; N]);
 
 impl<I: Id, const N: usize> IdArray<I, N> {
-    /// Create a new [`IdArray`] from the given storage array.
+    /// Preserve the supplied slot assignments, including repeated IDs.
     #[inline]
     pub const fn of(storage: [I; N]) -> Self {
         Self(storage)
     }
 
-    /// Create a new [`IdArray`] from the target [`Uniform`] appendage.
+    /// Convert a homogeneous tuple into an array, preserving element order.
     #[inline]
     pub fn uniform<A>(value: A) -> Self
     where
@@ -82,7 +78,7 @@ impl<I: Id, const N: usize> DerefMut for IdArray<I, N> {
     }
 }
 
-/// A macro that generates accessors for the [`IdArray`] type.
+/// Named slots available only for array lengths that contain them.
 macro_rules! Accessors {
     (
         $target_start:literal .. $target_end:literal for $target_ty:ident
@@ -110,7 +106,7 @@ macro_rules! Accessors {
             $(
                 impl<I: Id> $target_ty <I, $target_length> {
                     $(
-                        #[doc = concat!("Access the `", stringify!($target_index), "th` identifier `I` contained in this [`", stringify!($target_ty), "`].")]
+                        #[doc = concat!("Zero-based slot ", stringify!($target_index), ", whose availability is guaranteed by this array length.")]
                         #[inline]
                         #[must_use = "redundant access to identifier"]
                         pub const fn [< id $target_index >]:to_string:flatten:concatenate:unstringify (&self) -> &I {
@@ -119,7 +115,7 @@ macro_rules! Accessors {
                             &storage[$target_index]
                         }
 
-                        #[doc = concat!("Mutably access the `", stringify!($target_index), "th` identifier `I` contained in this [`", stringify!($target_ty), "`].")]
+                        #[doc = concat!("Edit zero-based slot ", stringify!($target_index), " without changing the length or other slots. Duplicate IDs remain permitted.")]
                         #[inline]
                         #[must_use = "redundant mutable access to identifier"]
                         pub const fn [< id $target_index _mut >]:to_string:flatten:concatenate:unstringify (&mut self) -> &mut I {
@@ -128,7 +124,7 @@ macro_rules! Accessors {
                             &mut storage[$target_index]
                         }
 
-                        #[doc = concat!("Access the `", stringify!($target_index), "th` identifier `I` contained in this [`", stringify!($target_ty), "`] through a closure.")]
+                        #[doc = concat!("Project from zero-based slot ", stringify!($target_index), " without requiring the caller to copy its ID. The slot exists for this array length.")]
                         #[inline]
                         #[must_use = "redundant access to identifier"]
                         pub fn [< id $target_index _with >]:to_string:flatten:concatenate:unstringify <F, T> (&self, target_closure: F) -> T
@@ -140,7 +136,7 @@ macro_rules! Accessors {
                             target_closure(&storage[$target_index])
                         }
 
-                        #[doc = concat!("Mutably access the `", stringify!($target_index), "th` identifier `I` contained in this [`", stringify!($target_ty), "`] through a closure.")]
+                        #[doc = concat!("Edit zero-based slot ", stringify!($target_index), " through a closure while preserving the length and other slots. Duplicate IDs remain permitted.")]
                         #[inline]
                         #[must_use = "redundant access to identifier"]
                         pub fn [< id $target_index _mut_with >]:to_string:flatten:concatenate:unstringify <F, T> (&mut self, target_closure: F) -> T
