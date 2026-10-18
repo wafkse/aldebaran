@@ -1,59 +1,79 @@
-//! Allocation profile identities and profiler hooks.
+//! Profile identities and optional names for allocator debug output.
 //!
-//! Profiles provide compact allocator identities, while [`Profiler`] supplies
-//! optional human-readable names consumed by the heap allocator wrapper.
+//! [`Profile`] distinguishes an absent label from a nonzero identity, while
+//! [`Profiled`] carries that choice in a [`Heap`](super::heap::Heap) const
+//! parameter. [`Profiler`] supplies names without assigning allocation policy.
 
-use core::mem;
 use core::num::NonZero;
 
-/// The underlying storage type for a [`Profile`].
-///
-/// This is simple a profile ID.
+/// Scalar type used by the [`Heap`](super::heap::Heap) profile const parameter.
 pub type Profiled = usize;
 
-/// A singular allocation profile.
+/// A profile label represented by either the no-profile case or a nonzero ID.
 ///
-/// A profile is simply a non-zero integer representing a profiled identity.
+/// [`Self::be`] encodes [`Self::None`] as zero and preserves the ID of
+/// [`Self::Exist`], while [`Self::is`] recovers the corresponding label. This
+/// allows [`Heap`](super::heap::Heap) to select a profile through a scalar const
+/// parameter without depending on the enum's memory layout.
+///
+/// Although these conversions preserve the label, the scalar representation is
+/// intended for allocator configuration and must not be used for persistence or
+/// interchange.
 pub enum Profile {
-    /// No profile.
+    /// The no-profile label.
     None,
 
-    /// An existing profile.
+    /// A nonzero profile identifier.
     Exist(NonZero<Profiled>),
 }
 
 impl Profile {
-    /// Reinterpret this [`Profile`] as a [`Profiled`].
+    /// Convert a profile label to the scalar used by [`Heap`](super::heap::Heap).
     #[inline]
     pub const fn be(self) -> Profiled {
-        // SAFETY: This simply reinterprets the current Profile as a Profiled
-        // type. This is inherently safe because if niche
-        // optimizations are not applied, transmutation would result in a
-        // compilation error due to mismatching sizes.
-        // *NOTE[NOOP]: This should compile down to a no-op.
-        unsafe { mem::transmute::<Profile, Profiled>(self) }
+        match self {
+            Self::None => 0,
+            Self::Exist(value) => value.get(),
+        }
     }
 
-    /// Reinterpret this [`Profiled`] as a [`Profile`].
+    /// Interpret a [`Heap`](super::heap::Heap) profile scalar as a profile label.
     #[inline]
     pub const fn is(value: Profiled) -> Profile {
-        // SAFETY: This simply reinterprets the current Profiled as a Profile
-        // type. This is inherently safe because if niche
-        // optimizations are not applied, transmutation would result in a
-        // compilation error due to mismatching sizes.
-        // *NOTE[NOOP]: This should compile down to a no-op.
-        unsafe { mem::transmute::<Profiled, Profile>(value) }
+        match NonZero::new(value) {
+            Some(value) => Self::Exist(value),
+            None => Self::None,
+        }
     }
 
-    /// The default, null-pointing [`Profiled`].
+    /// The scalar representation of [`Profile::None`].
     #[inline]
     pub const fn none() -> Profiled {
         Profile::be(Profile::None)
     }
 }
 
-/// A trait for profiler drivers.
+/// Supplies static names for profile labels in allocator debug output.
 pub trait Profiler: Send + Sync {
-    /// Retrieve the name corresponding to the given [`Profile`].
+    /// Return a process-lifetime name for a known profile, if available.
     fn name(&self, profile: Profile) -> Option<&'static str>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Profile, Profiled};
+
+    #[test]
+    fn scalar_conversion_preserves_absence_and_nonzero_ids() {
+        const ABSENT: Profiled = Profile::none();
+        const MAXIMUM: Profile = Profile::is(Profiled::MAX);
+
+        assert_eq!(ABSENT, 0);
+        assert!(matches!(Profile::is(ABSENT), Profile::None));
+        assert!(matches!(MAXIMUM, Profile::Exist(value) if value.get() == Profiled::MAX));
+
+        for scalar in [0, 1, 2, Profiled::MAX] {
+            assert_eq!(Profile::is(scalar).be(), scalar);
+        }
+    }
 }

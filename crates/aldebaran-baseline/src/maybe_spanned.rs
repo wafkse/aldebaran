@@ -1,23 +1,24 @@
-//! A module that provides the [`MaybeSpanned`] trait.
+//! Optional extents for values that may not occupy source coordinates.
 //!
-//! Refer to the [`MaybeSpanned`] trait for more information.
+//! [`MaybeSpanned`] accommodates empty values, while [`Spanned`] supplies a span
+//! unconditionally. Built-in strings report UTF-8 byte coordinates and slices
+//! report element coordinates, both starting at zero.
 
 use core::num::NonZero;
 
 use crate::{span::Span, spanned::Spanned};
 
-/// Trait for types that may have a span.
+/// A value whose nonempty coordinate extent may be available.
 ///
-/// This is useful for types that may or may not have a span, and we want to
-/// retrieve it if it exists.
-///
-/// This is the case for empty strings, for example.
+/// Implementations choose the coordinate system they report, while [`Span`]
+/// requires a nonzero length in that system. Empty built-in strings and slices
+/// therefore have no span.
 pub trait MaybeSpanned {
-    /// Retrieve the span of this type, if it exists.
+    /// Return this value's nonempty span, if available.
     fn maybe_spanned(&self) -> Option<Span>;
 }
 
-/// If a type is [`Spanned`], it can be [`MaybeSpanned`].
+/// A [`Spanned`] value always has an available span.
 impl<T> MaybeSpanned for T
 where
     T: Spanned,
@@ -28,34 +29,33 @@ where
     }
 }
 
+/// Nonempty strings use a zero-based span measured in UTF-8 bytes.
 impl MaybeSpanned for str {
     fn maybe_spanned(&self) -> Option<Span> {
         NonZero::new(self.len()).map(|length| Span::new(usize::MIN, length))
     }
 }
 
-/// Blanket implementation for all slice types.
+/// Nonempty slices use zero-based coordinates measured in elements.
 impl<T> MaybeSpanned for [T] {
     fn maybe_spanned(&self) -> Option<Span> {
         NonZero::new(self.len()).map(|length| Span::new(usize::MIN, length))
     }
 }
 
-/// Blanket implementation for all slice types (references).
 impl<T> MaybeSpanned for &[T] {
     fn maybe_spanned(&self) -> Option<Span> {
         <[T] as MaybeSpanned>::maybe_spanned(self)
     }
 }
 
-/// Blanket implementation for all slice types (mutable references).
 impl<T> MaybeSpanned for &mut [T] {
     fn maybe_spanned(&self) -> Option<Span> {
         <[T] as MaybeSpanned>::maybe_spanned(self)
     }
 }
 
-/// Blanket implementation for [`Option`]s.
+/// [`None`] has no span, while [`Some`] delegates to the contained value.
 impl<T> MaybeSpanned for Option<T>
 where
     T: MaybeSpanned,

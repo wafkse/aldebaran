@@ -1,3 +1,5 @@
+//! Shared and exclusive iteration over nonempty sequences.
+
 use core::{
     iter::{self, FusedIterator},
     slice,
@@ -5,10 +7,11 @@ use core::{
 
 use super::{OneOrMore, reference::RefOneOrMore};
 
-/// An iterator that is guaranteed to yield at least one element.
+/// Shared iterator over a [`RefOneOrMore`] sequence.
 ///
-/// Procedent from the [`RefOneOrMore`] type.
+/// It yields the first value before the tail and remains exhausted after returning [`None`].
 #[derive(Debug)]
+// NOTE(invariant): None.
 pub struct OnceOrMore<'borrow, T> {
     /// Remaining shared references, with the required first element before the tail.
     inner: iter::Chain<iter::Once<&'borrow T>, slice::Iter<'borrow, T>>,
@@ -28,8 +31,7 @@ impl<'borrow, T> Iterator for OnceOrMore<'borrow, T> {
 impl<'borrow, T> FusedIterator for OnceOrMore<'borrow, T> {}
 
 impl<'borrow, T> OnceOrMore<'borrow, T> {
-    /// Create a new [`OnceOrMore`] sourcing from a reference-based
-    /// [`RefOneOrMore`].
+    /// Traverse a borrowed sequence.
     #[inline]
     pub fn from_ref(value: RefOneOrMore<'borrow, T>) -> Self {
         let (a0, a_n) = (value.first(), value.rest());
@@ -40,16 +42,18 @@ impl<'borrow, T> OnceOrMore<'borrow, T> {
     }
 }
 
-/// An iterator that is guaranteed to yield at least one mutable element
-/// reference.
+/// Mutable iterator over a [`OneOrMore`] sequence.
+///
+/// It yields the first value before the tail and remains exhausted after returning [`None`].
 #[derive(Debug)]
+// NOTE(invariant): None.
 pub struct OnceOrMoreMut<'borrow, T> {
     /// Remaining disjoint mutable references in first-element and tail order.
     inner: iter::Chain<iter::Once<&'borrow mut T>, slice::IterMut<'borrow, T>>,
 }
 
 impl<'borrow, T> OnceOrMoreMut<'borrow, T> {
-    /// Borrow the required first element and tail exclusively for traversal.
+    /// Traverse an owned sequence through exclusive references.
     #[inline]
     pub fn from_mut_ref(value: &'borrow mut OneOrMore<T>) -> Self {
         let (a0, a_n) = value.tuple_mut();

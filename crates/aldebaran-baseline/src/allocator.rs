@@ -1,7 +1,8 @@
-//! Optional allocation support built on `allocator-api2`.
+//! Allocator selection for allocation-backed collections.
 //!
-//! The allocator wrapper forwards memory operations to its backend and carries
-//! optional profile metadata. Profile names do not imply allocation tracing.
+//! [`heap::Heap`] adapts an allocator with a profile label for debug output.
+//! [`profile`] defines those labels, and [`export`] supplies collection aliases
+//! that use the adapter by default. This module requires the `allocator` feature.
 
 pub mod export;
 pub mod heap;

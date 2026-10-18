@@ -1,7 +1,8 @@
-//! Heap allocator wrappers and allocator-backed collection aliases.
+//! Allocator adapters with profile labels for diagnostic output.
 //!
-//! The module defines [`Heap`], which couples an allocator backend with optional
-//! allocation profiling while remaining compatible with `allocator-api2`.
+//! [`Heap`] delegates memory operations to the selected [`Allocator`]. Its
+//! profile parameter distinguishes debug labels without changing allocation
+//! behavior or ownership of the underlying allocations.
 
 use crate::allocator::{
     export::alloc::{AllocError, Allocator, Global},
@@ -12,13 +13,14 @@ use core::alloc::Layout;
 use core::ptr::NonNull;
 use core::{fmt, hash};
 
-/// The default, heap-backed general-purpose allocator.
+/// An allocator with a profile label used only for debug output.
 ///
-/// Note that this is simply a wrapper around the [`Global`] allocator, in
-/// conjunction with the [`Profile`] system.
+/// Memory operations retain `A`'s allocation contract. Equality and hashing use
+/// the underlying allocator independently of its optional debug-name provider.
 #[derive(Clone, Copy)]
+// NOTE(invariant): None.
 pub struct Heap<A: Allocator = Global, const P: Profiled = { Profile::none() }> {
-    /// Optional profiler used to name allocations for the selected profile.
+    /// Optional provider for the allocator's debug name.
     profiler: Option<&'static dyn Profiler>,
 
     /// Allocator that performs the underlying memory operations.
@@ -75,10 +77,7 @@ where
 }
 
 impl<const P: Profiled> Heap<Global, P> {
-    /// The assigned default value for the [`Heap`] type.
-    ///
-    /// Note that this is the same as the [`Global`] allocator, with no
-    /// profiling capabilities.
+    /// A heap backed by [`Global`].
     pub const DEFAULT: Self = Self {
         profiler: None,
         alloc: Global,

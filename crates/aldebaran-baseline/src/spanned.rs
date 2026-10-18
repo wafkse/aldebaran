@@ -1,16 +1,20 @@
-//! A module that provides the [`Spanned`] trait.
+//! Required source extents for values exchanged between processing stages.
 //!
-//! Refer to the [`Spanned`] trait for more information.
+//! [`Spanned`] always supplies a nonempty [`Span`]. Values that may have no
+//! extent use [`MaybeSpanned`](crate::maybe_spanned::MaybeSpanned) instead, while
+//! both contracts leave the coordinate unit and source identity to their users.
 
 use crate::span::Span;
 
-/// Trait for types that have a definite [`Span`].
+/// A value with a definite [`Span`].
+///
+/// Implementations and their consumers must agree on the coordinate unit and origin.
 pub trait Spanned {
-    /// Determine the associated [`Span`] of this type.
+    /// Return this value's span in its associated coordinate system.
     fn span(&self) -> Span;
 }
 
-/// Blanket implementation of [`Spanned`] for [`Span`].
+/// A span's associated span is itself.
 impl Spanned for Span {
     #[inline]
     fn span(&self) -> Span {

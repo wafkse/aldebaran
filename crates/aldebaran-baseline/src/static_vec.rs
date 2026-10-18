@@ -1,8 +1,8 @@
-//! Fixed-capacity vector storage without heap allocation.
+//! Bounded sequences whose elements stay in inline storage.
 //!
-//! [`StaticVec`] keeps up to `N` initialized elements inside an inline
-//! `MaybeUninit` array and exposes the initialized prefix as a slice. Push and
-//! pop operations maintain the initialized-length invariant without reallocating.
+//! [`StaticVec`] keeps its maximum size in the type and rejects a push when that
+//! storage is full. Its slice views expose only occupied positions, while
+//! [`StaticVec::capacity`] reports the remaining space rather than the maximum.
 
 use core::{
     fmt,
@@ -11,33 +11,27 @@ use core::{
     slice,
 };
 
-/// Fixed-capacity vector backed by inline uninitialized storage.
+/// A growable inline sequence with a compile-time maximum of `N` elements.
 ///
-/// The type tracks exactly how many array slots contain initialized values and
-/// exposes only that prefix through slice operations. Capacity never changes and
-/// mutation fails explicitly when no unused slot remains.
-///
-/// This both [`Deref`]s and [`DerefMut`]s to a slice of `T`, so it can be used
-/// with the usual, well-known slice methods.
-// NOTE(invariant): `storage_len` never exceeds `N`, and exactly the first `storage_len` slots are initialized.
+/// Pushing into a full sequence returns the supplied value unchanged. Slice
+/// access and dereferencing cover only occupied positions, and removed values
+/// transfer back to the caller rather than remaining owned by the sequence.
+// NOTE(invariant): Length <= N And InitializedSlots = 0..Length
 pub struct StaticVec<T, const N: usize> {
-    /// The backing storage array for this [`StaticVec`].
-    ///
-    /// This is the first-field of the struct to aid in pointer casting, since
-    /// this is a struct very likely to be dumped to the stack.
+    /// Inline storage for the sequence's elements.
     storage_buffer: [MaybeUninit<T>; N],
 
-    /// The amount of elements currently stored in this [`StaticVec`].
+    /// Current number of elements.
     storage_len: usize,
 }
 
 impl<T, const N: usize> StaticVec<T, N> {
-    /// The total amount of elements this [`StaticVec`] can store at maximum.
+    /// Maximum number of elements this [`StaticVec`] can store.
     pub const STORAGE_SIZE: usize = N;
 }
 
 impl<T, const N: usize> StaticVec<T, N> {
-    /// An empty [`StaticVec`] that is of capacity `N`.
+    /// Create an empty vector with capacity `N`.
     #[inline]
     pub const fn empty() -> Self {
         Self {
@@ -48,9 +42,7 @@ impl<T, const N: usize> StaticVec<T, N> {
 }
 
 impl<T, const N: usize> StaticVec<T, N> {
-    /// Attempt to push an element `T` into this [`StaticVec`].
-    ///
-    /// Fails if the [`StaticVec`] is already at capacity.
+    /// Append an element, returning it unchanged if the vector is full.
     #[inline]
     pub const fn push(&mut self, value: T) -> Result<(), T> {
         let &mut Self {
@@ -75,7 +67,7 @@ impl<T, const N: usize> StaticVec<T, N> {
         Ok(())
     }
 
-    /// Pop a value from this [`StaticVec`].
+    /// Remove and return the last element, or [`None`] when empty.
     #[inline]
     pub const fn pop(&mut self) -> Option<T> {
         let &mut Self {
@@ -103,7 +95,7 @@ impl<T, const N: usize> StaticVec<T, N> {
 }
 
 impl<T, const N: usize> StaticVec<T, N> {
-    /// Determine the amount of elements stored in this [`StaticVec`].
+    /// Number of initialized elements.
     #[inline]
     pub const fn len(&self) -> usize {
         let &Self { storage_len, .. } = self;
@@ -111,13 +103,13 @@ impl<T, const N: usize> StaticVec<T, N> {
         storage_len
     }
 
-    /// Determine whether this [`StaticVec`] contains no initialized elements.
+    /// Whether the vector contains no initialized elements.
     #[inline]
     pub const fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
-    /// Determine the capacity of this [`StaticVec`].
+    /// Number of additional elements that fit before the vector is full.
     #[inline]
     pub const fn capacity(&self) -> usize {
         let &Self { storage_len, .. } = self;
@@ -129,7 +121,7 @@ impl<T, const N: usize> StaticVec<T, N> {
 }
 
 impl<T, const N: usize> StaticVec<T, N> {
-    /// Reinterpret this [`StaticVec`] as an immutable slice of `T`.
+    /// Borrow the initialized prefix as a slice.
     #[inline]
     pub const fn as_slice(&self) -> &[T] {
         let &Self {
@@ -146,7 +138,7 @@ impl<T, const N: usize> StaticVec<T, N> {
         unsafe { slice::from_raw_parts(storage_addr, len) }
     }
 
-    /// Reinterpret this [`StaticVec`] as an immutable slice of `T`.
+    /// Mutably borrow the initialized prefix as a slice.
     #[inline]
     pub const fn as_slice_mut(&mut self) -> &mut [T] {
         let &mut Self {
@@ -208,55 +200,4 @@ impl<T: fmt::Debug, const N: usize> fmt::Debug for StaticVec<T, N> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::StaticVec;
-
-    #[test]
-    fn emptiness_tracks_push_and_pop() {
-        let mut values = StaticVec::<u32, 1>::empty();
-
-        assert!(values.is_empty(), "new storage must be empty");
-        assert_eq!(values.push(7), Ok(()));
-        assert!(!values.is_empty(), "a stored element makes the vector nonempty");
-        assert_eq!(values.push(8), Err(8));
-        assert_eq!(values.pop(), Some(7));
-        assert!(values.is_empty(), "popping the last element empties the vector");
-    }
-
-    #[test]
-    fn zero_capacity_stays_empty() {
-        let mut values = StaticVec::<u32, 0>::empty();
-
-        assert_eq!(values.push(7), Err(7));
-        assert_eq!(values.pop(), None);
-        assert!(values.is_empty(), "zero-capacity storage cannot contain elements");
-    }
-
-    #[test]
-    fn only_the_initialized_prefix_is_dropped() {
-        use alloc::rc::Rc;
-        use core::cell::Cell;
-
-        struct DropCounter(Rc<Cell<usize>>);
-
-        impl Drop for DropCounter {
-            fn drop(&mut self) {
-                self.0.set(self.0.get() + 1);
-            }
-        }
-
-        let drops = Rc::new(Cell::new(0));
-        let mut values = StaticVec::<DropCounter, 3>::empty();
-
-        assert!(matches!(values.push(DropCounter(Rc::clone(&drops))), Ok(())));
-        assert!(matches!(values.push(DropCounter(Rc::clone(&drops))), Ok(())));
-        assert!(matches!(values.push(DropCounter(Rc::clone(&drops))), Ok(())));
-        let popped = values.pop().expect("the last initialized value is available");
-
-        drop(values);
-        assert_eq!(drops.get(), 2, "dropping the vector drops only its live prefix");
-
-        drop(popped);
-        assert_eq!(drops.get(), 3, "a popped value is owned by the caller");
-    }
-}
+mod tests;
