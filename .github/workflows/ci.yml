@@ -84,18 +84,3 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
         run: cargo +stable doc --workspace --no-deps
-
-  package:
-    name: Package
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Install Rust
-        run: rustup toolchain install stable --profile minimal --no-self-update
-
-      - uses: Swatinem/rust-cache@v2.9.1
-
-      - name: Package workspace
-        run: cargo +stable package --workspace
