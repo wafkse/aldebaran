@@ -1,8 +1,8 @@
-//! Source capability implementations for borrowed UTF-8 strings.
+//! Built-in source traits for borrowed UTF-8 strings.
 //!
-//! String sources iterate by Unicode scalar value while retaining byte-based
-//! absolute coordinates through each component's UTF-8 width. Dissection returns
-//! borrowed string views and line segmentation preserves valid UTF-8 boundaries.
+//! Iteration yields Unicode scalar values while spans count UTF-8 bytes.
+//! Dissection clips to the source extent and requires UTF-8 endpoints. Line
+//! windows reject invalid endpoints, and line traversal recognizes LF and CRLF.
 
 use core::iter::FusedIterator;
 use core::num::NonZero;
@@ -136,7 +136,7 @@ mod test {
 
     #[test]
     fn line_segment() {
-        /// Macro to test the line iterator functions.
+        /// Expected content and break views for concatenated source lines.
         macro_rules! lines {
             () => {};
             (
@@ -222,8 +222,6 @@ mod test {
             "" => None
         );
     }
-
-    // TODO: test segmentation and actually build the reporter
 
     #[test]
     fn source_segmentation() {

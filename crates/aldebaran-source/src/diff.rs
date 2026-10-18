@@ -1,18 +1,16 @@
-//! Equality-oriented comparison between complete source values.
+//! Content comparison between source values.
 //!
-//! [`SourceDiff`] provides the source-level comparison used by diff generation
-//! without requiring every source representation to expose ordinary `Eq` as its
-//! architectural contract. References forward comparison to the underlying source.
+//! [`SourceDiff`] lets consumers define content identity independently of the
+//! source representation's [`Eq`] implementation.
 
 use crate::source::Source;
 
-/// A trait for sources that can be differentiated.
-///
-/// This trait is vital for diff-generation.
+/// Compare two source values under the implementation's content identity.
 pub trait SourceDiff<'a>: Source<'a> {
-    /// Determine if the source is the same as another source.
+    /// Return whether both sources represent the same value.
     ///
-    /// This is analogous to the [`Eq`] operator.
+    /// Implementations should define an equivalence relation. If the source
+    /// also implements [`crate::hash::SourceHash`], equal values must hash equally.
     fn same_as(&self, other: &Self) -> bool;
 }
 

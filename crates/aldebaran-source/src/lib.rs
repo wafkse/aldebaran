@@ -1,10 +1,4 @@
-//! Generic source capabilities and line-oriented source metadata.
-//!
-//! The crate models source data through independent iteration, dissection,
-//! metadata, hashing, location, and line capabilities. Concrete byte and string
-//! sources implement these mechanisms without forcing one universal source type,
-//! while line handles preserve absolute spans into the original source.
-
+#![doc = include_str!("../README.md")]
 #![no_std]
 
 extern crate alloc;
@@ -28,10 +22,9 @@ mod bytes;
 mod str;
 
 pub mod prelude {
-    //! A prelude for the `aldebaran-source` crate.
+    //! The `aldebaran-source` prelude.
     //!
-    //! This simply re-exports the most commonly used items in the
-    //! `aldebaran-source` crate.
+    //! Re-exports the most commonly used items from this crate.
 
     pub use crate::component::{AsciiByte, AsciiComponent, Component, DigitComponent, TextComponent};
 

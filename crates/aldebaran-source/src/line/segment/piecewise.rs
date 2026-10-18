@@ -1,8 +1,8 @@
-//! Relevant and irrelevant pieces produced while segmenting one source line.
+//! Annotated line windows and gaps between them.
 //!
-//! [`Piecewise`] preserves a source view for every interval in the line and
-//! attaches caller data only to intervals that intersect that data's span. This
-//! lets renderers walk the entire line without separately reconstructing gaps.
+//! [`Piecewise::Relevant`] retains caller data through clipping, while
+//! [`Piecewise::Irrelevant`] carries only a gap's absolute span. Renderers can
+//! use [`Piecewise::view`] for either and inspect data only for annotations.
 
 use core::{fmt, hash};
 
@@ -10,20 +10,19 @@ use aldebaran_baseline::prelude::{Span, Spanned};
 
 use crate::line::{LineSegmented, Segment, SourceLines, segment::IrrelevantSegment};
 
-/// One interval in a piecewise decomposition of a source line.
+/// Renderable line content distinguished by annotation relevance.
 ///
-/// Relevant intervals retain the spanned data responsible for the split.
-/// Irrelevant intervals represent the source gaps between those values, so the
-/// complete sequence can reconstruct the original line without missing regions.
+/// Relevant pieces retain the annotation's original span even if the view is
+/// clipped. Gaps carry their own absolute source span without annotation data.
 pub enum Piecewise<'source, S, D>
 where
     S: SourceLines<'source> + ?Sized,
     D: Spanned,
 {
-    /// A relevant line segment.
+    /// Content selected by caller data whose original span is retained.
     Relevant(Segment<'source, S, D>),
 
-    /// An irrelevant line segment.
+    /// Unannotated content carrying its own absolute source extent.
     Irrelevant(IrrelevantSegment<'source, S>),
 }
 
@@ -46,7 +45,8 @@ where
     S: SourceLines<'source> + ?Sized,
     D: Spanned,
 {
-    /// Retrieve the view into the source line regardless of its relevance.
+    /// Renderable content shared by annotations and gaps.
+    /// An annotation's view may be clipped without changing its reported source span.
     #[inline]
     pub const fn view(&self) -> &<S::Line as LineSegmented<'source, S>>::View {
         match self {
@@ -55,7 +55,7 @@ where
         }
     }
 
-    /// Retrieve a reference to the internally-stored data if it is relevant.
+    /// Return the associated data for a relevant interval, or `None` for a gap.
     #[inline]
     pub const fn data(&self) -> Option<&D> {
         match self {

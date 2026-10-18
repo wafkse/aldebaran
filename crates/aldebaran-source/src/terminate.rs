@@ -1,8 +1,9 @@
 //! Line terminators and their incremental state machines.
 //!
-//! Terminators receive one source component at a time and decide when a line
-//! break has been completed. Single and two-component machines can be composed,
-//! with arity ensuring longer valid terminators take precedence over prefixes.
+//! Terminators recognize line breaks as source components arrive, allowing
+//! traversal to discover lines without a separate scan. Composition prioritizes
+//! machines by arity, but does not look ahead, so this priority does not by
+//! itself guarantee the longest matching break.
 
 use crate::dissect::SourceDissect;
 
@@ -16,42 +17,40 @@ use crate::component::Component;
 use crate::line::{LineBreak, SourceLines};
 use crate::source::Source;
 
-/// Line terminators modeled as state machines.
+/// A copyable state machine that recognizes line breaks one source component at a time.
 ///
-/// This trait has a [`single method`](Terminator::state), which is responsible
-/// for performing a singular state transition for the terminator.
-///
-/// Additionally, terminators must be trivially copyable, as they are expected
-/// to be passed by value.
+/// After returning a break, a terminator must retain or reset its state so it
+/// can recognize later breaks. The returned span must end at the current
+/// component and cover a valid source region, since line traversal uses it to
+/// derive line content.
 pub trait Terminator<'a, S>: Copy + 'static
 where
     S: SourceLines<'a> + ?Sized,
 {
-    /// Perform a singular state transition.
-    ///
-    /// This will determine the [`Outcome`] of the transition.
+    /// Classify the current component as continuing content or a completed break.
+    /// A break must lie within the current line and end at this component's
+    /// exclusive endpoint.
     fn state(&mut self, ctx: &TerminatorContext<'a, S>) -> Outcome<'a, S>;
 }
 
-/// The outcome of a singular state transition for an arbitrary
-/// [`Terminator`].
+/// Recognition result whose break payload carries the recognized source view.
+/// Continuing input has no payload because it has not completed a line break.
 pub type Outcome<'a, S> = ControlFlow<LineBreak<'a, S>>;
 
-/// An arbitrary transition context for a [`Terminator`], tied to a specific [`Source`] `S` and its [`composing type`] `C`.
-///
-/// [`composing type`]: Component
+/// The source component and source-coordinate span presented to a terminator.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+// NOTE(invariant): Source[Span] = Component
 pub struct TerminatorContext<'a, S>
 where
     S: Source<'a> + ?Sized,
 {
-    /// The associated source for this transition context.
+    /// Original source used to obtain a view of a recognized break.
     source: &'a S,
 
-    /// The component as input for this transition context.
+    /// Current source component presented for break recognition.
     component: S::Component,
 
-    /// The span of the aforementioned component.
+    /// Absolute component extent, with length equal to its source-unit width.
     span: Span,
 }
 
@@ -59,9 +58,10 @@ impl<'a, S> TerminatorContext<'a, S>
 where
     S: Source<'a> + ?Sized,
 {
-    /// Perform a mapping operation for this transition context for `S` to some
-    /// other transition context for `U`, given that their individual
-    /// [`components`](Source::Component) match.
+    /// Rebind this context to a source with the same component type.
+    ///
+    /// The returned context keeps the component and span, so the mapped source
+    /// must contain that component at the same coordinate.
     #[inline]
     pub fn map<U, F>(&self, map: F) -> TerminatorContext<'a, U>
     where
@@ -80,8 +80,8 @@ impl<'a, S> TerminatorContext<'a, S>
 where
     S: Source<'a> + ?Sized,
 {
-    /// Create a new transition context from its raw parts: a source, a
-    /// component, and a span.
+    /// Store a component context. The caller must ensure the component and span
+    /// describe that position in `source`.
     #[inline]
     pub const fn from_raw_parts(source: &'a S, component: S::Component, span: Span) -> Self {
         Self { source, component, span }
@@ -92,7 +92,7 @@ impl<'a, S> TerminatorContext<'a, S>
 where
     S: Source<'a> + ?Sized,
 {
-    /// Retrieve the underlying [`source`](Source) of this transition context.
+    /// Source in whose coordinate plane a recognized break can be dissected.
     #[inline]
     pub const fn source(&self) -> &'a S {
         let &Self { source, .. } = self;
@@ -100,7 +100,7 @@ where
         source
     }
 
-    /// Retrieve the [`Component`] of this transition context.
+    /// Current recognition input, which may also complete a multi-component break.
     #[inline]
     pub const fn component(&self) -> S::Component {
         let &Self { component, .. } = self;
@@ -108,7 +108,7 @@ where
         component
     }
 
-    /// Retrieve the [`Span`] of the component of this transition context.
+    /// Absolute component extent ending at the latest possible break endpoint.
     #[inline]
     pub const fn span(&self) -> Span {
         let &Self { span, .. } = self;
@@ -117,33 +117,29 @@ where
     }
 }
 
-/// A trait for sequences that are terminated by an arbitrary sequence.
+/// Source-selected termination policy for line operations without an explicit policy.
 ///
-/// The [`terminator`](Self::TerminatedBy) is a type that models a state
-/// machine.
+/// Its initial value is independent of [`Default`], allowing a source to choose
+/// different recognition settings from a terminator type's general default.
 pub trait Terminated<'a, S>
 where
     S: SourceLines<'a> + ?Sized,
 {
-    /// The default, static [`terminator`](Terminator) for this sequence.
+    /// The default terminator value for this source.
     const DEFAULT_TERMINATOR: Self::TerminatedBy;
 
-    /// An associated type that represents a terminator suitable for this
-    /// sequence.
+    /// The terminator type used for this source.
     type TerminatedBy: Terminator<'a, S>;
 }
 
-/// A trait for combinable terminators.
-///
-/// This imposes an additional [`TerminatorArity`] constraint on the
-/// terminator, as custom logic is required to determine the outcome of the
-/// conjunction.
+/// Arity-aware composition for line terminators.
 pub trait TerminatorCompose: TerminatorArity {
-    /// Overlap the two terminators into a conjunction terminator.
+    /// Accept breaks from either policy with higher arity taking priority.
     ///
-    /// This effectively creates a new state machine that will evaluate the
-    /// terminator with the highest arity first, and then the rest if the
-    /// outcome is not conclusive.
+    /// Equal arities favor the left policy. Priority applies to each arriving
+    /// component without lookahead, so it does not guarantee a longest match.
+    /// The lower-priority policy misses components that complete a break in
+    /// the higher-priority policy, which matters for stateful recognition.
     fn either<C, R>(self, right: R) -> TerminateEither<C, Self, R>
     where
         C: Component,
@@ -166,27 +162,27 @@ where
     }
 }
 
-/// A conjunction between two different terminators.
+/// Alternative break policies with arity-based precedence.
 ///
-/// This imposes an additional [`TerminatorArity`] constraint on the
-/// composing terminators, as custom logic is required to determine the
-/// outcome of the conjunction.
-///
-/// See [`TerminatorCompose`] for the overall rationale for this requirement.
+/// On a shared component the higher-arity policy has priority, favoring the
+/// left policy on ties. The other policy receives only components that do not
+/// complete a higher-priority break, so composition does not provide independent
+/// traversal state for both policies.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+// NOTE(invariant): None.
 pub struct TerminateEither<C, L, R>
 where
     C: Component,
     L: TerminatorArity,
     R: TerminatorArity,
 {
-    /// The left hand side terminator.
+    /// Left recognition policy, preferred when both policies have equal arity.
     left: L,
 
-    /// The right hand side terminator.
+    /// Right recognition policy, preferred only when its arity is greater.
     right: R,
 
-    /// A marker type to indicate an arbitrary component type.
+    /// Component domain shared by the composed recognition policies.
     _marker: PhantomData<C>,
 }
 
@@ -196,9 +192,7 @@ where
     L: TerminatorArity,
     R: TerminatorArity,
 {
-    /// A conjunction of the arity of the left and right hand side terminators.
-    ///
-    /// This is exactly the maximum of the two arities.
+    /// Maximum component count required by either machine.
     const ARITY: usize = const { if L::ARITY > R::ARITY { L::ARITY } else { R::ARITY } };
 }
 
@@ -243,8 +237,7 @@ where
     L: TerminatorArity,
     R: TerminatorArity,
 {
-    /// Combine two terminators into a conjunction terminator from a 2 element
-    /// pair.
+    /// Compose two terminators as an ordered pair.
     #[inline]
     pub const fn pair(left: L, right: R) -> Self {
         Self {
@@ -254,7 +247,7 @@ where
         }
     }
 
-    /// Retrieve the left hand side terminator.
+    /// Left policy with its current recognition state and tie-breaking priority.
     #[inline]
     pub const fn left(&self) -> &L {
         let &Self { ref left, .. } = self;
@@ -262,7 +255,7 @@ where
         left
     }
 
-    /// Retrieve the right hand side terminator.
+    /// Right policy with recognition state reflecting the components it received.
     #[inline]
     pub const fn right(&self) -> &R {
         let &Self { ref right, .. } = self;
@@ -270,7 +263,7 @@ where
         right
     }
 
-    /// Consume the conjunction terminator and return the composed terminators.
+    /// Return the two terminators that make up this composition.
     #[inline]
     pub fn into_raw_parts(self) -> (L, R) {
         let Self { left, right, _marker } = self;
@@ -279,13 +272,17 @@ where
     }
 }
 
-/// A terminator that represents a single [`component`](Component) `C`.
+/// Break recognition by equality with a single source component.
+///
+/// Each matching occurrence forms a break spanning only that component.
+/// Recognition retains no partial prefix between components.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+// NOTE(invariant): None.
 pub struct Single<C>
 where
     C: Component,
 {
-    /// The target component for this terminator.
+    /// Component whose occurrence terminates the current line.
     target_component: C,
 }
 
@@ -309,7 +306,7 @@ impl<C> Single<C>
 where
     C: Component,
 {
-    /// Construct a new 1-ary terminator from a specific component.
+    /// Treat `target_component` as a line break.
     #[inline]
     pub const fn one(target_component: C) -> Self {
         Self { target_component }
@@ -338,23 +335,25 @@ where
     }
 }
 
-/// A terminator that represents two [`component`](Component) `C`s.
+/// Break recognition for a consecutive pair of source components.
 ///
-/// This is a state machine.
+/// A partial prefix contributes its original source span to the eventual break.
+/// For repeated prefixes, the latest matching first component is the candidate,
+/// so an earlier mismatch cannot pull unrelated input into the break.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Two<C>
 where
     C: Component,
 {
-    /// The initial state of the 2-ary terminator.
+    /// Pair to recognize with no pending prefix.
     Empty([C; 2]),
 
-    /// The state where the first component has been matched.
+    /// Pending first component awaiting the pair's second component.
     First {
-        /// The storage for the two components to match.
+        /// Recognition pair in source order, retained across partial matches.
         target_storage: [C; 2],
 
-        /// The span of the first component.
+        /// Absolute extent of the pending prefix in the traversed source.
         s0: Span,
     },
 }
@@ -364,11 +363,7 @@ impl Two<char> {
     /// sequence.
     pub const CR_LF: Self = Self::tuple(('\r', '\n'));
 
-    /// A line terminator identified by a line-feed and a carriage-return, in
-    /// sequence.
-    ///
-    /// This type of line terminator is not as common as the reverse. But it
-    /// still does appear in languages like Lua.
+    /// A line terminator identified by a line-feed followed by a carriage-return.
     pub const LF_CR: Self = Self::tuple(('\n', '\r'));
 }
 
@@ -377,11 +372,7 @@ impl Two<u8> {
     /// sequence.
     pub const CR_LF: Self = Self::tuple((b'\r', b'\n'));
 
-    /// A line terminator identified by a line-feed and a carriage-return, in
-    /// sequence.
-    ///
-    /// This type of line terminator is not as common as the reverse. But it
-    /// still does appear in languages like Lua.
+    /// A line terminator identified by a line-feed followed by a carriage-return.
     pub const LF_CR: Self = Self::tuple((b'\n', b'\r'));
 }
 
@@ -389,13 +380,13 @@ impl<C> Two<C>
 where
     C: Component,
 {
-    /// Construct a new 2-ary terminator from a 2-element tuple.
+    /// Match the supplied components in tuple order.
     #[inline]
     pub const fn tuple((s0, s1): (C, C)) -> Self {
         Self::Empty([s0, s1])
     }
 
-    /// Construct a new 2-ary terminator from a 2-element array.
+    /// Match the supplied components in array order.
     #[inline]
     pub const fn array([c0, c1]: [C; 2]) -> Self {
         let target_value = [c0, c1];
@@ -427,7 +418,7 @@ where
                 }
             }
             &mut Self::First { target_storage, s0 } => {
-                let [_, c1] = target_storage;
+                let [c0, c1] = target_storage;
 
                 if target_value == c1 {
                     *self = Self::Empty(target_storage);
@@ -440,7 +431,13 @@ where
 
                     Outcome::Break(LineBreak::tuple((target_line, span)))
                 } else {
-                    *self = Self::Empty(target_storage);
+                    *self = if target_value == c0 {
+                        let s0 = ctx.span();
+
+                        Self::First { target_storage, s0 }
+                    } else {
+                        Self::Empty(target_storage)
+                    };
 
                     Outcome::Continue(())
                 }
@@ -449,29 +446,13 @@ where
     }
 }
 
-/// An arity-describing trait for line terminators.
+/// Reports the maximum component count a terminator may need to match.
 ///
-/// This is a requirement for terminator combinators, as the arity of each
-/// respective terminator is crucial for the correct operation of the
-/// combinator.
-///
-/// For example, the state machine can have a positive outcome if a larger
-/// sequence of components has been matched, but not if a smaller sequence has
-/// been matched, and, if any of the other terminators in the combinator have
-/// a match case for the smaller sequence, it will result in incorrect
-/// behavior.
-///
-/// In other words, this is required to match the longest possible sequence of
-/// components as a terminator for a specific combinator.
-///
-/// A vivid example is the standard line terminator, `\r\n` and `\n`. Of course,
-/// we would rather match `\r\n` than `\n`, as the former is more common. But
-/// since state-machine transitions are done element-wise without any lookahead,
-/// we need to know the arity of the terminator to make the correct decision.
+/// Combinators use this value to prioritize state machines. It does not provide
+/// lookahead, so longest-match behavior is not guaranteed. Implementations must
+/// report their maximum accurately for the priority to work.
 pub trait TerminatorArity {
-    /// The arity of the line terminator.
-    ///
-    /// In the context of this module, this is the number of components that a [`Terminator`] can potentially match.
+    /// Maximum number of components this terminator can match.
     const ARITY: usize;
 }
 
@@ -489,18 +470,19 @@ where
     const ARITY: usize = 2;
 }
 
-/// The standard terminator type.
+/// LF and CRLF line boundaries for string and byte sources.
 ///
-/// This treats both `\r\n` and `\n` as line terminators.
+/// CRLF forms a combined break and a bare CR remains content. The same policy
+/// works with Unicode scalar components and bytes without changing their
+/// source-coordinate units.
 #[derive(Debug, PartialEq, Copy, Eq, PartialOrd, Ord, Hash, Clone)]
+// NOTE(invariant): None.
 pub struct Standard<C>(TerminateEither<C, Two<C>, Single<C>>)
 where
     C: Component;
 
 impl Standard<char> {
-    /// Create a new standard line terminator.
-    ///
-    /// See this type's documentation for more information.
+    /// Recognize LF and CRLF in Unicode scalar input from an initial state.
     #[inline]
     pub const fn new() -> Self {
         let target_machine = TerminateEither::pair(Two::<char>::CR_LF, Single::<char>::LF);
@@ -510,9 +492,7 @@ impl Standard<char> {
 }
 
 impl Standard<u8> {
-    /// Create a new standard line terminator.
-    ///
-    /// See this type's documentation for more information.
+    /// Recognize LF and CRLF bytes from an initial state.
     #[inline]
     pub const fn new() -> Self {
         let target_machine = TerminateEither::pair(Two::<u8>::CR_LF, Single::<u8>::LF);
@@ -547,25 +527,26 @@ where
     }
 }
 
-/// A [`Terminator`] which indicates a line break every `max(N, 1)` [`Component`] receptions..
+/// Emits periodic breaks after counting source-component receptions.
 ///
-/// # Remarks
-///
-/// Due to intrinsic limitations of the [`Rem`] operator, [`Every<0>`] and [`Every<1>`] are identical in behavior.
-///
-/// [`Rem`]: core::ops::Rem
+/// The first break follows `N + 1` component receptions, with `N = 0` treated
+/// as `1`. Later breaks are `max(N, 1)` receptions apart. Thus `Every<0>` and
+/// `Every<1>` behave identically.
 #[repr(transparent)]
 #[derive(Debug, Copy, Clone, Hash)]
+// NOTE(invariant): Count In {None} Union Some(1..=Max(N, 1))
 pub struct Every<const N: usize>(Option<NonZero<usize>>);
 
 impl<const N: usize> Every<N> {
-    /// A constant that evaluates `max(N, 1)`.
+    /// Component-count interval between later breaks, with zero treated as one.
     const FORCEFUL_MODULUS: usize = match N {
         0 => 1,
         _ => N,
     };
 
-    /// Determine the current count of this [`Every`] line terminator.
+    /// Return the current count, or `None` before the first component is processed.
+    ///
+    /// After a break, the count resets to one for the next interval.
     #[inline]
     pub const fn count(&self) -> Option<NonZero<usize>> {
         let &Self(target_value) = self;
@@ -603,5 +584,88 @@ where
                 }
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::vec::Vec;
+    use core::num::NonZero;
+
+    use aldebaran_baseline::span::Span;
+
+    use super::{Outcome, Terminator, TerminatorContext, Two};
+
+    #[test]
+    fn selected_lines_resume_the_terminator_state_at_the_selection_start() {
+        use crate::line::{LineExtent, SourceLines};
+        use aldebaran_baseline::prelude::Spanned;
+
+        let source = "abcdefghi";
+        let selection = source
+            .segment_with(super::Every::<2>(None), Span::unit(4))
+            .expect("selected periodic line");
+        let lines: Vec<_> = selection.lines().map(|line| (line.number().get(), line.span().range())).collect();
+        assert_eq!(lines, [(2, 3..5)]);
+        assert_eq!(selection.metadata().bytes().range(), 3..5);
+        assert_eq!(selection.metadata().length().into_pair(), (2, 2));
+    }
+
+    #[test]
+    fn repeated_prefix_restarts_at_the_latest_utf8_component() {
+        let source = "ααβ";
+        let mut terminator = Two::tuple(('α', 'β'));
+        let mut breaks = Vec::new();
+
+        for (index, component) in source.char_indices() {
+            let width = NonZero::new(component.len_utf8()).expect("a Unicode scalar has a nonzero UTF-8 width");
+            let span = Span::new(index, width);
+            let context = TerminatorContext::from_raw_parts(source, component, span);
+
+            match terminator.state(&context) {
+                Outcome::Continue(()) => (),
+                Outcome::Break(line_break) => breaks.push((*line_break.line_break(), line_break.span().range())),
+            }
+        }
+
+        assert_eq!(breaks, [("αβ", 2..6)]);
+    }
+
+    #[test]
+    fn mismatch_discards_a_prefix_without_spanning_unrelated_input() {
+        let source = b"axbab".as_slice();
+        let mut terminator = Two::tuple((b'a', b'b'));
+        let mut breaks = Vec::new();
+
+        for (index, component) in source.iter().copied().enumerate() {
+            let span = Span::unit(index);
+            let context = TerminatorContext::from_raw_parts(source, component, span);
+
+            match terminator.state(&context) {
+                Outcome::Continue(()) => (),
+                Outcome::Break(line_break) => breaks.push((*line_break.line_break(), line_break.span().range())),
+            }
+        }
+
+        assert_eq!(breaks, [(b"ab".as_slice(), 3..5)]);
+    }
+
+    #[test]
+    fn identical_components_complete_then_reset_for_the_next_pair() {
+        let source = "aaaa";
+        let mut terminator = Two::tuple(('a', 'a'));
+        let mut breaks = Vec::new();
+
+        for (index, component) in source.char_indices() {
+            let span = Span::unit(index);
+            let context = TerminatorContext::from_raw_parts(source, component, span);
+
+            match terminator.state(&context) {
+                Outcome::Continue(()) => (),
+                Outcome::Break(line_break) => breaks.push(line_break.span().range()),
+            }
+        }
+
+        assert_eq!(breaks, [0..2, 2..4]);
     }
 }

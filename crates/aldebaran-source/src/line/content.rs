@@ -2,7 +2,7 @@
 //!
 //! [`LineContent`] pairs the source-specific line view with its absolute span.
 //! Mapping can change the source line representation while preserving those
-//! coordinates, which lets renderers adapt content without losing source identity.
+//! coordinates, so renderers can adapt content while keeping annotation positions aligned.
 
 use core::{cmp, fmt, hash};
 
@@ -12,7 +12,11 @@ use aldebaran_baseline::prelude::{Span, Spanned};
 
 use crate::line::SourceLines;
 
-/// Content of a line in a source.
+/// Nonempty line content with its position in the original source.
+///
+/// Printing uses the content view alone. The span remains available to align
+/// annotations with that output and excludes the terminating line break.
+// NOTE(invariant): Span = OriginalSourceRange(LineContent)
 pub struct LineContent<'a, S>
 where
     S: SourceLines<'a> + ?Sized,
@@ -20,7 +24,7 @@ where
     /// The content of the line, excluding the line break.
     line_content: S::Line,
 
-    /// The span that arches over the line's content.
+    /// The source-coordinate span associated with the content view.
     span: Span,
 }
 
@@ -46,8 +50,9 @@ impl<'a, S> LineContent<'a, S>
 where
     S: SourceLines<'a> + ?Sized,
 {
-    /// Create a new [`LineContent`] from the raw parts: the line content and
-    /// its englobing span.
+    /// Pair content with its source-coordinate span.
+    ///
+    /// The caller must ensure the span belongs to that view.
     #[inline]
     pub const fn from_raw_parts(line_content: S::Line, span: Span) -> Self {
         Self { line_content, span }
@@ -58,7 +63,7 @@ impl<'a, S> LineContent<'a, S>
 where
     S: SourceLines<'a> + ?Sized,
 {
-    /// Retrieve the content of the line.
+    /// Content available for rendering and line-local windows, excluding the break.
     #[inline]
     pub const fn value(&self) -> &S::Line {
         let &Self { ref line_content, .. } = self;
@@ -66,7 +71,7 @@ where
         line_content
     }
 
-    /// Retrieve the span that arches over the line's content.
+    /// Absolute content extent with an exclusive end, measured in source units.
     #[inline]
     pub const fn span(&self) -> Span {
         let &Self { span, .. } = self;
@@ -74,7 +79,8 @@ where
         span
     }
 
-    /// Map the contents of this line to another type.
+    /// Adapt the content representation without rebasing its coordinates.
+    /// The mapped view must still describe the same source region.
     #[inline]
     pub fn map<F, O>(self, map: F) -> LineContent<'a, O>
     where
@@ -220,9 +226,11 @@ where
     S::Line: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { line_content, span } = self;
+
         f.debug_struct("LineContent")
-            .field("line_content", &self.line_content)
-            .field("span", &self.span)
+            .field("line_content", line_content)
+            .field("span", span)
             .finish()
     }
 }

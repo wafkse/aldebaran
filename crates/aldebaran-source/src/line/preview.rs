@@ -1,8 +1,8 @@
-//! Compact previews for sources that support line segmentation.
+//! Compact source previews for debug and display output.
 //!
-//! Preview wrappers render the first available source line through the source
-//! component visualization rules. Callers may use the source default terminator
-//! or provide an explicit terminator without allocating a temporary string.
+//! [`Preview`] uses the source's default termination policy, while
+//! [`PreviewWith`] selects a policy explicitly. Both visualize only the first
+//! line's content and share the same formatting for debug and display.
 
 use crate::dissect::SourceDissect;
 
@@ -16,11 +16,13 @@ use crate::{
 
 use super::{LineId, LineIter, SourceLines};
 
-/// A type that acts as a preview into the source `S`, where `S` is a source that is both segmented into lines and iterable over its
-/// components.
+/// First-line content formatted inside `preview('...')` with a selected policy.
 ///
-/// This implements both [`fmt::Display`] and [`fmt::Debug`], where the first line is shown as their respective implementations.
+/// Components use [`Visualize`] without debug escaping. Empty input and a
+/// first line consisting only of a break both format as `preview(<empty source>)`.
+/// Later lines and the first line's terminator are omitted.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+// NOTE(invariant): None.
 pub struct PreviewWith<'a, S, T = <S as Terminated<'a, S>>::TerminatedBy>(&'a S, T)
 where
     S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized;
@@ -29,7 +31,7 @@ impl<'a, S, T> PreviewWith<'a, S, T>
 where
     S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
 {
-    /// Preview the target source `S` using the default terminator `T`.
+    /// Preview the source using [`core::default::Default::default`] for `T`.
     #[inline]
     pub fn source(target_source: &'a S) -> Self
     where
@@ -40,7 +42,7 @@ where
         Self(target_source, target_terminator)
     }
 
-    /// Preview the target source `S` using the target terminator `T`.
+    /// Preview the source using the supplied terminator.
     #[inline]
     pub const fn source_with(target_source: &'a S, target_terminator: T) -> Self {
         Self(target_source, target_terminator)
@@ -94,12 +96,13 @@ where
     }
 }
 
-/// A type that acts as a preview into the source `S`, where `S` is a source that is both segmented into lines and iterable over its
-/// components.
+/// A [`PreviewWith`] using the source's [`Terminated::DEFAULT_TERMINATOR`].
 ///
-/// This implements both [`fmt::Display`] and [`fmt::Debug`], where the first line is shown as their respective implementations.
+/// Debug and display both use the compact first-line visualization, including
+/// the empty-content placeholder.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[repr(transparent)]
+// NOTE(invariant): None.
 pub struct Preview<'a, S>(&'a S)
 where
     S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized;
@@ -108,7 +111,7 @@ impl<'a, S> Preview<'a, S>
 where
     S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
 {
-    /// Preview the target source `S`.
+    /// Use the source's [`Terminated::DEFAULT_TERMINATOR`] when formatting the preview.
     #[inline]
     pub const fn source(target_source: &'a S) -> Self {
         Self(target_source)

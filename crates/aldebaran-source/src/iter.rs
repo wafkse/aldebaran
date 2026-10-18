@@ -1,26 +1,29 @@
-//! Component iteration over source representations.
+//! Component traversal with source-coordinate offsets.
 //!
-//! [`SourceIter`] exposes the source's natural component iterator without erasing
-//! component width. [`EnumeratedComponent`] accumulates those widths so each
-//! yielded component is paired with its absolute boundary in the source plane.
+//! [`SourceIter`] preserves the source's component type. Its
+//! [`enumerate`](SourceIter::enumerate) adaptor advances by each component's
+//! width, keeping yielded offsets aligned with spans even when component count
+//! differs from source length.
 
 use crate::component::Component;
 use crate::source::Source;
 
-/// A trait for sources that can be arbitrarily iterated over.
+/// A source that can yield its components in source order.
 ///
-/// This is an **extension trait**, and thus only builds functionality on top of
-/// [`Source`].
+/// Iteration must visit every source component exactly once, with the sum of
+/// its [`Component::size`] values equal to the source footprint length. This
+/// keeps traversal consistent with the coordinate extent used by source spans.
 pub trait SourceIter<'source>: Source<'source> {
-    /// Iterator produced for one borrow of this source.
+    /// Traversal preserving component identity and source order.
     type Iterator<'borrow>: Iterator<Item = Self::Component>
     where
         Self: 'borrow;
 
-    /// Retrieve an iterator over the source components.
+    /// Traverse source components without substituting coordinate units for values.
     fn iter(&self) -> Self::Iterator<'_>;
 
-    /// Iterate over the components, enumerated in this source plane.
+    /// Pair components with offsets in source units, starting at zero.
+    /// String offsets count UTF-8 bytes rather than Unicode scalar values.
     #[inline]
     fn enumerate(&self) -> EnumeratedComponent<Self::Iterator<'_>, Self::Component> {
         EnumeratedComponent::enumerate(self.iter())
@@ -44,12 +47,13 @@ where
     }
 }
 
-/// Iterator adaptor that pairs source components with absolute source offsets.
+/// Iterator adaptor that pairs source components with their source offsets.
 ///
-/// The running index advances by each component's nonzero width rather than by
-/// iterator count. This keeps byte coordinates correct for variable-width source
-/// components such as Unicode scalar values in UTF-8 strings.
+/// The first offset is zero. Each subsequent offset advances by the preceding
+/// component's nonzero width, so Unicode scalar iteration can still produce
+/// byte coordinates. Width sums must fit in `usize`.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+// NOTE(invariant): NextOffset = Sum(ComponentWidths(Yielded)) <= UsizeMax
 pub struct EnumeratedComponent<I, C>
 where
     I: Iterator<Item = C>,
@@ -58,7 +62,7 @@ where
     /// The remaining source components.
     iter: I,
 
-    /// The absolute offset of the next component.
+    /// Offset of the next component relative to the supplied iterator's origin.
     target_index: usize,
 }
 
@@ -67,7 +71,8 @@ where
     I: Iterator<Item = C>,
     C: Component,
 {
-    /// Create a new [`EnumeratedComponent`] from an iterator of components.
+    /// Assign zero-based source offsets to the supplied component sequence.
+    /// The sum of component widths must fit in `usize`.
     #[inline]
     pub const fn enumerate(iter: I) -> Self {
         Self { iter, target_index: 0 }
@@ -85,14 +90,14 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         let &mut Self {
             ref mut iter,
-            target_index: previous_index,
+            ref mut target_index,
         } = self;
 
         let target_value = iter.next()?;
 
-        let target_index = previous_index + target_value.size().get();
+        let previous_index = *target_index;
 
-        self.target_index = target_index;
+        *target_index += target_value.size().get();
 
         Some((previous_index, target_value))
     }

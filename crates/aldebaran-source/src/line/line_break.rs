@@ -1,8 +1,8 @@
-//! Proven line terminators and their absolute source extents.
+//! Recognized line breaks with their original source positions.
 //!
-//! [`LineBreak`] stores the source-specific terminator view together with the span
-//! that produced a successful terminator transition. It can be mapped or coerced
-//! while retaining the original source coordinates.
+//! [`LineBreak`] keeps the terminator separate from [`LineContent`](crate::line::LineContent),
+//! allowing a line's combined extent to include the break while rendering only
+//! its content.
 
 use core::{cmp, fmt, hash};
 
@@ -11,15 +11,19 @@ use aldebaran_print::prelude::Print;
 
 use crate::line::SourceLines;
 
-/// A line break that represents a successful state transition.
+/// A recognized terminator and its nonempty absolute source extent.
+///
+/// The view preserves the break's components, including multi-component breaks
+/// such as CRLF. Printing emits those components without the preceding content.
+// NOTE(invariant): Span = OriginalSourceRange(LineBreak)
 pub struct LineBreak<'a, S>
 where
     S: SourceLines<'a> + ?Sized,
 {
-    /// The line break itself. Does not contain the rest of the line.
+    /// The source-specific view of the terminator.
     line_break: S::Line,
 
-    /// The span of the line break.
+    /// The source-coordinate span associated with the terminator view.
     span: Span,
 }
 
@@ -175,7 +179,9 @@ impl<'a, S> LineBreak<'a, S>
 where
     S: SourceLines<'a> + ?Sized,
 {
-    /// Construct a new [`LineBreak`] from a specific line terminator.
+    /// Pair a terminator view with its source-coordinate span.
+    ///
+    /// The caller must ensure the view corresponds to that span.
     #[inline]
     pub fn tuple((line, span): (S::Line, Span)) -> Self {
         Self { line_break: line, span }
@@ -186,7 +192,7 @@ impl<'a, S> LineBreak<'a, S>
 where
     S: SourceLines<'a> + ?Sized,
 {
-    /// Retrieve the terminator responsible for this line break.
+    /// Break components excluded from the line's renderable content.
     #[inline]
     pub const fn line_break(&self) -> &S::Line {
         let &Self { line_break: ref line, .. } = self;
@@ -194,7 +200,7 @@ where
         line
     }
 
-    /// Retrieve the [`Span`] that arches over this line break.
+    /// Absolute break extent with an exclusive end, measured in source units.
     #[inline]
     pub const fn span(&self) -> Span {
         let &Self { span, .. } = self;
@@ -202,8 +208,7 @@ where
         span
     }
 
-    /// Destruct this line break into its raw parts: the line break and the
-    /// span.
+    /// Separate the break representation from its absolute source extent.
     #[inline]
     pub fn into_raw_parts(self) -> (S::Line, Span) {
         let Self { line_break, span } = self;
@@ -211,8 +216,8 @@ where
         (line_break, span)
     }
 
-    /// Coerce this line break's source type to another which has the same kind
-    /// of line.
+    /// Reassociate the break with a source type sharing the same line representation.
+    /// Its view and absolute coordinates remain unchanged.
     #[inline]
     pub fn coerce<O>(self) -> LineBreak<'a, O>
     where
@@ -223,7 +228,8 @@ where
         LineBreak::tuple((line_break, span))
     }
 
-    /// Map the contents of this line to another type.
+    /// Adapt the break representation without rebasing its coordinates.
+    /// The mapped view must still describe the same source region.
     #[inline]
     pub fn map<F, O>(self, map: F) -> LineBreak<'a, O>
     where
