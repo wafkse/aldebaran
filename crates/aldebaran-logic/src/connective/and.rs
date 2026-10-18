@@ -1,8 +1,4 @@
-//! Logical conjunction over two assertion values.
-//!
-//! [`And`] accepts an input only when both operands accept it. When both operands
-//! implement semantic classification, the resulting unit preserves both selected
-//! values as another conjunction.
+//! Conjunction over a shared input, retaining both successful classifications.
 
 use core::fmt;
 
@@ -13,12 +9,14 @@ use crate::{
     input::Input,
 };
 
-/// A logical conjunction between two distinct assertions.
+/// Requires both operands to accept the same input. Successful classification
+/// retains the left and right results as an [`And`] in the same order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+// NOTE(invariant): None.
 pub struct And<A1, A2>(A1, A2);
 
 impl<A1, A2> And<A1, A2> {
-    /// Conjunct two distinct assertions.
+    /// Require both `lhs` and `rhs` to accept the same input.
     #[inline]
     pub const fn them(lhs: A1, rhs: A2) -> Self {
         Self(lhs, rhs)
@@ -71,6 +69,7 @@ where
     #[inline]
     fn choose(&self, input: I) -> Option<Self::Unit> {
         let Self(lhs, rhs) = self;
+
         let lhs = lhs.choose(input);
         let rhs = rhs.choose(input);
 

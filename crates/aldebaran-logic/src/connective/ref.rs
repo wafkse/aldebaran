@@ -1,8 +1,4 @@
-//! Borrowed assertion adaptation without changing assertion semantics.
-//!
-//! [`Ref`] lets a borrowed assertion participate anywhere an owned connective
-//! value is expected. Predicate evaluation, classification, and formatter output
-//! are forwarded directly to the referenced assertion.
+//! Borrowed assertion values for compositions.
 
 use core::{fmt, ops::Deref};
 
@@ -13,19 +9,21 @@ use crate::{
     input::Input,
 };
 
-/// An adapter type for borrowed [`Assert`]s.
+/// Includes an existing predicate in a composition without moving or cloning it.
+/// Acceptance, classification, and formatting retain the referenced predicate's contracts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd)]
 #[repr(transparent)]
+// NOTE(invariant): None.
 pub struct Ref<'a, A>(&'a A);
 
 impl<'a, A> Ref<'a, A> {
-    /// Use the target reference as the assertion.
+    /// Keep `target_ref` available to its owner while composing its predicate.
     #[inline]
     pub const fn that(target_ref: &'a A) -> Self {
         Self(target_ref)
     }
 
-    /// Retrieve the target reference that is borrowed for `'a`.
+    /// The composed predicate with its original lifetime, independent of this adapter's borrow.
     #[inline]
     pub const fn reference(&self) -> &'a A {
         let &Self(target_ref) = self;

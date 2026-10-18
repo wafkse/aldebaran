@@ -1,8 +1,7 @@
-//! Structural composition of logical assertions.
+//! Typed composition of assertions.
 //!
-//! Connective wrappers preserve the concrete assertion types while composing
-//! conjunction, disjunction, exclusive disjunction, negation, borrowing, and
-//! fixed-arity alternatives. [`Connective`] provides the ergonomic constructors.
+//! Combinators retain structured formatting and, where supported, the
+//! classification types of their operands.
 
 mod and;
 mod not;
@@ -22,9 +21,11 @@ pub use self::{
     xor::Xor,
 };
 
-/// Structural constructors for logical assertion expressions.
+/// Composition syntax that preserves each operand's assertion and classification
+/// contracts. The resulting value is usable for an input only when its operands
+/// support that input.
 pub trait Connective {
-    /// Require two assertions to be satisfied simultaneously.
+    /// Require both operands to accept the same input, retaining both classifications.
     #[inline]
     fn and<A>(self, other: A) -> And<Self, A>
     where
@@ -33,7 +34,7 @@ pub trait Connective {
         And::them(self, other)
     }
 
-    /// Require at least one of two assertions to be satisfied.
+    /// Accept either operand, preferring the left classification when both match.
     #[inline]
     fn or<A>(self, other: A) -> Or<Self, A>
     where
@@ -42,7 +43,7 @@ pub trait Connective {
         Or::one(self, other)
     }
 
-    /// Require exactly one of two assertions to be satisfied.
+    /// Accept exactly one operand, retaining which operand classified the input.
     #[inline]
     fn xor<A>(self, other: A) -> Xor<Self, A>
     where
@@ -51,7 +52,7 @@ pub trait Connective {
         Xor::one(self, other)
     }
 
-    /// Negate the current assertion expression.
+    /// Accept the complement of this predicate without a classification result.
     #[inline]
     fn not(self) -> Not<Self>
     where
@@ -60,7 +61,7 @@ pub trait Connective {
         Not::that(self)
     }
 
-    /// Borrow the current assertion expression.
+    /// Include this predicate in a composition without moving or cloning it.
     #[inline]
     fn borrowed(&self) -> Ref<'_, Self>
     where
@@ -70,5 +71,5 @@ pub trait Connective {
     }
 }
 
-/// Every value can participate structurally in an assertion expression.
+/// All types implement this trait. Its methods require a sized receiver.
 impl<A> Connective for A where A: ?Sized {}

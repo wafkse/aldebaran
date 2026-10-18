@@ -1,8 +1,7 @@
-//! Common formatter policies for structured logical assertions.
+//! Human-readable and symbolic assertion formatters.
 //!
-//! [`Human`] writes word-oriented operators while [`Symbolic`] uses mathematical
-//! connective symbols. Both honor the same precedence model and insert grouping
-//! only where the surrounding expression requires it.
+//! Both parenthesize operators weaker than their surrounding context and preserve
+//! custom segment text verbatim. Equal binding strengths require no parentheses.
 
 use core::fmt;
 
@@ -13,10 +12,11 @@ use super::{
     UnaryConnective,
 };
 
-/// The default [`Formatter`] to be used.
+/// Word-based notation used when an adapter's formatter is unspecified.
 pub type DefaultFormatter = Human;
 
-/// A human-readable printer for [`Assert`](crate::assert::Assert) specifications.
+/// Word-based assertion notation using `and`, `or`, `xor`, and `not`.
+/// Parentheses preserve grouping when an operator binds less tightly than its context.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Human;
 
@@ -108,7 +108,8 @@ where
     }
 }
 
-/// A symbolic printer for [`Assert`](crate::assert::Assert) specifications.
+/// Assertion notation using `∧`, `∨`, `⊻`, and `¬`.
+/// It groups operators by precedence in the same way as [`Human`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Symbolic;
 

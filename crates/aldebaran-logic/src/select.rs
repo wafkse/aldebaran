@@ -1,19 +1,19 @@
-//! Top-level select functionality.
-//!
-//! This module provides a family of types that are used to select between two
-//! or more distinct [`Assert`] types.
+//! Branch identity for heterogeneous assertion results. [`Select`] preserves
+//! which side matched, while [`Selector!`](macro@crate::Selector) gives caller-named
+//! alternatives a shared assertion interface.
 
 use core::fmt;
 
 use crate::{assert::Assert, choose::Choose, fmt::Precedence, input::Input, prelude::Formatter};
 
-/// A select operation between two distinct assertions.
+/// Preserves branch identity when alternatives produce different classification types.
+/// As an assertion itself, only the selected variant's predicate applies.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Select<A1, A2> {
-    /// The first type variant.
+    /// Left operand's classification, as selected by disjunction.
     First(A1),
 
-    /// The second type variant.
+    /// Right operand's classification, as selected by disjunction.
     Second(A2),
 }
 
@@ -61,9 +61,11 @@ where
     }
 }
 
-/// A macro that implements predicate and classification behavior for a target select type.
+/// Declares an enum whose variants hold assertions for the same input type.
 ///
-/// Select types are assertions that can be any of a fixed number of downstream assertions.
+/// Only the active variant's predicate applies. Payloads must implement [`Assert`],
+/// and the enum must implement [`Clone`] because successful [`Choose`] results
+/// preserve the enum value rather than the payload's classification.
 #[macro_export]
 macro_rules! Selector {
     () => {};

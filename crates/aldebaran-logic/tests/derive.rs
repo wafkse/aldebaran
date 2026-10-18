@@ -1,4 +1,4 @@
-//! Generic derives, empty shapes, and observable ordering.
+//! Assertion contracts preserved across generic parameters and field shapes.
 
 #[cfg(test)]
 mod tests {
@@ -11,6 +11,7 @@ mod tests {
 
     /// Borrowed predicate used to exercise `Choose` independently of `Assert` derive.
     #[derive(Debug, Clone, PartialEq, Eq, Choose)]
+    // NOTE(invariant): None.
     struct Borrowed<'a, T = char, const N: usize = 1>(&'a [T; N])
     where
         T: Clone + PartialEq<char>;
@@ -34,57 +35,60 @@ mod tests {
         }
     }
 
-    /// Named composition retains lifetimes, defaults, and existing predicates.
+    /// Requires acceptance by a borrowed candidate set and classifies as itself.
     #[derive(Debug, Clone, PartialEq, Eq, Assert, Choose)]
     #[assert(conjunctive)]
+    // NOTE(invariant): None.
     struct Named<'a, T = char, const N: usize = 1>
     where
         T: Clone,
         T: PartialEq<char>,
     {
-        /// Predicate borrowing the caller's array.
+        /// Candidate set defining the accepted characters.
         predicate: Borrowed<'a, T, N>,
     }
 
-    /// Tuple composition exercises the other structure expansion branch.
+    /// Accepts a borrowed candidate match and classifies as itself.
     #[derive(Debug, Clone, PartialEq, Eq, Assert, Choose)]
     #[assert(disjunctive)]
+    // NOTE(invariant): None.
     struct Tuple<'a, T = char, const N: usize = 1>(Borrowed<'a, T, N>)
     where
         T: Clone + PartialEq<char>;
 
-    /// Expression assertions still retain generics not used by the expression.
+    /// Accepts `x` independently of the borrowed payload and classifies as itself.
     #[derive(Debug, Clone, PartialEq, Eq, Assert, Choose)]
     #[assert(use 'x' type char)]
+    // NOTE(invariant): None.
     struct Expression<'a, T = char, const N: usize = 1>(&'a [T; N])
     where
         T: Clone + PartialEq<char>;
 
-    /// Enum expansion covers named, tuple, and expression assertions.
+    /// Alternatives that preserve borrowing while classifying accepted inputs as themselves.
     #[derive(Debug, Clone, PartialEq, Eq, Assert, Choose)]
     enum Generic<'a, T = char, const N: usize = 1>
     where
         T: Clone,
         T: PartialEq<char>,
     {
-        /// Named conjunction over a borrowed predicate.
+        /// Requires acceptance by the borrowed candidate set.
         #[assert(conjunctive)]
         Named {
-            /// Predicate borrowing the caller's array.
+            /// Candidate set defining the accepted characters.
             predicate: Borrowed<'a, T, N>,
         },
-        /// Tuple disjunction over a borrowed predicate.
+        /// Accepts a match from the borrowed candidate set.
         #[assert(disjunctive)]
         Tuple(Borrowed<'a, T, N>),
-        /// Expression constructed from a borrowed variant field.
+        /// Uses the borrowed candidates as its delegated acceptance rule.
         #[assert(use Borrowed(values) type Borrowed<'a, T, N>)]
         Expression {
-            /// Caller-owned values used by the expression predicate.
+            /// Candidate characters available to the delegated predicate.
             values: &'a [T; N],
         },
     }
 
-    /// Classification must return the original assertion family, not its fields.
+    /// Requires `x` to classify as the supplied value and `z` to be rejected.
     fn check_choice<A>(value: &A)
     where
         A: Choose<char, Unit = A> + PartialEq + fmt::Debug,
@@ -119,6 +123,7 @@ mod tests {
         }
 
         let values = ['x', 'y'];
+
         check_choice(&Named {
             predicate: Borrowed(&values),
         });
@@ -127,7 +132,7 @@ mod tests {
         check_choice(&Generic::Expression { values: &values });
     }
 
-    /// Formatter exposing boundary kind and incoming precedence in its output.
+    /// Describes conjunction and disjunction boundaries only within negation's context.
     struct Events;
 
     impl Formatter for Events {
@@ -148,41 +153,42 @@ mod tests {
         }
     }
 
-    /// Empty shapes are intentional regression inputs, not API design examples.
+    /// Field-free predicates governed by conjunction or disjunction identity.
     mod empty {
         use super::*;
 
-        /// Define every empty structure and variant shape for a connective.
+        /// Field-free declarations share the selected connective's acceptance identity.
         macro_rules! shapes {
             ($module:ident, $policy:ident) => {
+                /// Field-free predicates with the selected connective's acceptance identity.
                 mod $module {
                     use super::*;
 
-                    /// Empty unit composition.
+                    /// Its acceptance is the selected connective's identity.
                     #[derive(Debug, Clone, PartialEq, Eq, Assert, Choose)]
                     #[assert($policy)]
                     pub struct Unit;
 
-                    /// Empty tuple composition.
+                    /// Its acceptance is the selected connective's identity.
                     #[derive(Debug, Clone, PartialEq, Eq, Assert, Choose)]
                     #[assert($policy)]
                     pub struct Tuple();
 
-                    /// Empty named composition.
+                    /// Its acceptance is the selected connective's identity.
                     #[derive(Debug, Clone, PartialEq, Eq, Assert, Choose)]
                     #[assert($policy)]
                     pub struct Named {}
 
-                    /// Empty variants retain their declared field shapes.
+                    /// Alternatives sharing the selected connective's acceptance identity.
                     #[derive(Debug, Clone, PartialEq, Eq, Assert, Choose)]
                     pub enum Variants {
-                        /// Unit variant.
+                        /// Accepts according to the connective's identity without operands.
                         #[assert($policy)]
                         Bare,
-                        /// Empty tuple variant.
+                        /// Accepts according to the connective's identity without operands.
                         #[assert($policy)]
                         Tuple(),
-                        /// Empty named variant.
+                        /// Accepts according to the connective's identity without operands.
                         #[assert($policy)]
                         Named {},
                     }
@@ -193,7 +199,7 @@ mod tests {
         shapes!(and, conjunctive);
         shapes!(or, disjunctive);
 
-        /// Check the identity, classification unit, and balanced formatter events.
+        /// Requires the supplied acceptance identity, self-classification, and expected description.
         fn check<A>(value: A, identity: bool, expected: &str)
         where
             A: Choose<char, Unit = A> + PartialEq + fmt::Debug,
@@ -223,7 +229,7 @@ mod tests {
             }
         }
 
-        /// Writer that accepts the opening event and rejects the closing event.
+        /// Closing delimiters are an output failure for this writer.
         struct RejectEnd;
 
         impl fmt::Write for RejectEnd {
@@ -245,12 +251,14 @@ mod tests {
         }
     }
 
-    /// Predicate recording evaluation order independently from formatting.
+    /// A predicate with an observable acceptance call and an independent label description.
+    // NOTE(invariant): None.
     struct Probe<'a>(&'a RefCell<Vec<char>>, char, bool);
 
     impl Assert<char> for Probe<'_> {
         fn assert(&self, _: char) -> bool {
             let Self(log, label, result) = self;
+
             log.borrow_mut().push(*label);
 
             *result
@@ -262,6 +270,7 @@ mod tests {
             F: Formatter,
         {
             let Self(_, label, _) = value;
+
             match precedence {
                 Precedence::AND | Precedence::OR => writer.write_char(*label),
                 _ => Err(fmt::Error),
@@ -269,46 +278,48 @@ mod tests {
         }
     }
 
-    /// Named conjunction evaluates fields in declaration order.
+    /// Requires all operands to accept, with declaration-order predicate priority.
     #[derive(Assert)]
     #[assert(conjunctive)]
+    // NOTE(invariant): None.
     struct All<A> {
-        /// First predicate evaluated.
+        /// Highest-priority conjunct whose rejection is sufficient for failure.
         first: A,
 
-        /// Second predicate evaluated unless the first rejects.
+        /// Additional requirement relevant when the first conjunct accepts.
         second: A,
 
-        /// Last predicate evaluated unless an earlier predicate rejects.
+        /// Final requirement for acceptance by the conjunction.
         third: A,
     }
 
-    /// Tuple disjunction evaluates fields in declaration order.
+    /// Accepts any operand, with declaration-order predicate priority.
     #[derive(Assert)]
     #[assert(disjunctive)]
+    // NOTE(invariant): None.
     struct Any<A>(A, A, A);
 
-    /// Enum composite branches preserve the same ordering rules.
+    /// Alternatives selecting all-operand or any-operand acceptance.
     #[derive(Assert)]
     enum Ordered<A> {
-        /// Tuple conjunction.
+        /// Requires all payload predicates to accept.
         #[assert(conjunctive)]
         All(A, A, A),
-        /// Named disjunction.
+        /// Accepts any payload predicate in declaration-order priority.
         #[assert(disjunctive)]
         Any {
-            /// First predicate evaluated.
+            /// Highest-priority alternative whose acceptance is sufficient.
             first: A,
 
-            /// Second predicate evaluated unless the first accepts.
+            /// Alternative relevant when the first predicate rejects.
             second: A,
 
-            /// Last predicate evaluated unless an earlier predicate accepts.
+            /// Final alternative for acceptance by the disjunction.
             third: A,
         },
     }
 
-    /// Formatting visits all fields while evaluation stops at a decisive field.
+    /// Requires observations `a` then `b`, the supplied acceptance result, and the expected description.
     fn check_order<A>(value: A, log: &RefCell<Vec<char>>, result: bool, expected: &str)
     where
         A: Assert<char>,
@@ -326,6 +337,7 @@ mod tests {
     #[test]
     fn composites_short_circuit_in_field_order_but_format_every_field() {
         let log = RefCell::new(Vec::new());
+
         check_order(
             All {
                 first: Probe(&log, 'a', true),

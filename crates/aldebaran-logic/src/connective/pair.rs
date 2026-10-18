@@ -1,8 +1,4 @@
-//! Product assertions over independently typed input components.
-//!
-//! [`Pair`] applies one assertion to each component of an input tuple. Semantic
-//! classification succeeds only when both components classify and returns the
-//! resulting units in the same product structure.
+//! Assertions applied independently to tuple components.
 
 use core::fmt;
 
@@ -13,12 +9,14 @@ use crate::{
     input::Input,
 };
 
-/// A product assertion over two independently typed input components.
+/// Requires each tuple component to satisfy its corresponding predicate.
+/// Successful classification retains both results in their input positions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+// NOTE(invariant): None.
 pub struct Pair<A1, A2>(A1, A2);
 
 impl<A1, A2> Pair<A1, A2> {
-    /// Construct one product assertion.
+    /// Assign `first` and `second` to the corresponding tuple positions.
     #[inline]
     pub const fn new(first: A1, second: A2) -> Self {
         Self(first, second)
@@ -35,6 +33,7 @@ where
     #[inline]
     fn assert(&self, input: (I1, I2)) -> bool {
         let Self(first, second) = self;
+
         let (first_input, second_input) = input;
 
         first.assert(first_input) && second.assert(second_input)
@@ -49,9 +48,13 @@ where
         let Self(first, second) = target_value;
 
         F::start(writer, Connective::AND, target_precedence)?;
+
         Assert::output_with::<W, F>(first, writer, Precedence::AND)?;
+
         F::middle(writer, BinaryConnective::AND, target_precedence)?;
+
         Assert::output_with::<W, F>(second, writer, Precedence::AND)?;
+
         F::end(writer, Connective::AND, target_precedence)
     }
 }
@@ -68,7 +71,9 @@ where
     #[inline]
     fn choose(&self, input: (I1, I2)) -> Option<Self::Unit> {
         let Self(first, second) = self;
+
         let (first_input, second_input) = input;
+
         let first = first.choose(first_input)?;
         let second = second.choose(second_input)?;
 

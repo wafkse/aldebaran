@@ -18,10 +18,8 @@ pub mod select;
 pub mod builtin;
 
 pub mod prelude {
-    //! A prelude for the `aldebaran-logic` crate.
-    //!
-    //! This simply re-exports the most commonly used items in the
-    //! `aldebaran-logic` crate.
+    //! The `aldebaran-logic` prelude re-exports the most commonly used items for
+    //! defining, composing, describing, and classifying assertions.
 
     pub use crate::assert::{AsAssert, Assert, IntoAssert};
     pub use crate::choose::Choose;
