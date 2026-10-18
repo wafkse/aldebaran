@@ -1,26 +1,27 @@
-//! Incremental token consumption and bounded lookahead abstractions.
+//! Pull-based token access for parsers.
 //!
-//! [`TokenStream`] represents only one operation, consuming the next token or
-//! reporting exhaustion as `Ok(None)`. Wrappers add lookahead, filtering, borrowed
-//! slices, and static storage without introducing a parser cursor protocol.
+//! [`TokenStream`] keeps source errors distinct from an empty read, which need
+//! not mark permanent exhaustion. [`lookahead`] inspects upcoming tokens,
+//! [`skipping`] filters a stream, and [`mod@slice`] and [`storage`] provide
+//! streams over token tables.
 
 pub mod lookahead;
 pub mod skipping;
 pub mod slice;
 pub mod storage;
 
-/// A stream that consumes parser tokens in source order.
-///
-/// Exhaustion is represented only by `Ok(None)` from [`Self::next`].
-/// There is no separate EOF token or stream state.
+/// Pull tokens while distinguishing source failures from unavailable input.
+/// `Ok(None)` does not establish permanent exhaustion, and implementations define
+/// whether a failing read advances the stream.
 pub trait TokenStream {
-    /// Token type yielded by the stream.
+    /// Unit of input consumed by parsers using this stream.
     type Token;
 
-    /// Failure produced while obtaining the next token.
+    /// Token-production failure, distinct from the absence of available input.
     type Error;
 
-    /// Consume the next token.
+    /// Consume the next available token, preserving source failures as `Err`.
+    /// An empty read does not establish permanent exhaustion.
     fn next(&mut self) -> Result<Option<Self::Token>, Self::Error>;
 }
 

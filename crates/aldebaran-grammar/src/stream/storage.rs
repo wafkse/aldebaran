@@ -1,36 +1,33 @@
-//! Token streams over statically borrowed storage.
+//! Infallible access to static token tables.
 //!
-//! [`Store`] is the `'static` counterpart to a borrowed slice stream. It supports
-//! infallible consumption, fixed lookahead, and cheap rewinding while retaining
-//! one immutable backing token slice.
+//! [`Store`] supports independent cursors over shared tokens, and rewinding
+//! creates a fresh cursor without changing the current stream.
 
 use core::convert::Infallible;
 
 use super::{TokenStream, lookahead::Lookahead};
 
-/// Rewindable infallible stream backed by a static token slice.
+/// Infallible stream over a static slice of copyable tokens.
 ///
-/// The position advances only after successful lookup and therefore never exceeds
-/// storage length. [`Self::rewind`] creates an independent cursor over the same
-/// immutable token data.
+/// Clones and [`Self::rewind`] provide independent cursors over the same table.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+// NOTE(invariant): `storage_indice` never exceeds `storage.len()`.
 pub struct Store<T>
 where
     T: Copy + 'static,
 {
-    /// Backing token storage.
+    /// Immutable token table shared by copies and rewound streams.
     storage: &'static [T],
 
-    /// Zero-based position of the next token.
+    /// Zero-based offset of the next unread token, or the table length at exhaustion.
     storage_indice: usize,
 }
 
-// NOTE(invariant): `storage_indice` never exceeds `storage.len()` because consumption advances only after a successful lookup.
 impl<T> Store<T>
 where
     T: Copy + 'static,
 {
-    /// Construct a stream over static storage.
+    /// Create a stream at the start of `storage`.
     #[inline]
     #[must_use]
     pub const fn new(storage: &'static [T]) -> Self {
@@ -39,7 +36,7 @@ where
         Self { storage, storage_indice }
     }
 
-    /// Construct a fresh stream over the same storage.
+    /// Create an independent stream at the start of the same table.
     #[inline]
     #[must_use]
     pub const fn rewind(&self) -> Self {
@@ -48,7 +45,8 @@ where
         Self::new(storage)
     }
 
-    /// Retrieve the backing storage.
+    /// The original token sequence, including tokens already consumed.
+    /// Its lifetime is independent of the cursor used to access it.
     #[inline]
     #[must_use]
     pub const fn storage(&self) -> &'static [T] {
@@ -65,6 +63,7 @@ where
     #[inline]
     fn lookahead<const N: usize>(&self) -> Result<Option<Self::Token>, Self::Error> {
         let &Self { storage, storage_indice } = self;
+
         let token = storage.get(storage_indice.saturating_add(N)).copied();
 
         Ok(token)
@@ -90,5 +89,58 @@ where
         *storage_indice += usize::from(target_value.is_some());
 
         Ok(target_value)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use core::ptr;
+
+    use super::Store;
+    use crate::stream::{TokenStream, lookahead::Lookahead};
+
+    #[test]
+    fn rewind_restarts_without_resetting_the_original() {
+        let mut stream = Store::new(&[3_u8, 5]);
+
+        assert_eq!(stream.next(), Ok(Some(3)));
+
+        let mut rewound = stream.rewind();
+
+        assert!(
+            ptr::eq(stream.storage(), rewound.storage()),
+            "rewinding must retain the backing slice"
+        );
+        assert_eq!(rewound.next(), Ok(Some(3)));
+        assert_eq!(stream.next(), Ok(Some(5)));
+        assert_eq!(stream.next(), Ok(None));
+        assert_eq!(rewound.next(), Ok(Some(5)));
+    }
+
+    #[test]
+    fn lookahead_handles_overflow_and_repeated_exhaustion() {
+        let mut stream = Store::new(&[3_u8, 5]);
+
+        assert_eq!(stream.next(), Ok(Some(3)));
+        assert_eq!(stream.lookahead::<0>(), Ok(Some(5)));
+        assert_eq!(stream.lookahead::<{ usize::MAX }>(), Ok(None));
+        assert_eq!(stream.next(), Ok(Some(5)));
+
+        for _ in 0..3 {
+            assert_eq!(stream.next(), Ok(None));
+            assert_eq!(stream.lookahead::<0>(), Ok(None));
+        }
+
+        assert_eq!(stream.rewind().next(), Ok(Some(3)));
+    }
+
+    #[test]
+    fn empty_storage_can_be_exhausted_and_rewound() {
+        let mut stream = Store::<u8>::new(&[]);
+
+        assert_eq!(stream.next(), Ok(None));
+        assert_eq!(stream.next(), Ok(None));
+        assert_eq!(stream.lookahead::<{ usize::MAX }>(), Ok(None));
+        assert_eq!(stream.rewind().next(), Ok(None));
     }
 }

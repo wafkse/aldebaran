@@ -1,27 +1,27 @@
-//! Token stream filtering that preserves the underlying stream.
+//! Token filtering that preserves the source's error type.
 //!
-//! [`Skipping`] repeatedly consumes selected tokens while exposing only the
-//! remaining tokens through [`TokenStream`]. Lookahead clones the filtered view
-//! so inspection follows the same skip policy without advancing the caller.
+//! [`Skipping`] excludes selected tokens from reads and lookahead positions, so
+//! parsers can count only the tokens relevant to their grammar.
 
 use super::{TokenStream, lookahead::Lookahead};
 
-/// A token stream view that hides tokens selected by one predicate.
+/// A token stream that omits values selected by a predicate.
 ///
-/// Consumption repeatedly advances the underlying stream until a visible token
-/// or source exhaustion is reached. Lookahead clones this complete view, which
-/// guarantees that observation and consumption apply the same filtering policy.
+/// Read errors leave previously skipped tokens consumed, and lookahead counts
+/// only retained tokens without guaranteeing isolation from shared state in
+/// cloned sources or predicates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+// NOTE(invariant): None.
 pub struct Skipping<S, P> {
-    /// Underlying token stream.
+    /// Source whose tokens are tested and consumed.
     stream: S,
 
-    /// Predicate selecting tokens that must remain invisible to consumers.
+    /// Returns `true` for each token to consume without yielding.
     skip: P,
 }
 
 impl<S, P> Skipping<S, P> {
-    /// Construct a skipping view over one token stream.
+    /// Omit tokens from `stream` when `skip` returns `true`.
     #[inline]
     #[must_use]
     pub const fn new(stream: S, skip: P) -> Self {
@@ -61,38 +61,21 @@ where
 {
     #[inline]
     fn lookahead<const N: usize>(&self) -> Result<Option<Self::Token>, Self::Error> {
-        let mut stream = self.clone();
-        let mut remaining = N;
+        let mut target_stream = self.clone();
+        let mut target_remain = N;
 
         loop {
-            let token = TokenStream::next(&mut stream);
+            let target_produced = TokenStream::next(&mut target_stream);
 
-            match (remaining, token) {
-                (_, Err(error)) => break Err(error),
+            match (target_remain, target_produced) {
+                (_, Err(target_error)) => break Err(target_error),
                 (_, Ok(None)) => break Ok(None),
                 (0, Ok(Some(token))) => break Ok(Some(token)),
-                (_, Ok(Some(_))) => remaining = remaining.saturating_sub(1),
+                (_, Ok(Some(_))) => target_remain = target_remain.saturating_sub(1),
             }
         }
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use crate::stream::{TokenStream, lookahead::Lookahead, slice::Slice};
-
-    use super::Skipping;
-
-    #[test]
-    fn skips_selected_tokens_for_consumption_and_lookahead() {
-        let tokens = [0_u8, 1, 0, 2];
-        let stream = Slice::new(&tokens);
-        let mut stream = Skipping::new(stream, |token: &u8| *token == 0);
-
-        assert_eq!(stream.lookahead::<0>(), Ok(Some(1)));
-        assert_eq!(stream.lookahead::<1>(), Ok(Some(2)));
-        assert_eq!(stream.next(), Ok(Some(1)));
-        assert_eq!(stream.next(), Ok(Some(2)));
-        assert_eq!(stream.next(), Ok(None));
-    }
-}
+mod tests;

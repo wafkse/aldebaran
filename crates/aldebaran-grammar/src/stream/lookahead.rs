@@ -1,15 +1,18 @@
-//! Stream lookahead utilities.
+//! Non-consuming access to tokens at offsets from the next read.
 //!
-//! The fixed lookahead traits are generated recursively from one inclusive range.
-//! Identifier synthesis uses Tokel transformers and requires no unstable Rust features.
+//! [`Lookahead`] uses zero-based offsets, while the fixed `Lookahead1` through
+//! `Lookahead32` capabilities use one-based positions and include access to all
+//! preceding positions.
 
 use super::TokenStream;
 
-/// A token stream that supports zero-based lookahead.
+/// Inspect upcoming tokens without committing their consumption.
+/// Source failures remain distinct from unavailable positions, as in [`TokenStream`].
 pub trait Lookahead: TokenStream {
-    /// Retrieve the token `N` positions ahead without consuming it.
+    /// Inspect the token `N` positions after the next token.
     ///
-    /// `N = 0` denotes the next token.
+    /// `N = 0` selects the next token. A source error encountered at or before the
+    /// requested position is returned as `Err`.
     fn lookahead<const N: usize>(&self) -> Result<Option<Self::Token>, Self::Error>;
 }
 
@@ -23,7 +26,7 @@ where
     }
 }
 
-/// Generate the fixed `LookaheadN` capability chain.
+/// Fixed inspection capabilities that include all preceding token positions.
 macro_rules! lookahead {
     () => {};
     (impl for []) => {};
@@ -35,14 +38,14 @@ macro_rules! lookahead {
         ]
     ) => {
         tokel::stream! {
-            #[doc = concat!("Lookahead capability for the ", stringify!($target_index), " immediate token.")]
+            #[doc = concat!("Non-consuming access through token position ", stringify!($target_index), ", counting the next token as position 1.")]
             pub trait [< Lookahead $target_index >]:to_string:flatten:concatenate:unstringify
             where
                 Self: TokenStream $(
                     + [< Lookahead $target_rest >]:to_string:flatten:concatenate:unstringify
                 )*
             {
-                #[doc = concat!("Retrieve the ", stringify!($target_index), " immediate token without consuming it.")]
+                #[doc = concat!("Inspect token position ", stringify!($target_index), " without consuming it, counting the next token as position 1. Source failures at or before that position remain errors.")]
                 fn [< lookahead $target_index >]:to_string:flatten:concatenate:unstringify(
                     &self,
                 ) -> Result<Option<Self::Token>, Self::Error>;
@@ -84,6 +87,7 @@ mod tests {
         static TOKENS: [u8; 32] = [
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
         ];
+
         let stream = Store::new(&TOKENS);
 
         assert_eq!(stream.lookahead1(), Ok(Some(0)));
