@@ -1,23 +1,32 @@
-//! A module for generic resettable ANSI sequences.
+//! Deactivation of terminal settings through the sequence interface.
 //!
-//! See the [`Resettable`] trait for more information.
+//! [`Resettable`] defines the reset corresponding to a setting, and [`Reset`]
+//! exposes it as an [`AnsiSequence`]. Reset codes clear settings rather than
+//! recovering the terminal state that preceded activation.
 
 use core::{fmt, marker::PhantomData};
 
 use crate::prelude::AnsiSequence;
 
-/// A trait that indicates that a determined [`AnsiSequence`]'s effects
-/// can be reset.
+/// An [`AnsiSequence`] that can write a corresponding reset sequence.
 pub trait Resettable<I>: AnsiSequence<I> {
-    /// Reset the effects of the current [`AnsiSequence`].
+    /// Write a reset sequence for this value.
+    ///
+    /// Because a reset code can clear more state than this value's sequence changed,
+    /// it does not restore prior terminal settings. Writing can also fail partway
+    /// through, leaving the sink partially updated.
     fn reset<W>(&self, writer: &mut W) -> fmt::Result
     where
         W: fmt::Write;
 }
 
-/// A wrapper over a [`resettable`](Resettable) [`ANSI sequence`](AnsiSequence).
+/// Deactivation of a setting wherever an [`AnsiSequence`] is expected.
+///
+/// Emission uses the wrapped value's reset and ignores per-emission input.
+/// It inherits that reset's scope, which can include other terminal settings.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
+// NOTE(invariant): None.
 pub struct Reset<R, I>(R, PhantomData<I>)
 where
     R: Resettable<I>;
@@ -26,13 +35,13 @@ impl<R, I> Reset<R, I>
 where
     R: Resettable<I>,
 {
-    /// Wrap a [`Reset`] over the target [`resettable`](Resettable) value.
+    /// Wrap a value whose [`Resettable::reset`] operation should be emitted.
     #[inline]
     pub const fn this(target_value: R) -> Self {
         Self(target_value, PhantomData)
     }
 
-    /// Retrieve the inner value `R` from this [`Reset`].
+    /// Recover the original setting, allowing its activation sequence to be used again.
     #[inline]
     pub fn into_inner(self) -> R {
         let Self(inner, ..) = self;
@@ -40,7 +49,7 @@ where
         inner
     }
 
-    /// Retrieve a reference the resettable inner value `R` from this [`Reset`].
+    /// Setting whose deactivation determines the emitted sequence.
     #[inline]
     pub const fn resettable(&self) -> &R {
         let &Self(ref inner, ..) = self;
@@ -48,7 +57,7 @@ where
         inner
     }
 
-    /// Retrieve a mutable reference the resettable inner value `R` from this [`Reset`].
+    /// Change the setting that determines subsequent reset emission.
     #[inline]
     pub const fn resettable_mut(&mut self) -> &mut R {
         let &mut Self(ref mut inner, ..) = self;

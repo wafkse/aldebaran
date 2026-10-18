@@ -1,8 +1,8 @@
-//! ANSI text attributes and their compact bitfield representation.
+//! SGR codes and sets of active text attributes.
 //!
-//! [`TextAttribute`] maps semantic text modes to activation and reset codes.
-//! [`Attributes`] stores several active modes in one bitfield and can emit or
-//! reset each selected attribute without allocating a collection.
+//! [`TextAttribute`] identifies an individual SGR attribute, while [`Attributes`]
+//! collects attributes for emission. This lets styling code combine attributes
+//! before writing the corresponding terminal sequences.
 
 use core::fmt;
 
@@ -10,15 +10,8 @@ use aldebaran_print::prelude::{Combine, Print};
 
 use crate::{prelude::AnsiSequence, reset::Resettable};
 
-/// The stylistic settings that can be applied to text.
-///
-/// To retrieve the control indice assigned to each respective variant,
-/// simply cast the enum to an [`u8`].
-///
-/// ## Remarks
-///
-/// Be aware that not all terminals may support or show a noticeable difference
-/// when using these attributes.
+/// A supported text-presentation setting with activation and selective reset codes.
+/// Resetting an attribute clears it without reconstructing earlier terminal state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
 pub enum TextAttribute {
@@ -28,19 +21,16 @@ pub enum TextAttribute {
     /// An attribute that makes the text dim.
     Dim = 2,
 
-    /// An attribute that makes the text italic*.
+    /// An attribute that makes the text italic.
     Italic = 3,
 
     /// An attribute that makes the text <ins>underlined</ins>.
     Underline = 4,
 
     /// An attribute that makes the text blink.
-    ///
-    /// May not work on all terminals or have a discernible effect.
     Blink = 5,
 
-    /// An attribute that inverses the surface identity of text's foreground
-    /// and background colors.
+    /// An attribute that swaps the foreground and background appearance.
     Inverse = 7,
 
     /// An attribute that makes the text invisible.
@@ -51,17 +41,16 @@ pub enum TextAttribute {
 }
 
 impl TextAttribute {
-    /// The ANSI code that resets all the stylistic settings to their default
-    /// value.
+    /// The SGR code for resetting active text and color settings.
     pub const RESET_ALL_CODE: u8 = 0;
 
-    /// Retrieve the ANSI code to activate the current attribute.
+    /// SGR parameter that activates this setting, without escape-sequence framing.
     #[inline]
     pub const fn active_code(&self) -> u8 {
         *self as u8
     }
 
-    /// Retrieve the ANSI code to reset the current attribute.
+    /// SGR parameter that clears this setting, without restoring previous state.
     ///
     /// Bold and dim share SGR 22, which resets both intensity attributes.
     #[inline]
@@ -77,8 +66,8 @@ impl TextAttribute {
         }
     }
 
-    /// Determine the corresponding [`TextAttribute`] variant for the given
-    /// code.
+    /// Return the attribute for a supported activation code. Other codes yield
+    /// [`Option::None`].
     #[inline]
     pub const fn from_code(code: u8) -> Option<Self> {
         match code {
@@ -95,19 +84,22 @@ impl TextAttribute {
     }
 }
 
-/// A bitfield that consists of the text attributes that can be applied to text,
-/// as seen in [`TextAttribute`].
+/// A set of active [`TextAttribute`] values.
+///
+/// Iteration consumes the set in descending SGR code order. Sequence emission
+/// uses a copy, so emitting or resetting the set preserves its stored activations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+// NOTE(invariant): SetBits(Attributes) SubsetOf Discriminants(TextAttribute)
 pub struct Attributes(u16);
 
 impl Attributes {
-    /// Create a new empty set of attributes.
+    /// No attribute activations. Emitting or resetting this set writes nothing.
     #[inline]
     pub const fn empty() -> Self {
         Self(0)
     }
 
-    /// Create a new set of attributes from a single [`TextAttribute`].
+    /// Select an isolated activation, with all other attributes absent.
     #[inline]
     pub const fn single(attr: TextAttribute) -> Self {
         Self(1 << attr as u8)
@@ -115,7 +107,7 @@ impl Attributes {
 }
 
 impl Attributes {
-    /// Toggle the existence of some [`TextAttribute`] in the set.
+    /// Toggle whether the supplied [`TextAttribute`] is active.
     #[inline]
     pub const fn toggle(&mut self, attr: TextAttribute) {
         let &mut Self(ref mut target_bitfield) = self;
@@ -123,7 +115,7 @@ impl Attributes {
         *target_bitfield ^= 1 << attr as u8;
     }
 
-    /// Force the existence of some [`TextAttribute`] in the set.
+    /// Mark the supplied [`TextAttribute`] active.
     #[inline]
     pub const fn force(&mut self, attr: TextAttribute) {
         let &mut Self(ref mut target_bitfield) = self;
@@ -146,8 +138,7 @@ impl Iterator for Attributes {
     }
 }
 
-/// Implement the myriad of `is_*`, 'toggle_*', ... methods for the `Attributes`
-/// bitfield.
+/// Generate attribute query and mutation methods for [`Attributes`].
 macro_rules! method_impl {
     () => {};
     (
@@ -158,7 +149,7 @@ macro_rules! method_impl {
         tokel::stream! {
             impl $target_struct {
                 $(
-                    #[doc = concat!("Determine whether the text attributes contain the `", stringify!($display_name), "` attribute.")]
+                    #[doc = concat!("Whether `", stringify!($display_name), "` is selected for subsequent attribute emission.")]
                     #[inline]
                     pub const fn [< is_ $display_name >]:concatenate (&self) -> bool {
                         let &Self(target_value) = self;
@@ -170,7 +161,7 @@ macro_rules! method_impl {
 
                     #[doc = concat!("Toggle the status of the `", stringify!($display_name), "` attribute.")]
                     ///
-                    /// Returns the last state of the attribute.
+                    /// Returns whether the attribute was active before this call.
                     #[inline]
                     pub const fn [< toggle_ $display_name >]:concatenate (&mut self) -> bool {
                         let &mut Self(target_value) = self;
@@ -186,9 +177,9 @@ macro_rules! method_impl {
                         last_state
                     }
 
-                    #[doc = concat!("Set the status of the `", stringify!($display_name), "` attribute.")]
+                    #[doc = concat!("Select `", stringify!($display_name), "` for emission while preserving other attributes.")]
                     ///
-                    /// Returns the last state of the attribute.
+                    /// Returns whether the attribute was active before this call.
                     #[inline]
                     pub const fn $display_name (&mut self) -> bool {
                         let &mut Self(target_value) = self;
@@ -246,13 +237,10 @@ impl Resettable<()> for TextAttribute {
     }
 }
 
-/// An [`AnsiSequence`] implementation for `Option<TextAttribute>`.
+/// Emit a [`TextAttribute`] activation or an SGR 0 reset when the option is absent.
 ///
-/// In most cases, [`TextAttribute`] is wrapped inside an [`Option<T>`], and
-/// for ease-of-use, if [`None`] is encountered, an all-resetting sequence is
-/// sent through instead.
-///
-/// For a way to reset a speficic [`TextAttribute`], please see [`crate::reset::Reset`].
+/// SGR 0 clears all active SGR settings. Use [`crate::reset::Reset`] to emit an
+/// attribute's reset code instead.
 impl<Input> AnsiSequence<Input> for Option<TextAttribute>
 where
     TextAttribute: AnsiSequence<Input>,
@@ -328,6 +316,7 @@ mod tests {
             assert_eq!(attribute.reset_code(), expected, "incorrect reset for {attribute:?}");
 
             let mut output = String::new();
+
             attribute.reset(&mut output).expect("attribute reset succeeds");
             assert_eq!(output, format!("\x1b[{expected}m"));
         }
@@ -337,6 +326,7 @@ mod tests {
     fn bold_attribute_set_resets_intensity() {
         let attributes = Attributes::single(TextAttribute::Bold);
         let mut output = String::new();
+
         attributes.reset(&mut output).expect("attribute set reset succeeds");
 
         assert_eq!(output, "\x1b[22m");

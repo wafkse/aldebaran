@@ -1,8 +1,8 @@
-//! ANSI 8-bit indexed terminal colors.
+//! Indexed terminal colors selected without palette conversion.
 //!
-//! [`Ansi8Bit`] stores one palette index and emits the corresponding foreground
-//! or background sequence according to the requested surface. The representation
-//! keeps terminal palette identity compact and independent from RGB conversion.
+//! [`Ansi8Bit`] emits its index through the extended SGR color form, with
+//! [`Surface`] choosing foreground or background. Appearance depends on the
+//! terminal's interpretation of that palette slot.
 
 use core::fmt;
 
@@ -12,27 +12,15 @@ use crate::prelude::AnsiSequence;
 
 use super::Surface;
 
-/// A newtype wrapper around `u8` that represents an 8-bit ANSI color code.
-///
-/// This is equivalent to the 256-color palette.
-///
-/// Due to no discernable difference between the `foreground` and `background`
-/// color for this palette, no accessor methods are provided alongside this
-/// type.
-///
-/// ## Technical Details
-///
-/// The sequence for setting an 8-bit color as the foreground color is:
-/// `ESC[38;5;{ID}m` where `{ID}` is the color code.
-///
-/// The sequence for setting an 8-bit color as the background color is:
-/// `ESC[48;5;{ID}m` where `{ID}` is the color code.
+/// A terminal palette slot covering all indices from 0 through 255.
+/// Emission preserves the index rather than approximating it with another color model.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 #[repr(transparent)]
+// NOTE(invariant): None.
 pub struct Ansi8Bit(u8);
 
 impl Ansi8Bit {
-    /// Retrieve the inner [`u8`] value contained in this [`Ansi8Bit`].
+    /// Numeric palette slot preserved by indexed-color emission.
     #[inline]
     pub const fn into_inner(self) -> u8 {
         let Self(inner) = self;
@@ -40,7 +28,8 @@ impl Ansi8Bit {
         inner
     }
 
-    /// Create a new [`Ansi8Bit`] from the given `u8` value.
+    /// Select a slot in the terminal's 256-color palette.
+    /// Every byte value is a valid index.
     #[inline]
     pub const fn from_u8(value: u8) -> Self {
         Self(value)
