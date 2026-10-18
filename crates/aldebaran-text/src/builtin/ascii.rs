@@ -1,7 +1,6 @@
-//! A crate for working with ASCII characters in a type-safe manner.
-//!
-//! This crate will remain in use until the `AsciiChar` type is stabilized in
-//! the standard library.
+//! Named ASCII values usable as predicates over bytes and Unicode scalars.
+//! [`Literal`] fixes the predicate at compile time, while [`Ascii`] also supports
+//! recognition through [`Lex`].
 
 use core::fmt;
 
@@ -19,13 +18,14 @@ use crate::{
     prelude::{Cursor, Expected, Lex},
 };
 
-/// A type that is guaranteed to be an [`Assert`] for some ASCII character.
+/// An ASCII equality predicate whose expected character is fixed at compile time.
+/// Only ASCII values of `C` have assertion implementations, shared by byte and character inputs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct AlwaysAscii<const C: char>
+pub struct Literal<const C: char>
 where
     Self: Assert<char>;
 
-/// Generate the ASCII enum and assertions for its known character values.
+/// Named ASCII values and compile-time literals must denote the same character.
 macro_rules! ascii {
     () => {};
     (
@@ -46,7 +46,7 @@ macro_rules! ascii {
             )*
             $target_vis enum $target_name {
                 $(
-                    #[doc = concat!("The `", stringify!($target_variant), "` ASCII character, represented by ``", stringify!($target_literal), "``.\n")]
+                    #[doc = concat!("Matches ASCII character ``", stringify!($target_literal), "``.\n")]
                     $(#[$variant_meta])*
                     $target_variant = const {
                         let target_value = $target_literal;
@@ -59,11 +59,11 @@ macro_rules! ascii {
             }
 
             impl $target_name {
-                /// Create a new ASCII character from sole Unicode scalar value.
+                /// Require `target_char` to denote an ASCII character.
                 ///
                 /// # Panics
                 ///
-                /// Panics if the Unicode scalar value is not an ASCII character.
+                /// Panics if `target_char` is outside ASCII.
                 #[inline]
                 pub const fn or_panic(target_char: char) -> Self {
                     match target_char {
@@ -74,7 +74,7 @@ macro_rules! ascii {
                     }
                 }
 
-                /// Attempt to create a new ASCII character from sole Unicode scalar value.
+                /// Reject non-ASCII scalars rather than interpreting their UTF-8 encoding.
                 #[inline]
                 pub const fn checked(target_char: char) -> Option<Self> {
                     match target_char {
@@ -85,7 +85,7 @@ macro_rules! ascii {
                     }
                 }
 
-                /// Determine the [`char`] for this ASCII character.
+                /// The same ASCII code point as a Unicode scalar, without decoding or replacement.
                 #[inline]
                 pub const fn as_char(&self) -> char {
                     *self as u8 as char
@@ -94,7 +94,7 @@ macro_rules! ascii {
 
             $(
 
-                impl<I> Assert<I> for AlwaysAscii<{ $target_literal }>
+                impl<I> Assert<I> for Literal<{ $target_literal }>
                 where
                     I: Input,
                     Ascii: Assert<I>,
@@ -123,7 +123,8 @@ macro_rules! ascii {
 }
 
 ascii!(
-    /// A singular ASCII character in a text source.
+    /// Names all 128 ASCII characters, including controls, with identical byte and
+    /// character predicates. As a lexer it consumes a component even on a non-ASCII mismatch.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub enum Ascii {
         Null = '\x00',

@@ -1,63 +1,57 @@
-//! Lexical recognition and construction over [`Cursor`].
-//!
-//! [`Lex`] defines the source-consumption protocol used by lexical values. The
-//! pass stage carries only source-derived information required by construction,
-//! while persistent mutable context is supplied separately during value building.
+//! Recognition and construction of lexical values over [`Cursor`]. [`Lex`] permits
+//! recognition without construction state, so callers can postpone semantic work
+//! until they accept the recognized syntax.
 
 use aldebaran_source::prelude::{Source, SourceDissect, SourceIter};
 
 use super::Cursor;
 
-/// A trait that expresses a two-step lexing operation.
+/// Defines how a lexical value is recognized from source and constructed from its
+/// recognized input. Implement this trait on the value produced by lexing.
 ///
-/// The pass produces only the source-derived input required to build [`Self`].
-/// Semantic conversion, allocation, interning, and final structure construction
-/// belong in [`Lex::build_with_context`]. Persistent context is supplied separately
-/// during construction.
+/// Lexing has two stages. [`pass`](Self::pass) recognizes the value's syntax through
+/// a [`Cursor`] and returns [`Input`](Self::Input), retaining the spelling or parsed
+/// components needed for construction. It has no access to [`Context`](Self::Context).
+/// [`build_with_context`](Self::build_with_context) turns that input into `Self`
+/// using caller-owned state, such as an interner. Construction receives no separate
+/// cursor argument, so its source data must be retained in the intermediate input.
 ///
-/// This trait is for types that can be instantiated from a [`Cursor`], separating
-/// lexical recognition from construction.
+/// Separating these stages lets a parser recognize syntax before deciding whether
+/// to construct its semantic value and modify shared state. For example, identifier
+/// recognition can retain its source spelling while deferring interning until the
+/// parser accepts that identifier. Input may borrow for the recognition call's
+/// lifetime, so retaining it can also retain the cursor borrow. Callers that want
+/// immediate construction can use [`lex_with_context`](Self::lex_with_context).
 ///
-/// Recognition may still require a complete source scan. For example, an inline
-/// string pass must locate its closing quote and validate escape syntax. The
-/// decoded byte buffer is not required to recognize that source extent, so its
-/// construction belongs in [`Lex::build_with_context`].
-///
-/// Pass-time work is justified only when the resulting fact must be transported
-/// to build the final value. Optimization hints that can be recomputed during
-/// construction do not belong in the pass.
+/// Neither stage provides automatic rollback. Implementations define cursor
+/// progress when recognition fails, and construction can fail after recognition
+/// succeeds or after modifying context. Recognizing valid syntax therefore does
+/// not guarantee that its value can be constructed. Use [`Cursor::branch`] when recognition
+/// needs speculative cursor progress, and manage context effects separately.
 pub trait Lex<'source, S>
 where
     S: Source<'source> + SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
-    /// The least source-derived input required to build [`Self`].
-    ///
-    /// This may borrow source data when construction needs it. Persistent
-    /// construction context is supplied separately to [`Lex::build_with_context`].
-    /// It should not contain a prebuilt [`Self`] merely to make construction
-    /// trivial.
+    /// Data retained from recognition for later construction, possibly borrowed for
+    /// the recognition call's lifetime.
     type Input<'input>
     where
         'source: 'input;
 
-    /// Persistent mutable context used while lexical values are constructed.
+    /// Caller-owned state shared across constructions, such as an interner.
     type Context: ?Sized;
 
-    /// The type of the error associated with this lexing operation.
+    /// Failure shared by syntax recognition and semantic construction.
     type Error;
 
-    /// Recognize source text and produce only the input required by
-    /// [`Lex::build_with_context`].
-    ///
-    /// Construction work that can be deferred without changing recognition
-    /// belongs in [`Lex::build_with_context`].
-    ///
-    /// See [`Cursor`] for more information.
+    /// Establish the input needed for construction without access to construction
+    /// context. Each implementation defines its cursor advancement on failure.
     fn pass<'input>(text: &'input mut Cursor<'source, S>) -> Result<Self::Input<'input>, Self::Error>
     where
         'source: 'input;
 
-    /// Perform recognition and construction with one persistent context.
+    /// Recognize and construct a value with caller-owned state. The default
+    /// implementation retains cursor progress and context effects on error.
     #[inline]
     fn lex_with_context(text: &mut Cursor<'source, S>, context: &mut Self::Context) -> Result<Self, Self::Error>
     where
@@ -68,7 +62,8 @@ where
         Self::build_with_context(input, context)
     }
 
-    /// Perform recognition and construction with a default context.
+    /// Recognize and construct using a default context local to this call,
+    /// rather than retaining the context for later lexical reads.
     #[inline]
     fn lex(text: &mut Cursor<'source, S>) -> Result<Self, Self::Error>
     where
@@ -80,17 +75,17 @@ where
         Self::lex_with_context(text, &mut context)
     }
 
-    /// Build [`Self`] from the corresponding [`Lex::Input`] with context.
+    /// Interpret previously recognized input using caller-owned state, with no
+    /// automatic rollback of state changes on failure.
     ///
-    /// Semantic conversion, allocation, interning, and final structure
-    /// construction belong here when the pass can defer them. This operation may
-    /// fail.
+    /// Supply input returned by [`Self::pass`], or uphold the same implementation's
+    /// recognition assumptions when assembling input directly.
     fn build_with_context<'input>(input: Self::Input<'input>, context: &mut Self::Context) -> Result<Self, Self::Error>
     where
         'source: 'input,
         Self: Sized;
 
-    /// Build [`Self`] with a default context.
+    /// Interpret previously recognized input using a default context local to this call.
     #[inline]
     fn build<'input>(input: Self::Input<'input>) -> Result<Self, Self::Error>
     where
@@ -103,3 +98,6 @@ where
         Self::build_with_context(input, &mut context)
     }
 }
+
+#[cfg(test)]
+mod tests;

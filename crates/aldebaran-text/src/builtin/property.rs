@@ -1,8 +1,10 @@
-//! Reusable character and byte property assertions for text traversal.
+//! Property assertions for byte and character components.
 //!
-//! Property assertions wrap standard ASCII and Unicode classification functions
-//! in the `Assert` interface. The generated zero-sized types can therefore be
-//! composed with logical connectives and used directly by [`Cursor`](crate::cursor::Cursor).
+//! ASCII-prefixed properties use ASCII rules for both component types. Other
+//! properties use ASCII rules for bytes and Unicode predicates for `char`.
+//! For example, [`Digit`] uses `char::is_numeric` for characters and an ASCII
+//! digit check for bytes. Value and reference inputs have identical acceptance
+//! rules, and descriptions use the property name in angle brackets.
 
 use core::fmt;
 
@@ -13,7 +15,7 @@ use aldebaran_logic::{
 
 use aldebaran_print::prelude::Print;
 
-/// A tt-muncher that expands to [`Assert`] implementations for a target type.
+/// Property declarations share acceptance rules across values and references.
 macro_rules! property {
     (
         @impl for $target_ident:ident where {}
@@ -136,7 +138,6 @@ macro_rules! property {
             }
         )?
     ) => {
-            #[doc = concat!("Asserts that the input satisfies the property `<", stringify!($target_ident), ">`.")]
             #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
             $(#[$target_meta])*
             $target_vis struct $target_ident;
@@ -170,6 +171,7 @@ macro_rules! property {
 }
 
 property!(
+    /// Accepts code points from `0x00` through `0x7f` in either source kind.
     pub Ascii where {
         ref u8 as u8::is_ascii;
         ref char as char::is_ascii;
@@ -177,6 +179,7 @@ property!(
 );
 
 property!(
+    /// Accepts only `0` through `9`, including for Unicode character sources.
     pub AsciiDigit where {
         ref u8 as u8::is_ascii_digit;
         ref char as char::is_ascii_digit;
@@ -184,6 +187,7 @@ property!(
 );
 
 property!(
+    /// Accepts `A` through `Z` and `a` through `z` in either source kind.
     pub AsciiAlphabetic where {
         ref u8 as u8::is_ascii_alphabetic;
         ref char as char::is_ascii_alphabetic;
@@ -191,6 +195,7 @@ property!(
 );
 
 property!(
+    /// Accepts ASCII letters and decimal digits, excluding underscores and non-ASCII letters.
     pub AsciiAlphanumeric where {
         ref u8 as u8::is_ascii_alphanumeric;
         ref char as char::is_ascii_alphanumeric;
@@ -198,6 +203,7 @@ property!(
 );
 
 property!(
+    /// Accepts space, tab, line feed, form feed, and carriage return, excluding vertical tab.
     pub AsciiWhitespace where {
         ref u8 as u8::is_ascii_whitespace;
         ref char as char::is_ascii_whitespace;
@@ -205,6 +211,7 @@ property!(
 );
 
 property!(
+    /// Accepts ASCII control codes `0x00` through `0x1f` and `0x7f`.
     pub AsciiControl where {
         ref u8 as u8::is_ascii_control;
         ref char as char::is_ascii_control;
@@ -212,6 +219,7 @@ property!(
 );
 
 property!(
+    /// Accepts printable ASCII except space, covering `0x21` through `0x7e`.
     pub AsciiGraphical where {
         ref u8 as u8::is_ascii_graphic;
         ref char as char::is_ascii_graphic;
@@ -219,6 +227,7 @@ property!(
 );
 
 property!(
+    /// Accepts ASCII graphic characters other than letters and digits.
     pub AsciiPunctuation where {
         ref u8 as u8::is_ascii_punctuation;
         ref char as char::is_ascii_punctuation;
@@ -226,6 +235,7 @@ property!(
 );
 
 property!(
+    /// Accepts `0` through `9`, `A` through `F`, and `a` through `f` in either source kind.
     pub AsciiHexadecimal where {
         ref u8 as u8::is_ascii_hexdigit;
         ref char as char::is_ascii_hexdigit;
@@ -233,6 +243,8 @@ property!(
 );
 
 property!(
+    /// Uses [`char::is_whitespace`] for Unicode scalars and [`u8::is_ascii_whitespace`]
+    /// for bytes, so character sources can accept additional whitespace.
     pub Whitespace where {
         ref u8 as u8::is_ascii_whitespace;
         char as char::is_whitespace;
@@ -240,6 +252,7 @@ property!(
 );
 
 property!(
+    /// Uses [`char::is_alphabetic`] for Unicode scalars and ASCII letters for bytes.
     pub Alphabetic where {
         ref u8 as u8::is_ascii_alphabetic;
         char as char::is_alphabetic;
@@ -247,6 +260,7 @@ property!(
 );
 
 property!(
+    /// Uses [`char::is_alphanumeric`] for Unicode scalars and ASCII letters or digits for bytes.
     pub Alphanumeric where {
         ref u8 as u8::is_ascii_alphanumeric;
         char as char::is_alphanumeric;
@@ -254,6 +268,8 @@ property!(
 );
 
 property!(
+    /// Uses [`char::is_numeric`] for Unicode scalars, including numeric characters
+    /// beyond decimal digits, but accepts only `0` through `9` for bytes.
     pub Digit where {
         ref u8 as u8::is_ascii_digit;
         char as char::is_numeric;

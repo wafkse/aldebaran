@@ -1,179 +1,406 @@
-# Aldebaran Compiler Framework
-
-![Development status](https://img.shields.io/badge/status-very%20pre--alpha-red)
-
-Aldebaran is a set of Rust crates for source processing and compiler frontends.
-
-The workspace currently covers source and span handling, lexing, token streams,
-internment, typed IDs, diagnostics, and terminal/text rendering. Most of it can
-be used either through the top-level `aldebaran` crate or as individual
-`aldebaran-*` crates.
+# Aldebaran
 
 > [!WARNING]
-> Aldebaran is **very pre-alpha**. Expect breaking changes, incomplete features,
-> and bugs. Releases are intended for experimentation.
->
-> THIS IS BEING REWRITTEN
+> Project status: Pre-alpha / Experimental
 
-## What exists today
+[![Build](https://github.com/wafkse/aldebaran/actions/workflows/build.yml/badge.svg?branch=development)](https://github.com/wafkse/aldebaran/actions/workflows/build.yml)
+[![Tests](https://github.com/wafkse/aldebaran/actions/workflows/test.yml/badge.svg?branch=development)](https://github.com/wafkse/aldebaran/actions/workflows/test.yml)
+[![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue)](LICENSE)
+[![Rust](https://img.shields.io/badge/Rust-stable-orange)](rust-toolchain.toml)
 
-| Area | Status |
+## Overview
+
+### What Is Aldebaran?
+
+Aldebaran is a Rust framework for writing lexers, parsers, and compiler diagnostics.
+It includes tools for reading source text, recognizing tokens, storing names, and
+showing errors with annotated source excerpts.
+
+Use the `aldebaran` crate to access the framework, or choose individual crates for
+an existing frontend.
+
+### Goals
+
+- Provide reusable building blocks for language frontends.
+- Make source excerpts and useful error messages part of frontend development.
+- Support custom input formats, token types, and storage.
+- Support applications that run without the Rust standard library.
+
+### Design Principles
+
+Aldebaran supplies the machinery around a language's grammar. You define its
+lexical types and syntax, then use the framework for source access, token streams,
+and reporting.
+
+Its components are separate libraries. For example, the diagnostic renderer can
+be used with a handwritten parser, and token streams can read from either a lexer
+or a stored token collection.
+
+### Project Status and Scope
+
+The project is pre-alpha and under active development. APIs may change, so pin a
+tested revision when using it in another project.
+
+The workspace focuses on frontend libraries. Language grammars, syntax trees,
+semantic analysis, and code generation are supplied by the application.
+
+## Features
+
+### Source Handling
+
+Read strings and byte slices through common source interfaces. Source views,
+line information, and locations let a frontend associate tokens and errors with
+the original input. Custom source types can implement the same interfaces.
+
+### Lexing and Token Streams
+
+Build lexical values with text cursors, character predicates, and speculative
+reads. Token-stream adapters provide lookahead, filtering, and access to stored
+tokens for the parser.
+
+### Internment and Typed IDs
+
+Store source values behind compact lookup keys with borrowed or owned storage.
+Typed IDs let a frontend distinguish identifiers for different kinds of data, and
+ID-keyed collections provide maps and sets for those values.
+
+### Diagnostics and Reporting
+
+Describe an error with a title and labeled source locations, then render it as an
+annotated excerpt, a byte hexdump, or a compact summary. The optional `Report`
+derive adds diagnostic and standard error support to application error types.
+
+### Text and Terminal Rendering
+
+Compose formatted output with colors and text attributes. Printing can use
+external context, such as an interner, to resolve stored names directly into the
+output. ANSI styling can be enabled or disabled for the destination.
+
+## Quick Start
+
+### Prerequisites
+
+Install stable Rust and Git. The workspace uses Rust edition 2024. Rustfmt and
+Clippy are also needed when contributing changes.
+
+### Installation
+
+Add the facade to an application's `Cargo.toml`.
+
+```toml
+[dependencies]
+aldebaran = { git = "https://github.com/wafkse/aldebaran", branch = "development" }
+```
+
+For reproducible builds, replace `branch` with a tested `rev`. Applications that
+need fewer components can depend on individual workspace crates instead.
+
+### Minimal Example
+
+This example consumes an identifier and inspects the remaining source component.
+
+```rust
+use aldebaran::text::prelude::{AsciiAlphabetic, AsciiAlphanumeric, Cursor};
+
+fn main() {
+    let mut cursor = Cursor::create("name42 +");
+
+    let first = cursor
+        .expect_is_next(AsciiAlphabetic)
+        .expect("identifier start");
+
+    cursor.ignore_while(AsciiAlphanumeric);
+
+    assert_eq!(first, 'n');
+    assert_eq!(cursor.peek(), Some(' '));
+}
+```
+
+## Usage
+
+### Source Processing
+
+Start with a `Cursor` when scanning text. For direct source access, `SourceIter`
+reads components, `SourceDissect` selects views, and `SourceLines` reads physical
+lines. String positions use UTF-8 byte offsets.
+
+The [source crate README](crates/aldebaran-source/README.md) introduces custom
+source types.
+
+### Building Compiler Frontends
+
+Implement `Lex` for the values your lexer produces. Recognition returns the input
+needed to construct a value, while construction can use shared state such as an
+interner. A parser can therefore recognize an identifier before deciding to store
+its name.
+
+Use `TokenStream` to read tokens in the parser and its adapters to add lookahead
+or skip tokens. See [text processing](crates/aldebaran-text/README.md) and
+[token streams](crates/aldebaran-grammar/README.md) for the component APIs.
+
+### Diagnostics and Error Reporting
+
+Create a label for the relevant source location and pass it to a report. This
+example marks the binding `x` and renders the diagnostic into a string.
+
+```rust
+use aldebaran::{
+    baseline::span::Span,
+    report::prelude::{Fancy, Label, RenderMut, Textual, oneshot},
+};
+
+fn main() {
+    let label = Label::new("unused binding", Span::unit(4));
+    let report = oneshot::single("let x = 1;", label);
+    let mut output = String::new();
+    let mut renderer = Textual::<'_, _, Fancy, _>::new(&mut output);
+
+    renderer.render_mut(&report).expect("render diagnostic");
+
+    assert!(output.contains("unused binding"));
+}
+```
+
+### Rendering Output
+
+Choose `Fancy` for source excerpts, `Hexdump` for byte sources, or `Summarized` for
+compact output. The renderer writes to a formatting sink, so an application can
+collect the result in a string before displaying or saving it.
+
+The excerpt renderer supports color, character sets, layout settings, and a
+configurable tab width.
+
+![ANSI diagnostic with overlapping UTF-8 spans](docs/diagnostics-ansi.svg)
+
+### Feature Flags
+
+The facade has no default features. Its optional features forward to component
+crates.
+
+| Facade feature | Capability |
 | --- | --- |
-| Sources and spans | Implemented |
-| Lexing and text processing | Implemented |
-| Token streams and parser lookahead | Implemented |
-| Assertions and token classification | Implemented |
-| Internment and typed IDs | Implemented |
-| Structured diagnostics | Implemented |
-| Diagnostic derives | Optional, via `report-codegen` |
-| Terminal/text presentation | Implemented |
-| Language semantics | Left to the consumer |
-| Shared IR/backend | Not present |
+| `report-codegen` | Derive support for report types |
+| `allocator` | Baseline integration with `allocator-api2` |
+| `source-storage` | Source-aware interner storage |
 
-Aldebaran does not try to define the semantic phases of every language built on
-top of it. Type checking, lowering, evaluation, or other language-specific work
-can live in the consuming project.
+These switches enable additional functionality. Component crates may also enable
+their own default features, including allocation support.
 
-The example crates are not present in this working tree. The runtime crates
-remain independently buildable, and the code below shows their current public
-module paths.
+## Architecture
+
+### Design Overview
+
+A frontend uses source access and lexical recognition to produce tokens for its
+parser. When it encounters an error, reporting and rendering turn that error into
+a message with source context.
+
+### Crate Organization
+
+Each library covers a part of frontend development. The facade exposes them under
+namespaces such as `aldebaran::text` and `aldebaran::report`, so applications can
+use the same APIs through the facade or a direct dependency.
+
+### Core Abstractions
+
+| API | Used for |
+| --- | --- |
+| `Source` | Describing input and its components |
+| `Cursor` | Scanning source input |
+| `Span` | Referring to a range in the source |
+| `Lex` | Defining lexical values |
+| `TokenStream` | Reading tokens in a parser |
+| `Report` | Describing a diagnostic |
+| `SourceReport` | Presenting a diagnostic with its source |
+| `Print` | Formatting values with external context |
+
+### Data Flow and Component Boundaries
+
+The usual path through a frontend is source input, lexical values, and then
+application syntax nodes. Interning provides storage alongside these stages.
+Diagnostics can be created wherever an error occurs and rendered when the
+application is ready to display them.
+
+A parser can also consume tokens from another producer, and a report can be
+rendered without using Aldebaran's lexer.
+
+### Dependency Relationships
+
+`aldebaran-text` combines source access with predicates, storage, diagnostics, and
+the token-stream interfaces from `aldebaran-grammar`. Reporting uses the source
+and printing libraries, with terminal styling supplied by `aldebaran-ansi`.
+
+The facade brings the runtime libraries together. Procedural macro crates provide
+compile-time derives. See the [workspace manifest](Cargo.toml) for dependencies.
 
 ## Crates
 
-Use `aldebaran` if you want the whole framework. The individual crates are
-also public and can be depended on directly.
+### Facade Crate
 
-- **Facade:** [`aldebaran`](crates/aldebaran)
-- **Foundations and identity:** [`aldebaran-baseline`](crates/aldebaran-baseline),
-  [`aldebaran-ice`](crates/aldebaran-ice), [`aldebaran-id`](crates/aldebaran-id)
-- **Source processing:** [`aldebaran-source`](crates/aldebaran-source),
-  [`aldebaran-interner`](crates/aldebaran-interner), [`aldebaran-grammar`](crates/aldebaran-grammar),
-  [`aldebaran-text`](crates/aldebaran-text)
-- **Logic and presentation:** [`aldebaran-logic`](crates/aldebaran-logic),
-  [`aldebaran-print`](crates/aldebaran-print), [`aldebaran-ansi`](crates/aldebaran-ansi)
-- **Diagnostics:** [`aldebaran-report`](crates/aldebaran-report)
-- **Derive implementations:** [`aldebaran-logic-macro`](crates/aldebaran-logic/aldebaran-logic-macro),
-  [`aldebaran-report-macro`](crates/aldebaran-report/aldebaran-report-macro)
+| Crate | Purpose |
+| --- | --- |
+| [`aldebaran`](crates/aldebaran/README.md) | Combined access to framework components |
 
-Allocator support is an optional feature of `aldebaran-baseline`. The proc-macro
-packages are implementation dependencies of their corresponding runtime crates.
+### Foundation and Identity
 
-## Source processing
+| Crate | Purpose |
+| --- | --- |
+| [`aldebaran-baseline`](crates/aldebaran-baseline/README.md) | Spans, nonempty collections, and shared primitives |
+| [`aldebaran-id`](crates/aldebaran-id/README.md) | Typed IDs and ID-keyed collections |
+| [`aldebaran-interner`](crates/aldebaran-interner/README.md) | Borrowed and owned value interning |
 
-The lower-level text API keeps track of source position while assertions decide
-what can be consumed:
+### Source Processing
 
-```rust,ignore
-use aldebaran::text::prelude::{AsciiAlphabetic, AsciiAlphanumeric, Cursor};
+| Crate | Purpose |
+| --- | --- |
+| [`aldebaran-source`](crates/aldebaran-source/README.md) | Source capabilities, locations, and line views |
+| [`aldebaran-text`](crates/aldebaran-text/README.md) | Text cursors and lexical recognition |
+| [`aldebaran-grammar`](crates/aldebaran-grammar/README.md) | Token streams and parser-facing adapters |
 
-let mut cursor = Cursor::create("aldebaran42");
+### Logic and Presentation
 
-let first = cursor
-    .expect_is_next(AsciiAlphabetic)
-    .expect("identifier start");
+| Crate | Purpose |
+| --- | --- |
+| [`aldebaran-logic`](crates/aldebaran-logic/README.md) | Predicate assertions and typed classification |
+| [`aldebaran-print`](crates/aldebaran-print/README.md) | Contextual printing and output composition |
+| [`aldebaran-ansi`](crates/aldebaran-ansi/README.md) | ANSI color and text styling |
 
-cursor.ignore_while(AsciiAlphanumeric);
+### Diagnostics
 
-assert_eq!(first, 'a');
-assert_eq!(cursor.peek(), None);
-```
+| Crate | Purpose |
+| --- | --- |
+| [`aldebaran-report`](crates/aldebaran-report/README.md) | Reports, annotations, and rendering backends |
+| [`aldebaran-ice`](crates/aldebaran-ice/README.md) | Internal compiler error support |
 
-The two-phase lexer contract is available at
-[`aldebaran::text::cursor::consume::Lex`](crates/aldebaran-text/src/cursor/consume.rs).
+### Procedural Macros
 
-## Diagnostics
-
-Reports carry their source locations separately from rendering. The
-`report-codegen` feature adds the derive macro:
-
-```rust,ignore
-use aldebaran::{report::codegen::Report, baseline::span::Span};
-
-#[derive(Debug, Report)]
-#[error("unexpected token")]
-#[report(title = "unexpected token", message = "expected an expression")]
-struct Unexpected(Span);
-```
-
-The renderers can add source context, annotations, multiple spans, and terminal
-styling. `report-codegen` enables the derive macro in the facade; the report
-runtime remains usable without it.
-
-This rendered diagnostic illustrates UTF-8 source locations and overlapping
-annotations with Unicode framing and ANSI color:
-
-![ANSI-colored duplicate-binding diagnostic with overlapping UTF-8 spans](https://raw.githubusercontent.com/wafkse/aldebaran/development/docs/diagnostics-ansi.svg)
-
-<details>
-<summary>Plain-text rendering (<code>--no-ansi</code>)</summary>
-
-With ANSI styling stripped, the same diagnostic is:
-
-```text
-error: duplicate binding
-    ┌─[<unknown>:1:3]
- 1  │ let résumé = "draft";
-    │     ^^^^^^
-    │   [^]: the first declaration is here
-    │
- 2  │ let résumé = résumé + " final";
-    │     ******   ######
-    │              ~~~~~~~~~~~~~~~~~
-    │ @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-    │   [*]: `résumé` is declared again here
-    │
-    │   [#]: this read refers to the binding being shadowed
-    │
-    │   [~]: this initializer belongs to the redeclaration
-    │
-    │   [@]: the redeclaration spans this statement
-    │
- 3  │ emit(résumé);
-    │      ------
-    │   [-]: this later use would resolve through the redeclaration
-    │
-────┘
-```
-
-</details>
-
-## Examples
-
-Runnable example packages are not included in this working tree. The runtime
-tests cover the crate-level behavior; the examples can be restored as separate
-workspace members when their migration is ready.
+| Crate | Purpose |
+| --- | --- |
+| [`aldebaran-report-macro`](crates/aldebaran-report/aldebaran-report-macro/README.md) | Report derive |
+| [`aldebaran-logic-macro`](crates/aldebaran-logic/aldebaran-logic-macro/README.md) | Assertion and selection derives |
 
 ## Compatibility
 
-The `aldebaran` facade is `#![no_std]`. Crates that need owned storage use
-`alloc`. Examples and tests use `std`.
+### Rust Toolchain
 
-The repository uses stable Rust by default. CI also builds and tests on beta and
-nightly, on Linux, macOS, and Windows. There is no separately declared MSRV at
-the moment.
+The repository selects stable Rust through [rust-toolchain.toml](rust-toolchain.toml).
+A minimum supported Rust version has not been declared.
 
-## Project status
+### `no_std` and `alloc`
 
-The source-processing, parsing, diagnostic, and presentation pieces can be
-tried today. Aldebaran is still very pre-alpha, with no stable API or migration
-guarantee between experimental releases.
+Runtime crates support `no_std`, but several components use `alloc` and require an
+allocator. The facade does not imply allocation-free operation. The baseline
+crate's default `alloc` feature can be disabled when used directly.
 
-There is no shared IR, optimizer, or backend layer in the workspace currently.
-Those are not required for using Aldebaran as frontend infrastructure.
+### Platform Support
 
-## History
+The build and test workflows cover Linux, macOS, and Windows with stable, beta,
+and nightly Rust. Embedded and freestanding targets need separate validation for
+the selected crates and features.
 
-Aldebaran was extracted from an existing project into this repository. The
-initial commit series is therefore an import and cleanup of existing work, not
-the chronological development history of the framework.
+### Stability Guarantees
+
+Pre-alpha APIs have no compatibility guarantee between revisions. Pin dependencies
+and review API changes before upgrading.
+
+## Development
+
+### Repository Structure
+
+`crates/` contains runtime libraries and nested procedural macro crates. `docs/`
+contains shared documentation assets, and `.github/workflows/` defines CI.
+
+### Building
+
+```sh
+cargo build --workspace --all-features
+cargo check --workspace --all-targets --all-features
+```
+
+### Testing
+
+```sh
+cargo test --workspace --all-features
+```
+
+This includes unit tests, integration tests, and crate documentation examples.
+
+### Linting and Formatting
+
+```sh
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --no-deps
+cargo dylint --all -- --workspace --all-targets --all-features
+```
+
+Dylint requires `cargo-dylint`, the library selected in [dylint.toml](dylint.toml),
+and that library's compiler toolchain.
+
+### Continuous Integration
+
+[CI](.github/workflows/ci.yml) checks formatting, compilation, Clippy, tests, and
+rustdoc on stable Rust for pull requests and pushes to `development`. Separate
+[build](.github/workflows/build.yml) and [test](.github/workflows/test.yml) workflows
+provide the operating-system and toolchain matrix on development pushes.
+
+## Design Decisions
+
+### Architectural Decisions
+
+Token producers and parsers communicate through a shared stream interface. This
+allows a parser to use a live lexer during normal operation and stored tokens in
+other contexts.
+
+Printing takes external context so stored names can be formatted through an
+interner. Applications can keep compact IDs in their data rather than copying
+names into each value.
+
+### Trade-offs
+
+Custom source and token types make the framework adaptable, but implementing a
+frontend requires more setup than using a lexer for a fixed language. Separate
+crates allow smaller integrations, while the facade is convenient for applications
+using several components.
+
+### Known Limitations
+
+Applications provide their own grammar and syntax tree. The grammar crate
+currently supplies token-stream interfaces and adapters for that work.
+
+Unicode display width can vary between terminals, so rendered alignment depends
+on the destination. See the component documentation for details about source
+positions and error handling.
+
+## Roadmap
+
+A release schedule has not been published. Proposals for language integrations,
+missing functionality, and API improvements can be discussed through
+[issues](https://github.com/wafkse/aldebaran/issues).
+
+## Contributing
+
+### Development Guidelines
+
+Build and test the affected crates before submitting a change. Include examples
+for new APIs and regression tests for bug fixes. If a change affects how a crate
+is used, update its documentation alongside the code.
+
+### Issues and Bug Reports
+
+Use [GitHub issues](https://github.com/wafkse/aldebaran/issues) to report defects.
+
+Include the revision, toolchain, enabled features, and a minimal reproducer with
+expected and actual behavior.
+
+### Pull Requests
+
+Open [pull requests](https://github.com/wafkse/aldebaran/pulls) against `development`.
+
+Explain the resulting behavior and any API changes, and include relevant validation.
+
+Run the development checks before submitting.
 
 ## License
 
-Copyright (C) 2026 W. Frakchi
-
-This program is free software: you can redistribute it and/or modify it under
-the terms of the GNU Affero General Public License as published by the Free
-Software Foundation, either version 3 of the License, or (at your option) any
-later version.
-
-See [the full license agreement](https://github.com/wafkse/aldebaran/blob/development/LICENSE) for further information.
+Copyright (C) 2026 W. Frakchi. Licensed under AGPL-3.0-or-later.
+See [LICENSE](LICENSE) for the license text.

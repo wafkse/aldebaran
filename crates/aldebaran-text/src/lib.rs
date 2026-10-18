@@ -10,10 +10,8 @@ pub mod cursor;
 pub mod builtin;
 
 pub mod prelude {
-    //! A prelude for the `aldebaran-text` crate.
-    //!
-    //! This simply re-exports the most commonly used items in the
-    //! `aldebaran-text` crate.
+    //! The `aldebaran-text` prelude re-exports the most commonly used items for
+    //! source traversal, lexical assertions, construction, and recovery.
 
     pub use crate::cursor::{Cursor, consume::Lex, error::Expected, internment::Internment, stream::LexStream};
 

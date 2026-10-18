@@ -1,8 +1,5 @@
-//! Speculative branching for [`Cursor`] values.
-//!
-//! A [`Branch`] copies the active cursor while retaining mutable access to the
-//! parent boundary. Work remains isolated until [`Branch::backport`] is called,
-//! allowing failed lexical alternatives to be discarded without restoration code.
+//! Speculative traversal with explicit commitment of cursor progress. Nested
+//! branches commit only to their immediate parent, so outer speculation remains independent.
 
 use core::ops::{Deref, DerefMut};
 
@@ -10,21 +7,19 @@ use aldebaran_source::prelude::{SourceDissect, SourceIter};
 
 use super::Cursor;
 
-/// A speculative cursor derived from one parent [`Cursor`].
-///
-/// The branch dereferences to its independent [`Cursor`]. Consuming the
-/// branch has no effect on the parent unless [`Self::backport`] is called, which
-/// commits only the final source boundary.
+/// Isolates cursor movement until [`Self::backport`] commits it to the immediate
+/// parent. Dropping a branch discards its movement, including committed inner progress.
 #[derive(Debug)]
+// NOTE(invariant): None.
 pub struct Branch<'source, 'borrow, S>
 where
     'source: 'borrow,
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
-    /// A mutable reference to the [`Cursor::source_index`] that branch originates from.
+    /// Parent offset updated by [`Self::backport`].
     source_index: &'borrow mut usize,
 
-    /// The currently active branch.
+    /// Speculative position whose movement is independent of the parent's offset.
     branch_text: Cursor<'source, S>,
 }
 
@@ -76,7 +71,8 @@ where
     'source: 'borrow,
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
-    /// Backport any changes done in this [`Branch`] to the [`Cursor`] we originally diverged from.
+    /// Publish this branch's final offset to its immediate parent, which may
+    /// itself still be speculative.
     #[inline]
     pub const fn backport(self) {
         let Self {
@@ -88,5 +84,53 @@ where
         } = self;
 
         *source_index = branch_index;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::cursor::Cursor;
+
+    #[test]
+    fn inner_commit_does_not_commit_the_outer_branch() {
+        let mut text = Cursor::create("αβ;");
+
+        {
+            let mut outer = text.branch();
+
+            assert_eq!(outer.any(), Some('α'));
+
+            let mut inner = outer.branch();
+
+            assert_eq!(inner.any(), Some('β'));
+            inner.backport();
+
+            assert_eq!(outer.index(), 4);
+            assert_eq!(outer.peek(), Some(';'));
+        }
+
+        assert_eq!(text.index(), 0);
+        assert_eq!(text.peek(), Some('α'));
+    }
+
+    #[test]
+    fn outer_commit_discards_uncommitted_inner_progress() {
+        let mut text = Cursor::create("αβ;");
+        let mut outer = text.branch();
+
+        assert_eq!(outer.any(), Some('α'));
+
+        {
+            let mut inner = outer.branch();
+
+            assert_eq!(inner.any(), Some('β'));
+            assert_eq!(inner.any(), Some(';'));
+        }
+
+        assert_eq!(outer.index(), 2);
+        outer.backport();
+
+        assert_eq!(text.index(), 2);
+        assert_eq!(text.peek(), Some('β'));
     }
 }

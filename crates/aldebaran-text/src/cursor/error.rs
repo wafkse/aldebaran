@@ -1,8 +1,6 @@
-//! Structured failures produced by assertion-driven text consumption.
-//!
-//! [`Expected`] represents one failed assertion and [`OneOf`] represents failure
-//! among several candidates. Both retain nonempty diagnostic spans and implement
-//! the reporting interfaces without reducing error identity to display strings.
+//! Assertion failures that preserve expected predicates and optional observed
+//! components for source annotations. Built-in messages use character terminology
+//! even for byte sources, and constructing a diagnostic does not validate its claim.
 
 use core::{fmt, marker};
 
@@ -20,17 +18,20 @@ use crate::recovery::Recover;
 
 use super::Cursor;
 
-/// An error produced when one assertion cannot be satisfied.
+/// An expectation report pairing a predicate and optional observed component with
+/// a diagnostic span. Callers establish the mismatch and source coordinates, since
+/// construction validates neither and recovery with this report leaves the cursor unchanged.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+// NOTE(invariant): None.
 pub struct Expected<C, A>
 where
     C: Input + Component,
     A: Assert<C>,
 {
-    /// Expected assertion and optional mismatched component.
+    /// Assertion that failed, with the component when input was present.
     expect: Expect<C, A>,
 
-    /// Nonempty diagnostic span where the assertion failed.
+    /// Span used to annotate the mismatch or missing-input boundary.
     target: Span,
 }
 
@@ -55,11 +56,7 @@ where
     C: Input + Component,
     A: Assert<C>,
 {
-    /// Construct a failure for a missing component at one diagnostic span.
-    ///
-    /// A unit span beginning at the source length represents the missing
-    /// component boundary without a separate point type. Such a span begins at
-    /// the exclusive source end and is intentionally not source-contained.
+    /// Report absent input at a caller-selected boundary without inspecting a source.
     #[inline]
     #[must_use]
     pub const fn this(subject: A, target: Span) -> Self {
@@ -68,7 +65,7 @@ where
         Self { expect, target }
     }
 
-    /// Construct a failure for one mismatched existing component.
+    /// Report a caller-established mismatch without rechecking `subject` or the span.
     #[inline]
     #[must_use]
     pub const fn found(subject: A, exist: C, span: Span) -> Self {
@@ -149,17 +146,19 @@ where
     }
 }
 
-/// Printable expectation state for one assertion failure.
+/// An expectation message distinguishing missing input from a reported mismatch.
+/// The predicate supplies its description without requiring a failed component to exist.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+// NOTE(invariant): None.
 pub struct Expect<C, A>
 where
     C: Input + Component,
     A: Assert<C>,
 {
-    /// Existing mismatched component when one was present.
+    /// Mismatching component, or `None` when input was missing.
     exist: Option<C>,
 
-    /// Assertion that the source was expected to satisfy.
+    /// Assertion the component was expected to satisfy.
     subject: A,
 }
 
@@ -184,14 +183,14 @@ where
     C: Input + Component,
     A: Assert<C>,
 {
-    /// Construct an expectation without an existing component.
+    /// Describe the predicate requirement when no component was available.
     #[inline]
     #[must_use]
     pub const fn none(subject: A) -> Self {
         Self { exist: None, subject }
     }
 
-    /// Construct an expectation with one mismatched component.
+    /// Describe a reported mismatch without testing whether `subject` rejects `exist`.
     #[inline]
     #[must_use]
     pub const fn some(exist: C, subject: A) -> Self {
@@ -244,20 +243,23 @@ where
     }
 }
 
-/// Failure produced when none of several assertion candidates can match.
+/// An expectation report describing borrowed candidates through a caller-selected
+/// assertion view. Callers establish rejection and source coordinates, since
+/// construction validates neither and recovery with this report leaves the cursor unchanged.
+// NOTE(invariant): None.
 pub struct OneOf<'borrow, C, K, A, F>
 where
     C: Input + Component,
     A: Assert<C>,
     F: Fn(&'borrow K) -> &'borrow A,
 {
-    /// Detailed candidate expectation state.
+    /// Candidate values and the mismatch or missing-input state used for reporting.
     of_many: OfMany<'borrow, C, K, A, F>,
 
-    /// Nonempty diagnostic span where selection failed.
+    /// Span used to annotate the candidate failure.
     target: Span,
 
-    /// Assertion type marker.
+    /// Associates the error with the assertion type used for its candidates.
     _marker: marker::PhantomData<fn() -> A>,
 }
 
@@ -267,7 +269,8 @@ where
     A: Assert<C>,
     F: Fn(&'borrow K) -> &'borrow A,
 {
-    /// Construct a candidate mismatch over an existing component.
+    /// Report a caller-established candidate mismatch at `span` without rechecking it.
+    /// `predicate` selects each candidate's displayed assertion, including on later rendering.
     #[inline]
     #[must_use]
     pub const fn expected(target_list: &'borrow [K], target_component: C, span: Span, predicate: F) -> Self {
@@ -282,7 +285,8 @@ where
         Self { of_many, target, _marker }
     }
 
-    /// Construct a candidate failure for missing input at one diagnostic span.
+    /// Report missing input at a caller-selected span without inspecting a source.
+    /// `predicate` selects each candidate's displayed assertion, including on later rendering.
     #[inline]
     #[must_use]
     pub const fn missed(target_list: &'borrow [K], target: Span, predicate: F) -> Self {
@@ -292,7 +296,8 @@ where
         Self { of_many, target, _marker }
     }
 
-    /// Retrieve the diagnostic span of this candidate failure.
+    /// Source coordinates used by this report's annotation, as supplied by the caller
+    /// without source validation.
     #[inline]
     #[must_use]
     pub const fn target(&self) -> Span {
@@ -307,28 +312,24 @@ where
     C: Input + Component,
     K: Assert<C>,
 {
-    /// Construct a direct candidate mismatch.
+    /// A candidate that is itself an assertion needs no separate display projection.
+    #[inline]
+    const fn assertion(value: &K) -> &K {
+        value
+    }
+
+    /// Report a caller-established mismatch with candidate assertions displayed directly.
     #[inline]
     #[must_use]
     pub const fn identified(target_list: &'borrow [K], target_component: C, span: Span) -> Self {
-        #[inline(always)]
-        fn identity_ref<K>(value: &K) -> &K {
-            value
-        }
-
-        Self::expected(target_list, target_component, span, identity_ref::<K> as for<'a> fn(&'a K) -> &'a K)
+        Self::expected(target_list, target_component, span, Self::assertion as for<'a> fn(&'a K) -> &'a K)
     }
 
-    /// Construct a direct candidate failure for missing input.
+    /// Report absent input with candidate assertions displayed directly.
     #[inline]
     #[must_use]
     pub const fn nonidentified(target_list: &'borrow [K], target: Span) -> Self {
-        #[inline(always)]
-        fn identity_ref<K>(value: &K) -> &K {
-            value
-        }
-
-        Self::missed(target_list, target, identity_ref::<K> as for<'a> fn(&'a K) -> &'a K)
+        Self::missed(target_list, target, Self::assertion as for<'a> fn(&'a K) -> &'a K)
     }
 }
 
@@ -415,7 +416,8 @@ where
     }
 }
 
-/// The title for an [`OneOf`] error.
+/// A candidate expectation message with distinct absent-input and mismatch states.
+/// Candidate order determines description order, without proving whether any candidate accepts.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum OfMany<'borrow, C, K, A, F>
 where
@@ -423,26 +425,24 @@ where
     A: Assert<C> + 'borrow,
     F: Fn(&'borrow K) -> &'borrow A,
 {
-    /// The title for an [`OneOf`] error when a component is found instead of
-    /// the expected component.
+    /// A component was present but matched no candidate.
     Missmatch {
-        /// The list of `K` values that the [`Assert`] `A` pertains to.
+        /// Borrowed alternatives in diagnostic display order.
         target_list: &'borrow [K],
 
-        /// The component `C` that was found instead of the expected component,
+        /// Component rejected by every candidate assertion.
         target_component: C,
 
-        /// The predicate-mapping function `F`.
+        /// Selects the assertion displayed for each candidate.
         predicate: F,
     },
 
-    /// The title for an [`OneOf`] error when a component is missing rather than
-    /// mismatched.
+    /// No component was present where a candidate was expected.
     Missed {
-        /// The list of `K` values that the [`Assert`] `A` pertains to.
+        /// Borrowed alternatives in diagnostic display order.
         target_list: &'borrow [K],
 
-        /// The predicate-mapping function `F`.
+        /// Selects the assertion displayed for each candidate.
         predicate: F,
     },
 }
