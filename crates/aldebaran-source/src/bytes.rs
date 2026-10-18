@@ -1,8 +1,8 @@
-//! Source capability implementations for borrowed byte slices.
+//! Built-in source traits for borrowed byte slices.
 //!
-//! Byte slices use one-byte source components, standard line terminators, and
-//! unknown location metadata. Dissection preserves borrowed slice views, while
-//! line segmentation projects spanned data back onto byte-oriented line windows.
+//! Components and coordinates both count bytes. Dissection clips to the source
+//! extent, while line windows reject out-of-bounds spans. Line traversal uses
+//! LF and CRLF without interpreting bytes as UTF-8.
 
 use core::iter::{Copied, FusedIterator};
 use core::num::NonZero;
@@ -113,7 +113,7 @@ mod test {
 
     #[test]
     fn line_segment() {
-        /// Macro to test the line iterator functions.
+        /// Expected content and break views for concatenated source lines.
         macro_rules! lines {
             () => {};
             (

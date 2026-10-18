@@ -1,8 +1,9 @@
 //! Projection of spanned data onto individual source lines.
 //!
-//! [`LineSegmented`] maps arbitrary spanned values into line-local views while
-//! retaining the original data. Segment iterators may preserve, split, or omit
-//! inputs according to source intersection without imposing an input ordering.
+//! [`LineSegmented`] maps spanned values onto source-specific line views while
+//! retaining their associated data. Since callers may supply unordered input,
+//! each implementation defines how overlapping and duplicate spans appear in
+//! the resulting segments.
 
 pub mod iter;
 pub mod piecewise;
@@ -17,17 +18,13 @@ use aldebaran_baseline::prelude::{Span, Spanned};
 
 use crate::line::{LineId, SourceLines};
 
-/// Trait for [`lines`](SourceLines::Line) that have been segmented off a
-/// source.
+/// Annotation projection for source-specific line representations.
+/// Renderers use its windows for content and retain spanned data for presentation decisions.
 pub trait LineSegmented<'source, S>
 where
     S: SourceLines<'source, Line = Self> + ?Sized,
 {
-    /// The iterator type produced for segmented input data.
-    ///
-    /// As noted in [`LineSegmented::segmented`], there is no implied order in
-    /// the segments shall be given. Thus, users must sort the segments if they
-    /// require some order to be present.
+    /// Annotation-bearing windows and unannotated gaps produced for a line.
     type Segments<'input, I, D>: Iterator<Item = Piecewise<'source, S, D>>
     where
         I: Iterator<Item = D> + FusedIterator,
@@ -35,50 +32,41 @@ where
         D: Spanned,
         'source: 'input;
 
-    /// A view into a source line.
-    ///
-    /// This is provided as a convenience for higher-kinded abstraction.
-    ///
-    /// Thus, in most cases, this will be the same as the source line.
-    ///
-    /// Also, in a generic context, this serves as a 'token type' for a view
-    /// into the source line, but not the source line itself.
+    /// The representation returned for a window of the source line.
     type View;
 
-    /// Segment the source into lines that intersect with the target segments.
+    /// Project annotations expressed in the original source coordinates onto this line.
     ///
-    /// *No order* is imposed on the input [`spans`](Span), and thus the
-    /// segments can be in any order.
-    ///
-    /// ## On the `None` return value
-    ///
-    /// The discriminant of the return values represents if the source can be
-    /// segmented or not. This is the case for empty sources.
-    ///
-    /// If a span from the slice does not intersect with the source, it is
-    /// ignored.
+    /// Input need not be ordered. Implementations define how overlapping or
+    /// duplicate spans are represented.
     fn segmented<'input, I, D>(line: &'input LineId<'source, S>, data_iter: I) -> Self::Segments<'input, I, D>
     where
         'source: 'input,
         I: Iterator<Item = D> + FusedIterator,
         D: Spanned;
 
-    /// Retrieve a view into the source line for the given span.
+    /// Select a window using coordinates relative to this line view.
+    ///
+    /// `None` means the window is out of bounds or not representable. For
+    /// string views both endpoints must be UTF-8 boundaries.
     fn window(&self, span: Span) -> Option<Self::View>;
 }
 
-/// A single relevant line segment.
+/// A line window retaining the annotation that selected it.
 ///
-/// This encapsulates a view into the source line with some data `D`.
+/// The view may be clipped to line content while the data keeps its original
+/// source span. Consequently [`Spanned::span`] reports the annotation's extent,
+/// which can be larger than the rendered window.
+// NOTE(invariant): The view lies within the source region identified by the associated data, possibly clipped to line content.
 pub struct Segment<'a, S, D>
 where
     S: SourceLines<'a> + ?Sized,
     D: Spanned,
 {
-    /// The view into the source line.
+    /// Renderable window within the associated data's source extent.
     line_view: <S::Line as LineSegmented<'a, S>>::View,
 
-    /// The underlying [`Spanned`] data of the segment.
+    /// Original annotation data, retaining its unclipped source span.
     data: D,
 }
 
@@ -87,7 +75,7 @@ where
     S: SourceLines<'a> + ?Sized,
     D: Spanned,
 {
-    /// Retrieve the view into the source line.
+    /// Window available for rendering, which may cover only part of the annotation.
     #[inline]
     pub const fn view(&self) -> &<S::Line as LineSegmented<'a, S>>::View {
         let &Self { ref line_view, .. } = self;
@@ -95,7 +83,7 @@ where
         line_view
     }
 
-    /// Retrieve a reference to the internally-stored data.
+    /// Original annotation with its source span preserved across clipping.
     #[inline]
     pub const fn data(&self) -> &D {
         let &Self { ref data, .. } = self;
@@ -103,14 +91,14 @@ where
         data
     }
 
-    /// Construct a new [`Segment`] from its raw parts: the line view and the
-    /// data.
+    /// Associate a line window with data covering its source region.
+    /// The caller must keep the view within the data's span in the original source.
     #[inline]
     pub const fn from_raw_parts(line_view: <S::Line as LineSegmented<'a, S>>::View, data: D) -> Self {
         Self { line_view, data }
     }
 
-    /// Deconstruct this segment into its raw parts: the line view and the data.
+    /// Separate the renderable window from its original annotation.
     #[inline]
     pub fn into_raw_parts(self) -> (<S::Line as LineSegmented<'a, S>>::View, D) {
         let Self { line_view, data } = self;
@@ -215,6 +203,7 @@ where
             line_view: ref line,
             ref data,
         } = self;
+
         let &Self {
             line_view: ref other_line,
             data: ref other_data,
@@ -262,14 +251,11 @@ where
     D: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Segment")
-            .field("line", &self.line_view)
-            .field("span", &self.data)
-            .finish()
+        let Self { line_view, data } = self;
+
+        f.debug_struct("Segment").field("line", line_view).field("span", data).finish()
     }
 }
 
-/// An irrelevant line segment.
-///
-/// This is quite literally [`Segment`] but with a hardcoded [`Span`] as its associated data.
+/// A line interval that represents a gap in caller-provided annotations.
 pub type IrrelevantSegment<'a, S> = Segment<'a, S, Span>;

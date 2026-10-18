@@ -1,8 +1,8 @@
-//! Metadata attached to source representations.
+//! Contextual metadata associated with source representations.
 //!
-//! [`SourceMetadata`] separates source contents from contextual information such
-//! as file or logical location. Sources without location knowledge use [`Unknown`]
-//! so generic reporting code can retain one metadata capability boundary.
+//! [`SourceMetadata`] keeps source contents separate from context such as a file
+//! or logical origin. [`Unknown`] supplies a printable placeholder when no such
+//! context is available.
 
 use core::fmt;
 
@@ -12,22 +12,21 @@ use crate::source::Source;
 
 use crate::location::Location;
 
-/// A trait for sources that include metadata about themselves.
-///
-/// In most cases, this is used to express a source location of some kind.
+/// A source that carries context alongside its contents.
 #[diagnostic::on_unimplemented(label = "{Self} this source does not include metadata")]
 pub trait SourceMetadata<'a>: Source<'a> {
-    /// The metadata type for this source.
+    /// Origin or other source context retained independently of the content.
     type Metadata;
 
-    /// Retrieve the metadata for this source.
+    /// Context used to identify this source independently of a selected span.
     fn metadata(&self) -> &Self::Metadata;
 }
 
-/// A trait for metadata types that are attached to sources.
+/// Classification of source-context values.
+/// It imposes no formatting or source-coordinate requirements.
 pub trait Metadata {}
 
-/// A metadata type that effectively acts as an unknown location.
+/// A source context that prints as `<unknown>`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Unknown;
 

@@ -1,15 +1,16 @@
-//! Common capability bundle for fully featured source representations.
+//! Shared capability bound for parsing, reporting, and source storage.
 //!
-//! [`Standard`] names the complete source-processing contract used by generic
-//! text and rendering code. It combines iteration, dissection, line handling,
-//! metadata, comparison, hashing, and owned conversion without adding new state.
+//! [`Standard`] combines traversal and line access with content comparison,
+//! hashing, metadata, and owned conversion. Generic consumers can require this
+//! set while narrower operations continue to use the individual traits.
 
 use crate::{
     diff::SourceDiff, dissect::SourceDissect, hash::SourceHash, iter::SourceIter, line::SourceLines, metadata::SourceMetadata,
     owned::SourceOwned, source::Source,
 };
 
-/// Source supporting the ordinary Aldebaran source-processing operations.
+/// Source capabilities needed across parsing, diagnostic rendering, and storage.
+/// All sources satisfying the constituent contracts receive this bound automatically.
 pub trait Standard<'source>:
     Source<'source>
     + SourceDissect<'source>

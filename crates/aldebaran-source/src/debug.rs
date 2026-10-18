@@ -1,12 +1,14 @@
-//! Visualization of sources for debugging purposes.
+//! Debug formatting requirements for sources and their components.
 //!
-//! See [`SourceDebug`] for more information.
+//! [`SourceDebug`] lets generic debug output inspect both the source value and
+//! individual traversal components without requiring these capabilities of every
+//! [`Source`].
 
 use core::fmt;
 
 use crate::source::Source;
 
-/// A trait for those [`Source`] types that can be debugged.
+/// Debug inspection of both a source representation and its traversal components.
 pub trait SourceDebug<'a>: Source<'a>
 where
     Self: fmt::Debug,

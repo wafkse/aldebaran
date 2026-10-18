@@ -1,6 +1,4 @@
-//! The module for the [`Segmented`](Segmented) iterator adaptor.
-//!
-//! Refer to its documentation for more information.
+//! Built-in iterator for projecting spanned data onto a source line.
 
 use alloc::collections::BTreeMap;
 
@@ -12,9 +10,16 @@ use aldebaran_baseline::prelude::{Span, Spanned};
 
 use crate::line::{LineContent, LineId, LineSegmented, Piecewise, Segment, SourceLines};
 
-/// An iterator adaptor over the segments of a line.
+/// Segments a line view around overlapping annotations.
 ///
-/// This adaptor adapts a [`Span`]-based iterator into a [`Piecewise`] iterator.
+/// Annotations are indexed by their source-coordinate start so traversal can
+/// visit them in order. Because each start is a unique map key, inputs sharing
+/// a start retain only the last annotation.
+///
+/// Traversal compares those absolute starts with offsets into the line content.
+/// When the line has a nonzero source origin, the coordinate mismatch can
+/// therefore misplace or omit annotations.
+// NOTE(invariant): Each entry in `spans` is keyed by the start coordinate returned by its value.
 pub struct Segmented<'source, 'borrow, S, I, D>
 where
     S: SourceLines<'source> + ?Sized,
@@ -24,14 +29,10 @@ where
     /// The target line to be segmented.
     line: &'borrow LineId<'source, S>,
 
-    /// The storage B-tree corresponding to the line's relevant spans.
+    /// Spanned annotations associated with the line.
     spans: BTreeMap<usize, D>,
 
-    /// The already-revised span for this line.
-    ///
-    /// This serves as a context to determine whether the current iteration
-    /// warrants a [`relevant`] or an
-    /// [`irrelevant`] segment.
+    /// The next line-content offset to classify as relevant or irrelevant.
     target_index: usize,
 
     /// Mark the iterator type as used.
@@ -50,9 +51,11 @@ where
         let &mut Self {
             line,
             ref mut spans,
-            target_index: start_index,
+            target_index: ref mut next_index,
             ..
         } = self;
+
+        let start_index = *next_index;
 
         let line_content_len = line.content()?.span().length().get();
 
@@ -82,7 +85,7 @@ where
                             // of the current span.
                             let span_end = char_index + span.length().get();
 
-                            self.target_index = spans
+                            *next_index = spans
                                 .range((Bound::Excluded(char_index), Bound::Included(span_end)))
                                 .map(|(index, _)| *index)
                                 .fold(span_end, |acc, index| acc.min(index));
@@ -99,7 +102,7 @@ where
                                 data: relevant_span,
                             };
 
-                            self.target_index = char_index;
+                            *next_index = char_index;
 
                             break Some(Piecewise::Irrelevant(target_segment));
                         }
@@ -117,7 +120,7 @@ where
                     };
 
                     // No more line to iterate over.
-                    self.target_index = line_content_len;
+                    *next_index = line_content_len;
 
                     break Some(Piecewise::Irrelevant(target_segment));
                 }
@@ -168,7 +171,15 @@ where
     D: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.line == other.line && self.spans == other.spans
+        let Self { line, spans, .. } = self;
+
+        let Self {
+            line: other_line,
+            spans: other_spans,
+            ..
+        } = other;
+
+        line == other_line && spans == other_spans
     }
 }
 
@@ -231,7 +242,7 @@ where
     I: Iterator<Item = D> + FusedIterator,
     D: Spanned,
 {
-    /// Construct a new [`Segmented`] iterator.
+    /// Build segments for spans that overlap `line`.
     #[inline]
     pub fn new(line: &'borrow LineId<'source, S>, spans: I) -> Self {
         let line_span = line.span();
