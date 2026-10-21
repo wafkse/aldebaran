@@ -58,7 +58,8 @@ unstable_features = "forbid"
 invalid_reference_casting = "forbid"
 named_asm_labels = "allow"
 unsafe_code = "allow"
-unknown_lints = "allow"
+unknown_lints = "warn"
+missing_docs = "deny"
 
 [workspace.lints.clippy]
 all = { level = "deny", priority = -1 }
