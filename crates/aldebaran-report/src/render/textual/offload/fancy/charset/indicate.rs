@@ -719,6 +719,7 @@ impl<'a> Marker<'a> {
 impl<'a> Iterator for Marker<'a> {
     type Item = char;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let &mut Self {
             base,

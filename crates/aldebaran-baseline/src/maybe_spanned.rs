@@ -31,6 +31,7 @@ where
 
 /// Nonempty strings use a zero-based span measured in UTF-8 bytes.
 impl MaybeSpanned for str {
+    #[inline]
     fn maybe_spanned(&self) -> Option<Span> {
         NonZero::new(self.len()).map(|length| Span::new(usize::MIN, length))
     }
@@ -38,18 +39,21 @@ impl MaybeSpanned for str {
 
 /// Nonempty slices use zero-based coordinates measured in elements.
 impl<T> MaybeSpanned for [T] {
+    #[inline]
     fn maybe_spanned(&self) -> Option<Span> {
         NonZero::new(self.len()).map(|length| Span::new(usize::MIN, length))
     }
 }
 
 impl<T> MaybeSpanned for &[T] {
+    #[inline]
     fn maybe_spanned(&self) -> Option<Span> {
         <[T] as MaybeSpanned>::maybe_spanned(self)
     }
 }
 
 impl<T> MaybeSpanned for &mut [T] {
+    #[inline]
     fn maybe_spanned(&self) -> Option<Span> {
         <[T] as MaybeSpanned>::maybe_spanned(self)
     }
@@ -60,6 +64,7 @@ impl<T> MaybeSpanned for Option<T>
 where
     T: MaybeSpanned,
 {
+    #[inline]
     fn maybe_spanned(&self) -> Option<Span> {
         self.as_ref().and_then(MaybeSpanned::maybe_spanned)
     }

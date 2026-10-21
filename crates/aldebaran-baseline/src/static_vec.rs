@@ -194,6 +194,7 @@ impl<T, const N: usize> Drop for StaticVec<T, N> {
 }
 
 impl<T: fmt::Debug, const N: usize> fmt::Debug for StaticVec<T, N> {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_list().entries(self.iter()).finish()
     }

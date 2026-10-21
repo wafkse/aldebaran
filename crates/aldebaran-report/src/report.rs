@@ -94,7 +94,7 @@ pub trait SourceReport<'source>: Report {
 
 /// Object-safety witness for [`Report`].
 #[doc(hidden)]
-fn _report_must_be_object_safe()
+const fn _report_must_be_object_safe()
 where
     dyn Report<Title = str, Kind = kind::Simple, Annotations = Label<&'static str>>: Report,
 {

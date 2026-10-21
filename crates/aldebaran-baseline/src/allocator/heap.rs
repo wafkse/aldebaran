@@ -47,6 +47,7 @@ impl<A: Allocator, const P: Profiled> hash::Hash for Heap<A, P>
 where
     A: hash::Hash,
 {
+    #[inline]
     fn hash<H>(&self, state: &mut H)
     where
         H: hash::Hasher,
@@ -61,6 +62,7 @@ impl<A: fmt::Debug, const P: Profiled> fmt::Debug for Heap<A, P>
 where
     A: Allocator,
 {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let Self { profiler, .. } = self;
 
@@ -109,6 +111,7 @@ impl<A: Allocator, const P: Profiled> Default for Heap<A, P>
 where
     A: Default,
 {
+    #[inline]
     fn default() -> Self {
         Self {
             profiler: None,
