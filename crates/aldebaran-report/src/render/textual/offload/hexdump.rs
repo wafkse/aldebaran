@@ -1,7 +1,7 @@
-//! Renderer for reports over raw byte sources.
+//! Renders raw byte sources as offset-indexed hexadecimal rows with annotation markers.
 //!
-//! Each row is indexed by a zero-based byte offset and shows both hexadecimal
-//! values and an ASCII projection, with annotation locations beneath the rows.
+//! Only ASCII graphic bytes and spaces appear literally in the ASCII column.
+//! Other bytes use the configured replacement glyph.
 
 use core::{cmp, fmt, num::NonZero};
 
@@ -18,6 +18,8 @@ use crate::{
 /// Row width, hexadecimal case, and marker glyphs for a byte dump.
 ///
 /// The default uses 16 bytes per row, uppercase digits, and `.`/`^` markers.
+/// Custom glyphs are emitted as supplied, so choose visible single-cell glyphs
+/// to preserve row alignment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 // NOTE(invariant): None.
 pub struct HexdumpSettings {
@@ -56,7 +58,7 @@ impl HexdumpSettings {
         }
     }
 
-    /// Construct hexdump settings from their rendering parts.
+    /// Select byte grouping, digit case, and glyphs without validating glyph widths.
     #[inline]
     #[must_use]
     pub const fn from_raw_parts(bytes_per_row: NonZero<usize>, case: HexCase, replacement: char, span: char, point: char) -> Self {
@@ -69,6 +71,7 @@ impl HexdumpSettings {
         }
     }
 
+    /// Source-byte budget per row, independently of the rendered terminal width.
     #[inline]
     #[must_use]
     pub const fn bytes_per_row(&self) -> NonZero<usize> {
@@ -77,6 +80,7 @@ impl HexdumpSettings {
         bytes_per_row
     }
 
+    /// Letter case shared by byte values and row offsets.
     #[inline]
     #[must_use]
     pub const fn case(&self) -> HexCase {
@@ -85,6 +89,7 @@ impl HexdumpSettings {
         case
     }
 
+    /// ASCII-column substitute for bytes other than graphic ASCII and ordinary space.
     #[inline]
     #[must_use]
     pub const fn replacement(&self) -> char {
@@ -93,6 +98,7 @@ impl HexdumpSettings {
         replacement
     }
 
+    /// Marker repeated beneath hexadecimal byte values covered by an annotation.
     #[inline]
     #[must_use]
     pub const fn span(&self) -> char {
@@ -101,6 +107,7 @@ impl HexdumpSettings {
         span
     }
 
+    /// Insertion marker for a unit annotation at the exclusive source end.
     #[inline]
     #[must_use]
     pub const fn point(&self) -> char {
@@ -193,12 +200,10 @@ where
     }
 }
 
-/// Renders byte sources as hexadecimal rows with printable-byte projections.
+/// Renders byte sources as hexadecimal rows with annotation markers.
 ///
-/// Because annotation coordinates are byte offsets, targets are clipped to
-/// the rows they intersect. A unit span at the source length instead represents
-/// an insertion, so its marker appears after the final byte even when the
-/// source is empty.
+/// A unit span at the source length marks an insertion after the final byte,
+/// including for an empty source.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Hexdump {}
 
@@ -217,6 +222,10 @@ where
     type Output = ();
     type Error = fmt::Error;
 
+    #[expect(
+        clippy::missing_inline_in_public_items,
+        reason = "Formatting every source byte and annotation row is substantial traversal work."
+    )]
     fn offload<'input, W>(error: &'source E, ctx: &mut OffloadContext<'source, 'input, W, Self, E>) -> Result<Self::Output, Self::Error>
     where
         'source: 'input,
@@ -260,7 +269,7 @@ where
             " |".print(sink)?;
 
             for source_byte in source_row {
-                let printable_character = if source_byte.is_ascii_graphic() || source_byte.is_ascii_whitespace() {
+                let printable_character = if source_byte.is_ascii_graphic() || *source_byte == b' ' {
                     char::from(*source_byte)
                 } else {
                     replacement_glyph
