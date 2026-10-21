@@ -86,3 +86,26 @@ fn customizes_hexdump_presentation() {
     assert!(output.contains("~~ ~~ invalid bytes"));
     assert!(output.contains("! insert here"));
 }
+
+#[test]
+fn ascii_projection_replaces_controls_and_preserves_space() {
+    let source = [b'A', b'\t', b'\n', b'\r', 0x0b, 0x0c, 0x1b, 0x7f, b' ', b'~', 0xff];
+    let report = Diagnostic(InlineAnnotations::new(
+        Label::new("bytes", Span::unit(0)),
+        [Label::new("end", Span::unit(source.len()))],
+    ));
+    let attached = report.attach(source.as_slice());
+    let mut output = String::new();
+    let mut renderer = Textual::<'_, _, Hexdump, _>::new(&mut output);
+    let settings = HexdumpSettings::from_raw_parts(NonZero::new(source.len()).expect("nonempty source"), HexCase::Upper, '?', '^', '^');
+
+    renderer
+        .render_mut_with_input(Present::from_input(settings), &attached)
+        .expect("render controls");
+
+    assert!(output.contains("|A??????? ~?|"), "incorrect ASCII projection {output:?}");
+    assert!(
+        !output.contains(['\t', '\r', '\x0b', '\x0c', '\x1b', '\x7f']),
+        "control byte escaped into output {output:?}"
+    );
+}
