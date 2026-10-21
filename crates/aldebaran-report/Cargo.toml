@@ -22,6 +22,7 @@ aldebaran-logic.workspace = true
 aldebaran-print.workspace = true
 aldebaran-source.workspace = true
 hashbrown.workspace = true
+unicode-width.workspace = true
 
 [lints]
 workspace = true
