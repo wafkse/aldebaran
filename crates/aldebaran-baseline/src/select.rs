@@ -111,6 +111,7 @@ impl<L, R> EitherOrBoth<L, R> {
     }
 
     /// Borrow the left value when the left alternative is present.
+    #[inline]
     pub const fn left(&self) -> Option<&L> {
         match self {
             Self::Left(value) | Self::Both(value, ..) => Some(value),
@@ -118,6 +119,7 @@ impl<L, R> EitherOrBoth<L, R> {
         }
     }
     /// Borrow the right value when the right alternative is present.
+    #[inline]
     pub const fn right(&self) -> Option<&R> {
         match self {
             Self::Right(value) | Self::Both(.., value) => Some(value),

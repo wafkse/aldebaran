@@ -143,6 +143,7 @@ where
     W: PartialEq,
     O::Input<'input>: PartialEq,
 {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         let Self { sink, present } = self;
 
@@ -164,6 +165,7 @@ where
     W: fmt::Debug,
     O::Input<'input>: fmt::Debug,
 {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self { sink, present } = self;
 

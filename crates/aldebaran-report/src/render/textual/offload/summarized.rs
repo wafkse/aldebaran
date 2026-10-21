@@ -38,6 +38,10 @@ where
 
     type Error = fmt::Error;
 
+    #[expect(
+        clippy::missing_inline_in_public_items,
+        reason = "Formatting the heading and annotation collection is a traversal rather than a small wrapper."
+    )]
     fn offload<'input, W>(error: &'source E, ctx: &mut OffloadContext<'source, 'input, W, Self, E>) -> Result<Self::Output, Self::Error>
     where
         'source: 'input,

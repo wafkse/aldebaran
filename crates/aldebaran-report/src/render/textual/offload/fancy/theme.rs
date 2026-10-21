@@ -88,6 +88,7 @@ pub trait Theme: Copy + 'static {
 pub struct DefaultTheme;
 
 impl Theme for DefaultTheme {
+    #[inline]
     fn metadata(&self, &Metadata { severity, importance }: &Metadata) -> HeaderTheme {
         let kind = {
             let (fg, attr) = match severity {
@@ -122,6 +123,7 @@ impl Theme for DefaultTheme {
         HeaderTheme { kind, title }
     }
 
+    #[inline]
     fn arrow(&self) -> (Style, impl Iterator<Item = Style>) {
         let default = {
             let mut style = Style::empty();

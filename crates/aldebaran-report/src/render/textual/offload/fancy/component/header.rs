@@ -44,6 +44,7 @@ where
 
     type Error = fmt::Error;
 
+    #[inline]
     fn offload<'input, W>(error: &'source E, ctx: &mut OffloadContext<'source, 'input, W, Self, E>) -> Result<Self::Output, Self::Error>
     where
         'source: 'input,

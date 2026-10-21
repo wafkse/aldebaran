@@ -320,7 +320,7 @@ impl Padding {
 
     /// Adjust leading spaces while retaining the other edge amounts.
     #[inline]
-    pub fn left_mut(&mut self) -> &mut PaddingPrimitive {
+    pub const fn left_mut(&mut self) -> &mut PaddingPrimitive {
         let &mut Self {
             horizontal: HorizontalPadding { ref mut left, .. },
             ..
@@ -331,7 +331,7 @@ impl Padding {
 
     /// Adjust trailing spaces while retaining the other edge amounts.
     #[inline]
-    pub fn right_mut(&mut self) -> &mut PaddingPrimitive {
+    pub const fn right_mut(&mut self) -> &mut PaddingPrimitive {
         let &mut Self {
             horizontal: HorizontalPadding { ref mut right, .. },
             ..
@@ -342,7 +342,7 @@ impl Padding {
 
     /// Adjust the upper margin independently of horizontal spacing.
     #[inline]
-    pub fn top_mut(&mut self) -> &mut PaddingPrimitive {
+    pub const fn top_mut(&mut self) -> &mut PaddingPrimitive {
         let &mut Self {
             vertical: VerticalPadding { ref mut top, .. },
             ..
@@ -353,7 +353,7 @@ impl Padding {
 
     /// Adjust the lower margin independently of horizontal spacing.
     #[inline]
-    pub fn bottom_mut(&mut self) -> &mut PaddingPrimitive {
+    pub const fn bottom_mut(&mut self) -> &mut PaddingPrimitive {
         let &mut Self {
             vertical: VerticalPadding { ref mut bottom, .. },
             ..
@@ -364,7 +364,7 @@ impl Padding {
 
     /// Replace the leading space count, yielding the previous amount for restoration.
     #[inline]
-    pub fn left_replace(&mut self, target_value: PaddingPrimitive) -> PaddingPrimitive {
+    pub const fn left_replace(&mut self, target_value: PaddingPrimitive) -> PaddingPrimitive {
         let &mut Self {
             horizontal: HorizontalPadding { ref mut left, .. },
             ..
@@ -379,7 +379,7 @@ impl Padding {
 
     /// Replace the trailing space count, yielding the previous amount for restoration.
     #[inline]
-    pub fn right_replace(&mut self, target_value: PaddingPrimitive) -> PaddingPrimitive {
+    pub const fn right_replace(&mut self, target_value: PaddingPrimitive) -> PaddingPrimitive {
         let &mut Self {
             horizontal: HorizontalPadding { ref mut right, .. },
             ..
@@ -394,7 +394,7 @@ impl Padding {
 
     /// Replace the upper padding amount, yielding the previous value for restoration.
     #[inline]
-    pub fn top_replace(&mut self, target_value: PaddingPrimitive) -> PaddingPrimitive {
+    pub const fn top_replace(&mut self, target_value: PaddingPrimitive) -> PaddingPrimitive {
         let &mut Self {
             vertical: VerticalPadding { ref mut top, .. },
             ..
@@ -409,7 +409,7 @@ impl Padding {
 
     /// Replace the lower padding amount, yielding the previous value for restoration.
     #[inline]
-    pub fn bottom_replace(&mut self, target_value: PaddingPrimitive) -> PaddingPrimitive {
+    pub const fn bottom_replace(&mut self, target_value: PaddingPrimitive) -> PaddingPrimitive {
         let &mut Self {
             vertical: VerticalPadding { ref mut bottom, .. },
             ..
@@ -440,7 +440,7 @@ impl Padding {
 
     /// Adjust both horizontal margins without changing vertical padding.
     #[inline]
-    pub fn horizontal_mut(&mut self) -> &mut HorizontalPadding {
+    pub const fn horizontal_mut(&mut self) -> &mut HorizontalPadding {
         let &mut Self { ref mut horizontal, .. } = self;
 
         horizontal
@@ -448,7 +448,7 @@ impl Padding {
 
     /// Adjust both vertical margins without changing horizontal space counts.
     #[inline]
-    pub fn vertical_mut(&mut self) -> &mut VerticalPadding {
+    pub const fn vertical_mut(&mut self) -> &mut VerticalPadding {
         let &mut Self { ref mut vertical, .. } = self;
 
         vertical

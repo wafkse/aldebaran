@@ -49,6 +49,7 @@ where
     E: SourceReport<'source>,
     O::Input<'input>: Clone,
 {
+    #[inline]
     fn clone(&self) -> Self {
         let &Self { ref input, viewport } = self;
 
@@ -100,6 +101,7 @@ where
     E: SourceReport<'source>,
     O::Input<'input>: fmt::Debug,
 {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Present")
             .field("input", self.input())
