@@ -1,25 +1,27 @@
-//! Built-in iterator for projecting spanned data onto a source line.
+//! Built-in annotation projection onto line content.
+//!
+//! [`Segmented`] clips renderable views to content, preserving the original
+//! annotations in [`Piecewise::Relevant`] and filling uncovered intervals with
+//! [`Piecewise::Irrelevant`]. Terminators are excluded from both kinds of view.
 
-use alloc::collections::BTreeMap;
+use alloc::{collections::VecDeque, vec::Vec};
 
-use aldebaran_ice::Ice;
-
-use core::{cmp::Ordering, fmt, hash, iter::FusedIterator, marker::PhantomData, num::NonZero, ops::Bound};
+use core::{fmt, hash, iter::FusedIterator, marker::PhantomData, num::NonZero};
 
 use aldebaran_baseline::prelude::{Span, Spanned};
 
-use crate::line::{LineContent, LineId, LineSegmented, Piecewise, Segment, SourceLines};
+use crate::line::{LineId, LineSegmented, Piecewise, Segment, SourceLines};
 
-/// Segments a line view around overlapping annotations.
+/// Built-in projection of annotations and gaps onto a line view.
 ///
-/// Annotations are indexed by their source-coordinate start so traversal can
-/// visit them in order. Because each start is a unique map key, inputs sharing
-/// a start retain only the last annotation.
-///
-/// Traversal compares those absolute starts with offsets into the line content.
-/// When the line has a nonzero source origin, the coordinate mismatch can
-/// therefore misplace or omit annotations.
-// NOTE(invariant): Each entry in `spans` is keyed by the start coordinate returned by its value.
+/// Construction consumes the annotation iterator and allocates storage for
+/// representable content overlaps. Views are ordered by their clipped start,
+/// with input order preserved for equal starts. Overlapping annotations remain
+/// separate and retain their original data and spans, so the output is not a
+/// disjoint partition. Gaps cover only content outside their combined coverage.
+/// A line without content yields no pieces.
+// NOTE(invariant): ValidWindows(Pending, Line.Content) And SortedByStart(Pending)
+// And TargetIndex = Max({0} Union LocalEndpoints(Emitted))
 pub struct Segmented<'source, 'borrow, S, I, D>
 where
     S: SourceLines<'source> + ?Sized,
@@ -29,13 +31,13 @@ where
     /// The target line to be segmented.
     line: &'borrow LineId<'source, S>,
 
-    /// Spanned annotations associated with the line.
-    spans: BTreeMap<usize, D>,
+    /// Pending local windows paired with original annotations, ordered by local start.
+    spans: VecDeque<(Span, D)>,
 
-    /// The next line-content offset to classify as relevant or irrelevant.
+    /// Greatest emitted endpoint relative to the content start, used to bound gaps.
     target_index: usize,
 
-    /// Mark the iterator type as used.
+    /// Input iterator identity retained after its annotations have been collected.
     _marker: PhantomData<I>,
 }
 
@@ -47,6 +49,7 @@ where
 {
     type Item = Piecewise<'source, S, D>;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let &mut Self {
             line,
@@ -55,76 +58,39 @@ where
             ..
         } = self;
 
-        let start_index = *next_index;
+        let content = line.content()?;
+        let content_span = content.span();
+        let line_content_len = content_span.length().get();
 
-        let line_content_len = line.content()?.span().length().get();
+        match spans.front() {
+            Some((span, _)) if span.start() > *next_index => {
+                let length = NonZero::new(span.start() - *next_index)?;
+                let local = Span::new(*next_index, length);
+                let line_view = content.value().window(local)?;
+                let data = Span::new(content_span.start() + *next_index, length);
 
-        let mut target_range = start_index..line_content_len;
+                *next_index = span.start();
 
-        if target_range.is_empty() {
-            return None;
-        }
+                Some(Piecewise::Irrelevant(Segment { line_view, data }))
+            }
+            Some(_) => {
+                let (span, data) = spans.pop_front()?;
 
-        loop {
-            let target_value = target_range.next().map(|index| (index, spans.remove(&index)));
+                let line_view = content.value().window(span)?;
 
-            match target_value {
-                Some((char_index, Some(data))) => {
-                    let span = data.span();
+                *next_index = (*next_index).max(span.end());
 
-                    match start_index.cmp(&char_index) {
-                        Ordering::Equal => {
-                            let line_view = line.content().map(LineContent::value)?.window(span)?;
+                Some(Piecewise::Relevant(Segment { line_view, data }))
+            }
+            None => {
+                let length = NonZero::new(line_content_len - *next_index)?;
+                let local = Span::new(*next_index, length);
+                let line_view = content.value().window(local)?;
+                let data = Span::new(content_span.start() + *next_index, length);
 
-                            let target_segment = Segment { line_view, data };
+                *next_index = line_content_len;
 
-                            // NOTE: to support overlapping spans, set the index
-                            // to the next
-                            // span's start that overlaps with the current span,
-                            // or default to the end
-                            // of the current span.
-                            let span_end = char_index + span.length().get();
-
-                            *next_index = spans
-                                .range((Bound::Excluded(char_index), Bound::Included(span_end)))
-                                .map(|(index, _)| *index)
-                                .fold(span_end, |acc, index| acc.min(index));
-
-                            break Some(Piecewise::Relevant(target_segment));
-                        }
-                        Ordering::Less => {
-                            let relevant_span = Span::new(start_index, NonZero::new(char_index - start_index)?);
-
-                            let line_view = line.content().map(LineContent::value)?.window(relevant_span)?;
-
-                            let target_segment = Segment {
-                                line_view,
-                                data: relevant_span,
-                            };
-
-                            *next_index = char_index;
-
-                            break Some(Piecewise::Irrelevant(target_segment));
-                        }
-                        Ordering::Greater => Ice::<()>::raise(),
-                    }
-                }
-                None => {
-                    let irrelevant_span = Span::new(start_index, NonZero::new(line_content_len - start_index)?);
-
-                    let line_view = line.content().map(LineContent::value)?.window(irrelevant_span)?;
-
-                    let target_segment = Segment {
-                        line_view,
-                        data: irrelevant_span,
-                    };
-
-                    // No more line to iterate over.
-                    *next_index = line_content_len;
-
-                    break Some(Piecewise::Irrelevant(target_segment));
-                }
-                Some((_, None)) => { /* eat anything deemed irrelevant */ }
+                Some(Piecewise::Irrelevant(Segment { line_view, data }))
             }
         }
     }
@@ -139,14 +105,21 @@ where
     I: hash::Hash,
     D: hash::Hash,
 {
+    #[inline]
     fn hash<H>(&self, state: &mut H)
     where
         H: hash::Hasher,
     {
-        let &Self { line, ref spans, .. } = self;
+        let &Self {
+            line,
+            ref spans,
+            target_index,
+            ..
+        } = self;
 
         line.hash(state);
         spans.hash(state);
+        target_index.hash(state);
     }
 }
 
@@ -170,16 +143,20 @@ where
     I: PartialEq,
     D: PartialEq,
 {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
-        let Self { line, spans, .. } = self;
+        let Self {
+            line, spans, target_index, ..
+        } = self;
 
         let Self {
             line: other_line,
             spans: other_spans,
+            target_index: other_index,
             ..
         } = other;
 
-        line == other_line && spans == other_spans
+        line == other_line && spans == other_spans && target_index == other_index
     }
 }
 
@@ -191,6 +168,7 @@ where
     S::Line: Clone,
     D: Clone,
 {
+    #[inline]
     fn clone(&self) -> Self {
         let &Self {
             line,
@@ -220,6 +198,7 @@ where
     I: fmt::Debug,
     D: fmt::Debug,
 {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let &Self {
             line,
@@ -242,15 +221,31 @@ where
     I: Iterator<Item = D> + FusedIterator,
     D: Spanned,
 {
-    /// Build segments for spans that overlap `line`.
+    /// Prepare annotations for rendering against this line's content.
+    ///
+    /// Views are clipped to content while data remains intact. An annotation
+    /// is omitted if it has no content overlap or if that overlap cannot be
+    /// represented by [`LineSegmented::window`], including invalid UTF-8 endpoints.
+    /// The input is consumed eagerly when the line has content.
     #[inline]
     pub fn new(line: &'borrow LineId<'source, S>, spans: I) -> Self {
-        let line_span = line.span();
+        let mut spans = match line.content() {
+            Some(content) => spans
+                .filter_map(|data| {
+                    let clipped = data.span().intersect(content.span())?;
+                    let local = Span::new(clipped.start() - content.span().start(), clipped.length());
 
-        let spans = spans
-            .filter(|d0| d0.span().overlaps(line_span))
-            .map(|d0| (d0.span().start(), d0))
-            .collect::<BTreeMap<_, _>>();
+                    content.value().window(local)?;
+
+                    Some((local, data))
+                })
+                .collect::<Vec<_>>(),
+            None => Vec::new(),
+        };
+
+        spans.sort_by_key(|(span, _)| span.start());
+
+        let spans = spans.into();
 
         let target_index = 0;
 
@@ -264,3 +259,6 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests;
