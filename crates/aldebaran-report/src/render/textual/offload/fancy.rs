@@ -30,24 +30,17 @@ use aldebaran_source::prelude::{LineSegmented, Location, Source, SourceLines, So
 
 use crate::render::textual::{Offload, OffloadContext};
 
-/// Renders a report heading and source lines intersecting its annotations.
+/// Renders a report heading, selected source lines, and annotation markers.
 ///
-/// For `str` sources, annotation coordinates and phase widths use UTF-8 bytes.
-/// Because a phase must retain each multibyte character, its byte budget extends
-/// to a valid source-view boundary. Marker placement, however, counts Unicode
-/// scalar values rather than terminal display cells, so wide or combining
-/// characters can misalign markers.
+/// Annotation spans retain source coordinates. For `str`, spans count UTF-8
+/// bytes, while layout uses terminal-cell widths. Tabs advance to four-column
+/// stops and other control characters appear as replacement characters.
 ///
-/// To represent an insertion at EOF, a unit span marks the boundary after the
-/// final content when the source is unterminated. If the source instead ends in
-/// a line terminator (including LF and CRLF), that boundary appears at column
-/// one of the next display row. This adds a rendering position without creating
-/// a selectable source line or changing the annotation's coordinates.
-///
-/// Targets overlapping source bytes are clipped to visible content, whereas
-/// empty sources and wholly out-of-bounds targets emit only the heading. The
-/// EOF insertion rule applies only to unit spans, so longer spans starting at
-/// EOF do not produce an insertion marker.
+/// Targets are clipped to visible source content. Empty sources and targets
+/// outside the source content produce only the heading. A [`Span::unit`] at EOF
+/// marks an insertion after nonempty unterminated content. This marker appears
+/// on the next display row when the source ends with a line terminator. Longer
+/// spans beginning at EOF do not mark an insertion.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 // NOTE(invariant): None.
 pub struct Fancy<T = DefaultTheme>(marker::PhantomData<T>)
@@ -77,6 +70,7 @@ where
 
     type Error = fmt::Error;
 
+    #[inline]
     fn offload<'input, W>(error: &'source E, ctx: &mut OffloadContext<'source, 'input, W, Self, E>) -> Result<Self::Output, Self::Error>
     where
         'source: 'input,
@@ -139,7 +133,7 @@ mod tests {
 
     #[test]
     fn eof_without_terminator_marks_after_the_final_scalar() {
-        for (source, expected) in [("abc", "1│ abc\n │    ^\n"), ("é🦀", "1│ é🦀\n │   ^\n")] {
+        for (source, expected) in [("abc", "1│ abc\n │    ^\n"), ("é🦀", "1│ é🦀\n │    ^\n")] {
             let output = render_target(source, Span::unit(source.len()));
             assert!(output.contains(expected), "incorrect EOF marker placement: {output}");
             assert!(
@@ -178,10 +172,10 @@ mod tests {
                     output.contains(&("1│ ".to_owned() + &"a".repeat(139) + "é\n")),
                     "split UTF-8 phase: {output}"
                 );
-                assert!(output.contains(" │ 🦀\n │  ^\n"), "wrapped EOF marker is misplaced: {output}");
+                assert!(output.contains(" │ 🦀\n │   ^\n"), "wrapped EOF marker is misplaced: {output}");
             } else {
                 assert!(
-                    output.contains(" │ é🦀\n │   ^\n"),
+                    output.contains(" │ é🦀\n │    ^\n"),
                     "final phase repeated the line prefix: {output}"
                 );
             }
@@ -275,6 +269,40 @@ mod tests {
         assert!(output.contains("let résumé = 1;"));
         assert!(output.contains("│     ^^^^^^"));
         assert!(!output.contains("│     ^^^^^^^^"));
+    }
+
+    #[test]
+    fn markers_follow_terminal_cells_for_wide_combining_and_tab_text() {
+        for (source, target, expected) in [
+            ("中x", Span::unit(3), "1│ 中x\n │   ^\n"),
+            ("e\u{301}x", Span::unit(3), "1│ e\u{301}x\n │  ^\n"),
+            ("a\tx", Span::unit(2), "1│ a   x\n │     ^\n"),
+            ("中\tx", Span::unit(4), "1│ 中  x\n │     ^\n"),
+            ("中x", Span::new(0, NonZero::new(3).expect("wide scalar")), "1│ 中x\n │ ^^\n"),
+            ("a\tx", Span::unit(1), "1│ a   x\n │  ^^^\n"),
+            ("👩‍💻x", Span::unit("👩‍💻".len()), "1│ 👩‍💻x\n │   ^\n"),
+        ] {
+            let output = render_target(source, target);
+            assert!(output.contains(expected), "incorrect terminal alignment {output}");
+        }
+    }
+
+    #[test]
+    fn wrapping_uses_cells_and_retains_combining_marks() {
+        for (source, expected) in [
+            (
+                "中".repeat(71),
+                "1│ ".to_owned() + &"中".repeat(70) + "\n │ " + &"^".repeat(140) + "\n",
+            ),
+            (
+                "é".repeat(141),
+                "1│ ".to_owned() + &"é".repeat(140) + "\n │ " + &"^".repeat(140) + "\n",
+            ),
+            ("a".repeat(139) + "e\u{301}x", "1│ ".to_owned() + &"a".repeat(139) + "e\u{301}\n"),
+        ] {
+            let output = render_target(&source, Span::ALL);
+            assert!(output.contains(&expected), "incorrect cell wrapping {output}");
+        }
     }
 
     #[test]
