@@ -6,7 +6,7 @@
 
 use core::fmt;
 
-use aldebaran_baseline::prelude::{OneOrMore, RefOneOrMore};
+use aldebaran_baseline::prelude::{Nonempty, RefNonempty};
 
 use aldebaran_source::prelude::{LineId, SourceLines};
 
@@ -76,7 +76,7 @@ where
 
     /// Caller-ordered references to the report annotations selected for this line.
     pub(in crate::render::textual::offload::fancy::component::lines) annotations:
-        OneOrMore<&'borrow <E::Annotations as Annotations>::Annotation>,
+        Nonempty<&'borrow <E::Annotations as Annotations>::Annotation>,
 }
 
 impl<'source, 'borrow, E> fmt::Debug for RelevantSegment<'source, 'borrow, E>
@@ -113,7 +113,7 @@ where
 
     /// Caller-ordered annotations, borrowing the reference collection for this view.
     #[inline]
-    pub fn annotations(&self) -> RefOneOrMore<'borrow, &<E::Annotations as Annotations>::Annotation> {
+    pub const fn annotations(&self) -> RefNonempty<'_, &'borrow <E::Annotations as Annotations>::Annotation> {
         let &Self { ref annotations, .. } = self;
 
         annotations.as_ref()

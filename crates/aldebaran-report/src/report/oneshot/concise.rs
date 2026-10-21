@@ -2,7 +2,7 @@
 //!
 //! The annotation can provide the wording shown as the report title.
 
-use aldebaran_baseline::prelude::RefOneOrMore;
+use aldebaran_baseline::prelude::RefNonempty;
 use aldebaran_source::prelude::{SourceLines, SourceMetadata};
 
 use crate::{
@@ -108,9 +108,9 @@ where
     type Annotation = A;
 
     #[inline]
-    fn list(&self) -> Option<RefOneOrMore<'_, Self::Annotation>> {
+    fn list(&self) -> Option<RefNonempty<'_, Self::Annotation>> {
         let Self { annotation, .. } = self;
 
-        Some(RefOneOrMore::single(annotation))
+        Some(RefNonempty::single(annotation))
     }
 }

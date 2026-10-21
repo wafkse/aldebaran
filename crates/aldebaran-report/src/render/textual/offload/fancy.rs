@@ -194,12 +194,12 @@ mod tests {
 
     #[test]
     fn terminal_boundary_and_content_annotations_keep_their_own_positions() {
-        use aldebaran_baseline::prelude::RefOneOrMore;
+        use aldebaran_baseline::prelude::RefNonempty;
 
         let source = "first\nabc\r\n";
         let content = Label::new("content detail", Span::unit(7));
         let terminal = [Label::new("terminal detail", Span::unit(source.len()))];
-        let report = oneshot::many(source, "report title", RefOneOrMore::new(&content, &terminal));
+        let report = oneshot::many(source, "report title", RefNonempty::multiple(&content, &terminal));
         let mut output = String::new();
         let mut renderer = Textual::<'_, _, Fancy, _>::new(&mut output);
         let settings = FancySettings::tuple((Colored::No, LayoutSettings::marginal(), Charset::UNICODE));
@@ -275,6 +275,35 @@ mod tests {
         assert!(output.contains("let résumé = 1;"));
         assert!(output.contains("│     ^^^^^^"));
         assert!(!output.contains("│     ^^^^^^^^"));
+    }
+
+    #[test]
+    fn equal_endpoint_messages_preserve_caller_order() {
+        use aldebaran_baseline::prelude::RefNonempty;
+
+        let first = Label::new("first detail", Span::unit(0));
+        let rest = [
+            Label::new("second detail", Span::unit(0)),
+            Label::new("third detail", Span::unit(0)),
+            Label::new("fourth detail", Span::unit(0)),
+        ];
+        let report = oneshot::many("x", "report title", RefNonempty::multiple(&first, &rest));
+        let mut output = String::new();
+        let mut renderer = Textual::<'_, _, Fancy, _>::new(&mut output);
+        let settings = FancySettings::tuple((Colored::No, LayoutSettings::marginal(), Charset::UNICODE));
+
+        renderer
+            .render_mut_with_input(Present::from_input(settings), &report)
+            .expect("render equal endpoints");
+
+        let positions: Vec<_> = ["first detail", "second detail", "third detail", "fourth detail"]
+            .map(|message| output.find(message).expect("annotation message"))
+            .into_iter()
+            .collect();
+        assert!(
+            positions.iter().zip(positions.iter().skip(1)).all(|(first, second)| first < second),
+            "annotation order changed {output}"
+        );
     }
 
     #[test]

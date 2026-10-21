@@ -1,7 +1,7 @@
 //! Messages located within the source supplied to a diagnostic renderer.
 //!
 //! [`Annotated`] supplies a message and target, while [`Annotations`] exposes
-//! the primary annotation followed by related context through [`RefOneOrMore`].
+//! the primary annotation followed by related context through [`RefNonempty`].
 //! [`InlineAnnotations`] stores a fixed collection without allocating.
 
 pub mod title;
@@ -10,7 +10,7 @@ pub mod label;
 
 use alloc::boxed::Box;
 
-use aldebaran_baseline::prelude::RefOneOrMore;
+use aldebaran_baseline::prelude::RefNonempty;
 use aldebaran_baseline::span::Span;
 
 /// A message paired with a source-coordinate target.
@@ -73,8 +73,9 @@ pub trait Annotations {
     /// Message and target shared by the collection's primary and related values.
     type Annotation: Annotated;
 
-    /// Borrow the available annotations as a primary value plus a related slice.
-    fn list(&self) -> Option<RefOneOrMore<'_, Self::Annotation>>;
+    /// Primary and related locations in presentation order, or `None` for an
+    /// unannotated diagnostic.
+    fn list(&self) -> Option<RefNonempty<'_, Self::Annotation>>;
 }
 
 /// Access to a primary annotation without handling an absent collection.
@@ -90,8 +91,8 @@ where
     type Annotation = T;
 
     #[inline]
-    fn list(&self) -> Option<RefOneOrMore<'_, Self::Annotation>> {
-        Some(RefOneOrMore::single(self))
+    fn list(&self) -> Option<RefNonempty<'_, Self::Annotation>> {
+        Some(RefNonempty::single(self))
     }
 }
 
@@ -151,10 +152,10 @@ where
     type Annotation = A;
 
     #[inline]
-    fn list(&self) -> Option<RefOneOrMore<'_, Self::Annotation>> {
+    fn list(&self) -> Option<RefNonempty<'_, Self::Annotation>> {
         let Self(primary, related) = self;
 
-        Some(RefOneOrMore::new(primary, related))
+        Some(RefNonempty::multiple(primary, related))
     }
 }
 

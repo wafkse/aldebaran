@@ -12,7 +12,7 @@ use core::{
     hash,
 };
 
-use aldebaran_baseline::prelude::{OneOrMore, RefOneOrMore};
+use aldebaran_baseline::prelude::{Nonempty, RefNonempty};
 
 use aldebaran_source::prelude::{Source, SourceLines, SourceMetadata};
 
@@ -39,7 +39,7 @@ where
     source: &'source S,
 
     /// Nonempty annotation collection attached to the report.
-    annotations: OneOrMore<A>,
+    annotations: Nonempty<A>,
 
     /// Human-readable report title.
     title: T,
@@ -54,7 +54,7 @@ where
     A: Annotated,
     T: Title,
     K: ErrorKind,
-    OneOrMore<A>: Clone,
+    Nonempty<A>: Clone,
     T: Clone,
     K: Clone,
 {
@@ -87,7 +87,7 @@ where
     T: Title,
     K: ErrorKind,
     S: Eq,
-    OneOrMore<A>: Eq,
+    Nonempty<A>: Eq,
     T: Eq,
     K: Eq,
 {
@@ -100,7 +100,7 @@ where
     T: Title,
     K: ErrorKind,
     S: PartialEq,
-    OneOrMore<A>: PartialEq,
+    Nonempty<A>: PartialEq,
     T: PartialEq,
     K: PartialEq,
 {
@@ -131,10 +131,11 @@ where
     T: Title,
     K: ErrorKind,
     S: hash::Hash,
-    OneOrMore<A>: hash::Hash,
+    Nonempty<A>: hash::Hash,
     T: hash::Hash,
     K: hash::Hash,
 {
+    #[inline]
     fn hash<H>(&self, state: &mut H)
     where
         H: hash::Hasher,
@@ -186,7 +187,7 @@ where
 
     /// Primary annotation followed by related context in caller order.
     #[inline]
-    pub const fn annotations(&self) -> &OneOrMore<A> {
+    pub const fn annotations(&self) -> &Nonempty<A> {
         let &Self { ref annotations, .. } = self;
 
         annotations
@@ -197,7 +198,7 @@ where
     /// The collection retains a primary value even when its tail is cleared.
     /// Growing the tail may allocate.
     #[inline]
-    pub const fn annotations_mut(&mut self) -> &mut OneOrMore<A> {
+    pub const fn annotations_mut(&mut self) -> &mut Nonempty<A> {
         let &mut Self { ref mut annotations, .. } = self;
 
         annotations
@@ -217,7 +218,7 @@ where
     where
         K: Default,
     {
-        let annotations = OneOrMore::single(annotation);
+        let annotations = Nonempty::single(annotation);
 
         let kind: K = Default::default();
 
@@ -231,8 +232,8 @@ where
 
     /// Start with a primary annotation and an explicit diagnostic classification.
     #[inline]
-    pub fn new_with_kind(source: &'a S, title: T, annotation: A, kind: K) -> Self {
-        let annotations = OneOrMore::single(annotation);
+    pub const fn new_with_kind(source: &'a S, title: T, annotation: A, kind: K) -> Self {
+        let annotations = Nonempty::single(annotation);
 
         Self {
             source,
@@ -244,7 +245,7 @@ where
 
     /// Retain an existing primary and related collection under the default kind.
     #[inline]
-    pub fn new_with_annotations(source: &'a S, title: T, annotations: OneOrMore<A>) -> Self
+    pub fn new_with_annotations(source: &'a S, title: T, annotations: Nonempty<A>) -> Self
     where
         K: Default,
     {
@@ -260,7 +261,7 @@ where
 
     /// Retain the supplied collection order and diagnostic classification.
     #[inline]
-    pub const fn from_raw_parts(source: &'a S, title: T, annotations: OneOrMore<A>, kind: K) -> Self {
+    pub const fn from_raw_parts(source: &'a S, title: T, annotations: Nonempty<A>, kind: K) -> Self {
         Self {
             source,
             annotations,
@@ -330,7 +331,7 @@ where
     type Annotation = A;
 
     #[inline]
-    fn list(&self) -> Option<RefOneOrMore<'_, Self::Annotation>> {
+    fn list(&self) -> Option<RefNonempty<'_, Self::Annotation>> {
         let Self { annotations, .. } = self;
 
         Some(annotations.as_ref())

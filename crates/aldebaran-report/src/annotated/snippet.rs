@@ -7,6 +7,7 @@
 
 use core::{fmt, num::NonZero, ops::RangeInclusive};
 
+use aldebaran_baseline::nonempty::reference::RefNonempty;
 use aldebaran_print::Print;
 
 use crate::span::Span;
@@ -63,7 +64,9 @@ where
             annotations,
         } = self;
 
-        let mut target_iter = Contiguous::new(OneOrMore::pair(annotations), target_source);
+        let annotations = RefNonempty::tuple(annotations);
+
+        let mut target_iter = Contiguous::new(annotations, target_source);
 
         while let Some::<ContiguousFor<'a, A, S>>(target_related) = target_iter.next() {
             // TODO: Decide whether annotation grouping should retain iterator state
@@ -82,133 +85,6 @@ where
     }
 }
 
-/// A structure that guarantees at least one [`Annotated`] value.
-#[derive(Debug, Hash)]
-pub struct OneOrMore<'a, A>
-where
-    A: Annotated,
-{
-    /// Required first annotation.
-    a0: &'a A,
-
-    /// Remaining annotations after the first value.
-    a_n: &'a [A],
-}
-
-impl<'a, A> OneOrMore<'a, A>
-where
-    A: Annotated,
-{
-    /// Create a new [`OneOrMore`] with the specified first annotation and the rest of the annotations.
-    pub const fn new(a0: &'a A, a_n: &'a [A]) -> Self {
-        Self { a0, a_n }
-    }
-
-    /// Create a new [`OneOrMore`] with a single annotation.
-    #[inline]
-    pub const fn single(a0: &'a A) -> Self {
-        Self { a0, a_n: &[] }
-    }
-
-    /// Create a new [`OneOrMore`] from a single + slice pair.
-    #[inline]
-    pub const fn pair((a0, a_n): (&'a A, &'a [A])) -> Self {
-        Self { a0, a_n }
-    }
-
-    /// Retrieve the first annotation.
-    #[inline]
-    pub const fn first(&self) -> &'a A {
-        let &Self { a0, .. } = self;
-
-        a0
-    }
-
-    /// Retrieve the annotations after the first value.
-    #[inline]
-    pub const fn rest(&self) -> &'a [A] {
-        let &Self { a_n, .. } = self;
-
-        a_n
-    }
-
-    /// Retrieve the `nth` annotation.
-    #[inline]
-    pub fn nth(&self, n: NonZero<usize>) -> Option<&'a A> {
-        let &Self { a_n, .. } = self;
-
-        let target_index = n.get() - 1;
-
-        a_n.get(target_index)
-    }
-
-    /// Retrieve an iterator over all annotations.
-    #[inline]
-    pub fn iter(&self) -> impl Iterator<Item = &'a A> {
-        let &Self { a0, a_n } = self;
-
-        core::iter::once(a0).chain(a_n.iter())
-    }
-}
-
-impl<'a, A> Clone for OneOrMore<'a, A>
-where
-    A: Annotated,
-{
-    #[inline]
-    fn clone(&self) -> Self {
-        let &Self { a0, a_n } = self;
-
-        Self { a0, a_n }
-    }
-}
-
-impl<'a, A> Copy for OneOrMore<'a, A> where A: Annotated {}
-
-/// Iterator state for traversing a guaranteed nonempty annotation collection.
-///
-/// The first annotation is yielded without an index lookup, then the iterator
-/// advances through the remaining slice using nonzero positions.
-#[derive(Debug, Hash)]
-pub struct OnceOrMore<'a, A>
-where
-    A: Annotated,
-{
-    /// Current nonzero position in the remaining annotations.
-    ///
-    /// `None` means the required first annotation has not yet been yielded.
-    i0: Option<NonZero<usize>>,
-
-    /// Nonempty annotation collection being traversed.
-    a0: OneOrMore<'a, A>,
-}
-
-impl<'a, A> Iterator for OnceOrMore<'a, A>
-where
-    A: Annotated,
-{
-    type Item = &'a A;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let &mut Self { ref mut i0, a0 } = self;
-
-        match i0 {
-            Some(target_index) => {
-                let target_value = a0.nth(*target_index)?;
-
-                let _ = target_index.checked_add(1)?;
-
-                Some(target_value)
-            }
-            None => {
-                let _ = i0.replace(NonZero::<usize>::MIN);
-
-                Some(a0.first())
-            }
-        }
-    }
-}
-
 /// Iterator that discovers annotation regions sequentially.
 ///
 /// Annotations belong to the same region when their source line ranges overlap.
@@ -221,7 +97,7 @@ where
     S: Source<'a>,
 {
     /// The collection of annotations to query for contiguity.
-    a0: OneOrMore<'a, A>,
+    a0: RefNonempty<'a, A>,
     /// The index of the current annotation.
     i0: Option<NonZero<usize>>,
     /// The source of the annotations.
@@ -234,7 +110,7 @@ where
     S: Source<'a>,
 {
     /// Create a new [`Contiguous`] iterator with the specified annotations and source.
-    pub const fn new(a0: OneOrMore<'a, A>, source: &'a S) -> Self {
+    pub const fn new(a0: RefNonempty<'a, A>, source: &'a S) -> Self {
         Self { a0, i0: None, source }
     }
 }
@@ -266,7 +142,7 @@ where
             Some(target_index) => {
                 let current_index = *target_index;
 
-                let target_value = a0.nth(current_index)?;
+                let target_value = a0.iter().nth(current_index.get())?;
 
                 let target_range = source.lines_between(target_value.span()).range();
 
@@ -339,7 +215,7 @@ where
     /// The range of lines the target annotation spans.
     target_range: RangeInclusive<NonZero<usize>>,
     /// A collection of all annotations that can be contiguous with the target annotation.
-    annotations: OneOrMore<'a, A>,
+    annotations: RefNonempty<'a, A>,
     /// The source of the annotations.
     source: &'a S,
 }
@@ -411,7 +287,7 @@ where
     /// The range of lines the target annotation spans.
     target_range: RangeInclusive<NonZero<usize>>,
     /// A collection of all annotations that can be contiguous with the target annotation.
-    annotations: OneOrMore<'a, A>,
+    annotations: RefNonempty<'a, A>,
     /// The source of the annotations.
     source: &'a S,
 }
