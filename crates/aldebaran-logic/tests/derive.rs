@@ -9,7 +9,43 @@ mod tests {
         prelude::{Assert, Choose},
     };
 
-    /// Borrowed predicate used to exercise `Choose` independently of `Assert` derive.
+    /// Requires every operand to accept while preserving caller-selected parameter names.
+    #[derive(Debug, Clone, PartialEq, Eq, Assert, Choose)]
+    #[assert(conjunctive)]
+    // NOTE(invariant): None.
+    struct Colliding<__AssertTy, __AssertTy_, __ChooseTy, __ChooseTy_>(__AssertTy, __AssertTy_, __ChooseTy, __ChooseTy_);
+
+    /// Accepts `x` regardless of payload, preserving caller-selected parameter names.
+    #[derive(Debug, Clone, PartialEq, Eq, Assert, Choose)]
+    #[assert(use 'x' type char)]
+    // NOTE(invariant): None.
+    struct CollidingExpression<__AssertTy, __ChooseTy>(__AssertTy, __ChooseTy);
+
+    /// Preserves caller-selected parameter names while assigning rules to alternatives.
+    #[derive(Debug, Clone, PartialEq, Eq, Assert, Choose)]
+    enum CollidingEnum<__AssertTy, __ChooseTy> {
+        /// Both payload predicates must accept the same input.
+        #[assert(conjunctive)]
+        Fields(__AssertTy, __ChooseTy),
+    }
+
+    #[test]
+    fn derives_avoid_existing_generic_names() {
+        let value = Colliding('x', 'x', 'x', 'x');
+        assert!(value.assert('x'));
+        assert_eq!(value.choose('x'), Some(value.clone()));
+        assert_eq!(value.choose('y'), None);
+
+        let expression = CollidingExpression(0_u8, 1_u8);
+        assert!(expression.assert('x'));
+        assert_eq!(expression.choose('x'), Some(expression));
+
+        let variant = CollidingEnum::Fields('x', 'x');
+        assert!(variant.assert('x'));
+        assert_eq!(variant.choose('x'), Some(variant));
+    }
+
+    /// Accepts characters equal to any borrowed candidate without taking ownership.
     #[derive(Debug, Clone, PartialEq, Eq, Choose)]
     // NOTE(invariant): None.
     struct Borrowed<'a, T = char, const N: usize = 1>(&'a [T; N])
