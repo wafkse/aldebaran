@@ -3,7 +3,7 @@
 //! Use [`OneshotMany`] when a diagnostic needs a separate title and multiple
 //! source annotations.
 
-use aldebaran_baseline::prelude::RefOneOrMore;
+use aldebaran_baseline::prelude::RefNonempty;
 
 use aldebaran_source::prelude::{SourceLines, SourceMetadata};
 
@@ -32,8 +32,8 @@ where
     /// Heading displayed independently of annotation messages.
     title: T,
 
-    /// The annotations of this error.
-    annotation: RefOneOrMore<'borrow, A>,
+    /// Borrowed primary annotation followed by caller-ordered related context.
+    annotation: RefNonempty<'borrow, A>,
 }
 
 impl<'source, 'borrow, S, T, A> OneshotMany<'source, 'borrow, S, T, A>
@@ -45,7 +45,7 @@ where
 {
     /// Retain the borrowed annotation order under a separate heading and error kind.
     #[inline]
-    pub const fn from_raw_parts(source: &'source S, title: T, annotation: RefOneOrMore<'borrow, A>) -> Self {
+    pub const fn from_raw_parts(source: &'source S, title: T, annotation: RefNonempty<'borrow, A>) -> Self {
         Self { source, title, annotation }
     }
 
@@ -59,7 +59,7 @@ where
 
     /// Caller-ordered annotations with their original input lifetime.
     #[inline]
-    pub const fn annotations(&self) -> RefOneOrMore<'borrow, A> {
+    pub const fn annotations(&self) -> RefNonempty<'borrow, A> {
         let &Self { annotation, .. } = self;
 
         annotation
@@ -124,7 +124,7 @@ where
     type Annotation = A;
 
     #[inline]
-    fn list(&self) -> Option<RefOneOrMore<'_, Self::Annotation>> {
+    fn list(&self) -> Option<RefNonempty<'_, Self::Annotation>> {
         let &Self { annotation, .. } = self;
 
         Some(annotation)

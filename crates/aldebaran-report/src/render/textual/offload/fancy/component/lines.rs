@@ -17,7 +17,7 @@ use core::{fmt, hash, iter, marker, num::NonZero};
 
 use alloc::vec::Vec;
 
-use aldebaran_baseline::prelude::OneOrMore;
+use aldebaran_baseline::prelude::Nonempty;
 use aldebaran_print::prelude::{Combine, Print};
 use hashbrown::HashMap;
 
@@ -295,7 +295,7 @@ where
                     .filter(|&annotation| Self::line_relevant(annotation.target(), line_span, source_size))
                     .collect();
 
-                match OneOrMore::from_vec(annotations) {
+                match Nonempty::from_vec(annotations) {
                     Some(annotations) => SnippetSegment::Relevant(RelevantSegment { line_id, annotations }),
                     None => SnippetSegment::Irrelevant(IrrelevantSegment(line_id)),
                 }

@@ -11,7 +11,7 @@ pub use concise::OneshotConcise;
 
 pub use kinded::OneshotKinded;
 
-use aldebaran_baseline::prelude::RefOneOrMore;
+use aldebaran_baseline::prelude::RefNonempty;
 use aldebaran_source::{line::SourceLines, prelude::SourceMetadata};
 pub use many::OneshotMany;
 
@@ -135,10 +135,10 @@ where
     type Annotation = A;
 
     #[inline]
-    fn list(&self) -> Option<RefOneOrMore<'_, Self::Annotation>> {
+    fn list(&self) -> Option<RefNonempty<'_, Self::Annotation>> {
         let Self { annotation, .. } = self;
 
-        Some(RefOneOrMore::single(annotation))
+        Some(RefNonempty::single(annotation))
     }
 }
 
@@ -184,7 +184,7 @@ where
 pub const fn many<'source, 'borrow, S, T, A>(
     source: &'source S,
     title: T,
-    annotations: RefOneOrMore<'borrow, A>,
+    annotations: RefNonempty<'borrow, A>,
 ) -> OneshotMany<'source, 'borrow, S, T, A>
 where
     S: SourceLines<'source> + SourceMetadata<'source> + ?Sized,

@@ -1,12 +1,13 @@
 use core::ptr;
 
 use alloc::boxed::Box;
+use alloc::vec::Vec;
 
-use aldebaran_baseline::{nonempty::RefOneOrMore, span::Span};
+use aldebaran_baseline::{nonempty::reference::RefNonempty, span::Span};
 
 use crate::annotated::{Annotations, InlineAnnotations, label::Label};
 
-use super::{Report, SourceReport, kind::Simple};
+use super::{Report, SourceReport, dynamic::DynamicError, kind::Simple};
 
 /// A source-independent diagnostic with an optional inline annotation set.
 // NOTE(invariant): None.
@@ -16,7 +17,7 @@ impl Annotations for Diagnostic {
     type Annotation = Label<&'static str>;
 
     #[inline]
-    fn list(&self) -> Option<RefOneOrMore<'_, Self::Annotation>> {
+    fn list(&self) -> Option<RefNonempty<'_, Self::Annotation>> {
         let Self(annotations) = self;
 
         annotations.as_ref().and_then(Annotations::list)
@@ -51,6 +52,28 @@ fn unannotated_report_has_no_target() {
     let report = Diagnostic(None);
 
     assert_eq!(report.target(), None);
+}
+
+#[test]
+fn dynamic_annotations_grow_and_clear_without_losing_the_primary() {
+    let source = "abcdef";
+    let primary_span = Span::unit(1);
+    let related_span = Span::unit(4);
+
+    let primary = Label::new("primary", primary_span);
+    let related = Label::new("related", related_span);
+    let mut report = DynamicError::<_, _, _, Simple>::new(&source, "heading", primary);
+
+    report.annotations_mut().list_mut().push(related);
+
+    let annotations = report.annotations().as_ref();
+
+    assert_eq!(annotations.iter().collect::<Vec<_>>(), [&primary, &related]);
+
+    report.annotations_mut().list_mut().clear();
+
+    assert_eq!(report.annotations().first(), &primary);
+    assert_eq!(report.annotations().len().get(), 1);
 }
 
 #[test]

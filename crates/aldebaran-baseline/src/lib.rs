@@ -32,5 +32,5 @@ pub mod prelude {
     pub use crate::tuple::{Appendage, Uniform};
 
     #[cfg(feature = "alloc")]
-    pub use crate::nonempty::{OneOrMore, RefOneOrMore};
+    pub use crate::nonempty::{Nonempty, reference::RefNonempty};
 }

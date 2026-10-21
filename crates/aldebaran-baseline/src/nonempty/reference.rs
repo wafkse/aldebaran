@@ -1,102 +1,87 @@
-//! Borrowed views of nonempty sequences.
+//! Shared nonempty sequences for APIs that borrow their input collections.
+//!
+//! [`RefNonempty`] can borrow separate first and tail values or view an owned
+//! [`Nonempty`](super::Nonempty). Copying the view shares the same elements and
+//! does not require those elements to implement [`Copy`].
 
-use core::num::NonZero;
+use core::{
+    iter::{self, FusedIterator},
+    num::NonZero,
+};
 
-use super::iter::OnceOrMore;
-
-/// A borrowed nonempty sequence with access to its first value and tail.
+/// A nonempty sequence borrowed without copying its elements or allocating.
 ///
-/// The owned counterpart is [`super::OneOrMore`].
+/// Iteration visits the first value before the tail, and returned references
+/// retain the input lifetime so they can outlive the view itself.
 #[derive(Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 // NOTE(invariant): None.
-pub struct RefOneOrMore<'a, T> {
-    /// The required shared first element that guarantees a nonempty view.
-    pub(in crate::nonempty) a0: &'a T,
+pub struct RefNonempty<'a, T>((&'a T, &'a [T]));
 
-    /// Shared elements following the required first element.
-    pub(in crate::nonempty) a_n: &'a [T],
-}
+impl<T> Copy for RefNonempty<'_, T> {}
 
-impl<'a, T> Copy for RefOneOrMore<'a, T> {}
-
-impl<'a, T> Clone for RefOneOrMore<'a, T> {
+impl<T> Clone for RefNonempty<'_, T> {
     #[inline]
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<'a, T> RefOneOrMore<'a, T> {
-    /// Borrow a required value followed by a slice.
+impl<'a, T> RefNonempty<'a, T> {
+    /// View a required value with no following elements.
     #[inline]
-    pub const fn new(a0: &'a T, a_n: &'a [T]) -> Self {
-        Self { a0, a_n }
+    pub const fn single(first: &'a T) -> Self {
+        Self((first, &[]))
     }
 
-    /// Borrow a sequence containing only the required value.
+    /// Place the required value before a borrowed tail without reordering it.
     #[inline]
-    pub const fn single(a0: &'a T) -> Self {
-        Self { a0, a_n: &[] }
+    pub const fn multiple(first: &'a T, rest: &'a [T]) -> Self {
+        Self((first, rest))
     }
 
-    /// Borrow a sequence from its required value and tail pair.
+    /// Accept a required value and borrowed tail supplied as a pair.
     #[inline]
-    pub const fn tuple((a0, a_n): (&'a T, &'a [T])) -> Self {
-        Self { a0, a_n }
+    pub const fn tuple(parts: (&'a T, &'a [T])) -> Self {
+        Self(parts)
     }
 
-    /// Borrow the required value.
+    /// The value that keeps the view nonempty even when the tail is empty.
     #[inline]
     pub const fn first(&self) -> &'a T {
-        let &Self { a0, .. } = self;
+        let Self((first, ..)) = *self;
 
-        a0
+        first
     }
 
-    /// Borrow the tail after the required value.
+    /// Elements following the required value, in iteration order.
     #[inline]
     pub const fn rest(&self) -> &'a [T] {
-        let &Self { a_n, .. } = self;
+        let Self((.., rest)) = *self;
 
-        a_n
+        rest
     }
 
-    /// Consume the view into its required value and tail pair.
+    /// Recover the input references without shortening their lifetimes.
     #[inline]
     pub const fn into_raw_parts(self) -> (&'a T, &'a [T]) {
-        let Self { a0, a_n } = self;
+        let Self(parts) = self;
 
-        (a0, a_n)
+        parts
     }
 
-    /// Index the tail using one-based numbering.
-    ///
-    /// Because the required first value is excluded, position `1` selects the
-    /// first tail value, and positions beyond the tail return [`None`]. To include
-    /// the required value in traversal, use [`Self::iter`] instead.
-    #[inline]
-    pub fn nth(&self, n: NonZero<usize>) -> Option<&'a T> {
-        let &Self { a_n, .. } = self;
-
-        let target_index = n.get() - 1; // REMARK: will never underflow, as `NonZero` is always at least 1.
-
-        a_n.get(target_index)
-    }
-
-    /// Return the total number of elements, including the required value.
+    /// Count the required value and tail, saturating at `usize::MAX`.
     #[inline]
     pub const fn len(&self) -> NonZero<usize> {
-        let &Self { a_n, .. } = self;
+        let Self((.., rest)) = self;
 
-        match NonZero::new(1 + a_n.len()) {
-            Some(len) => len,
-            None => unreachable!(),
-        }
+        NonZero::<usize>::MIN.saturating_add(rest.len())
     }
 
-    /// Retrieve an iterator over all values.
+    /// Visit the input elements in order without borrowing the view itself.
     #[inline]
-    pub fn iter(&self) -> OnceOrMore<'a, T> {
-        OnceOrMore::from_ref(*self)
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &'a T> + FusedIterator + use<'a, T> {
+        let Self((first, rest)) = *self;
+
+        iter::once(first).chain(rest.iter())
     }
 }
