@@ -1,46 +1,49 @@
 //! Styled diagnostics with annotated source excerpts.
 
 pub mod charset;
-pub mod component;
+mod detail;
 pub mod layout;
 pub mod setting;
 pub mod theme;
 
 pub use self::{
-    component::{ByLines, Header},
     layout::LayoutSettings,
     setting::{Colored, FancySettings, Fancyness},
     theme::{DefaultTheme, Theme},
 };
 
-use core::{borrow::BorrowMut, fmt, marker};
+use core::{fmt, marker};
 
 use aldebaran_print::visualize::Visualize;
 
 use aldebaran_print::prelude::Print;
-
-use aldebaran_baseline::span::Span;
 
 use crate::{
     annotated::{Annotated, Annotations},
     prelude::{ErrorKind, Title},
     report::SourceReport,
 };
-use aldebaran_source::prelude::{LineSegmented, Location, Source, SourceLines, SourceMetadata};
+use aldebaran_source::prelude::{LineSegmented, Location, SourceLines, SourceMetadata};
 
 use crate::render::textual::{Offload, OffloadContext};
 
-/// Renders a report heading, selected source lines, and annotation markers.
+/// Renders diagnostics with annotated source excerpts.
 ///
-/// Annotation spans retain source coordinates. For `str`, spans count UTF-8
-/// bytes, while layout uses terminal-cell widths. Tabs advance to four-column
-/// stops and other control characters appear as replacement characters.
+/// Annotation targets use the source's original coordinates, including UTF-8
+/// byte offsets for strings.
 ///
-/// Targets are clipped to visible source content. Empty sources and targets
-/// outside the source content produce only the heading. A [`Span::unit`] at EOF
-/// marks an insertion after nonempty unterminated content. This marker appears
-/// on the next display row when the source ends with a line terminator. Longer
-/// spans beginning at EOF do not mark an insertion.
+/// Layout, however, uses terminal cells. Tabs follow [`FancySettings::tab_width`],
+/// while other control characters appear as replacement glyphs.
+///
+/// # Remarks
+///
+/// Targets are clipped to visible source content. If no target selects source
+/// context, only the heading is shown.
+///
+/// A [`Span::unit`](aldebaran_baseline::span::Span::unit) at EOF marks an insertion
+/// after nonempty input.
+///
+/// After a final line break, however, the insertion appears on the following row.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 // NOTE(invariant): None.
 pub struct Fancy<T = DefaultTheme>(marker::PhantomData<T>)
@@ -76,32 +79,13 @@ where
         'source: 'input,
         W: fmt::Write,
     {
-        Header::offload(error, ctx.referenced().borrow_mut())?;
-
-        let source = error.source();
-        let segment = error.target().and_then(|target| {
-            let source_size = source.size();
-
-            // Select real context without changing the annotation's coordinates.
-            let context = if target == Span::unit(source_size) {
-                Span::unit(source_size.checked_sub(1)?)
-            } else {
-                target
-            };
-
-            source.segment(context)
-        });
-
-        match segment {
-            Some(extents) => ByLines::offload(error, ctx.referenced_with(move |input| (input, extents)).borrow_mut()),
-            None => Ok(()),
-        }
+        detail::render(error, ctx)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use core::num::NonZero;
+    use core::{fmt, num::NonZero};
 
     use crate::{
         prelude::{Label, oneshot},
@@ -118,7 +102,6 @@ mod tests {
 
     use super::Fancy;
 
-    /// Render with a distinct title and a predictable, uncolored gutter.
     fn render_target(source: &str, target: Span) -> String {
         let report = oneshot::Oneshot::new("report title", source, Label::new("annotation detail", target));
         let mut output = String::new();
@@ -235,6 +218,44 @@ mod tests {
     }
 
     #[test]
+    fn targets_without_a_visible_projection_have_no_message() {
+        let output = render_target("abc\r\n", Span::unit(4));
+
+        assert!(output.contains("1│ abc\n"), "physical source context is missing {output}");
+        assert!(!output.contains("annotation detail"), "unmarked target acquired a message {output}");
+        assert!(!output.contains('^'), "an invisible target acquired a marker {output}");
+    }
+
+    #[test]
+    fn wrapping_emits_each_message_at_its_final_marker() {
+        let source = "a".repeat(281);
+        let target = Span::new(0, NonZero::new(141).expect("positive annotation length"));
+        let output = render_target(&source, target);
+        let message = output.find("[^]: annotation detail").expect("annotation message");
+        let continuation = output.rfind(" │ a\n").expect("unmarked final source row");
+
+        assert_eq!(
+            output.matches("annotation detail").count(),
+            1,
+            "annotation message repeated {output}"
+        );
+        assert!(message < continuation, "message was detached from its final marker {output}");
+    }
+
+    #[test]
+    fn break_only_lines_do_not_discard_messages_from_visible_content() {
+        let target = Span::new(0, NonZero::new(5).expect("content and two line breaks"));
+        let output = render_target("abc\n\n", target);
+
+        assert!(output.contains("1│ abc\n │ ^^^\n"), "visible content lost its marker {output}");
+        assert_eq!(
+            output.matches("annotation detail").count(),
+            1,
+            "annotation message was discarded {output}"
+        );
+    }
+
+    #[test]
     fn gutter_fits_large_absolute_line_numbers_and_digit_transitions() {
         let source = "x\n".repeat(1001);
         let output = render_target(&source, Span::unit(1998));
@@ -284,6 +305,94 @@ mod tests {
         ] {
             let output = render_target(source, target);
             assert!(output.contains(expected), "incorrect terminal alignment {output}");
+        }
+    }
+
+    #[test]
+    fn configured_tab_stops_align_source_and_markers() {
+        for (width, expected) in [
+            (1, "1│ 中 x\n │    ^\n"),
+            (2, "1│ 中  x\n │     ^\n"),
+            (4, "1│ 中  x\n │     ^\n"),
+            (8, "1│ 中      x\n │         ^\n"),
+        ] {
+            let report = oneshot::single("中\tx", Label::new("target", Span::unit(4)));
+            let mut output = String::new();
+            let mut renderer = Textual::<'_, _, Fancy, _>::new(&mut output);
+            let mut settings = FancySettings::tuple((Colored::No, LayoutSettings::marginal(), Charset::UNICODE));
+
+            *settings.tab_width_mut() = NonZero::new(width).expect("positive tab interval");
+
+            renderer
+                .render_mut_with_input(Present::from_input(settings), &report)
+                .expect("render configured tabs");
+
+            assert!(output.contains(expected), "incorrect tab interval {width} in {output}");
+        }
+    }
+
+    #[test]
+    fn configured_tabs_wrap_and_restart_after_the_gutter() {
+        use crate::render::textual::viewport::{Extents, Viewport};
+
+        let report = oneshot::single("aaa\tz", Label::new("target", Span::unit(4)));
+        let mut output = String::new();
+        let mut renderer = Textual::<'_, _, Fancy, _>::new(&mut output);
+        let mut settings = FancySettings::tuple((Colored::No, LayoutSettings::marginal(), Charset::UNICODE));
+        let width = NonZero::new(8).expect("positive viewport width");
+        let extents = Extents::tuple((width, width));
+        let viewport = Viewport::from_extents(extents);
+
+        *settings.tab_width_mut() = width;
+
+        let present = Present::from_raw_parts(settings, viewport);
+
+        renderer.render_mut_with_input(present, &report).expect("render wrapped tabs");
+
+        assert!(
+            output.contains("1│ aaa     \n │ z\n │ ^\n"),
+            "incorrect configured wrapping {output}"
+        );
+    }
+
+    #[test]
+    fn sink_failures_propagate_from_source_markers_and_messages() {
+        enum Reject<'a> {
+            Pending(&'a str),
+            Failed,
+        }
+
+        impl fmt::Write for Reject<'_> {
+            #[inline]
+            fn write_str(&mut self, text: &str) -> fmt::Result {
+                match self {
+                    Self::Pending(needle) => {
+                        if text.contains(*needle) {
+                            *self = Self::Failed;
+
+                            Err(fmt::Error)
+                        } else {
+                            Ok(())
+                        }
+                    }
+                    Self::Failed => Err(fmt::Error),
+                }
+            }
+        }
+
+        for needle in ["a   x", "^", "annotation detail"] {
+            let mut sink = Reject::Pending(needle);
+            let report = oneshot::single("a\tx", Label::new("annotation detail", Span::unit(2)));
+            let settings = FancySettings::tuple((Colored::No, LayoutSettings::marginal(), Charset::UNICODE));
+            let mut renderer = Textual::<'_, _, Fancy, _>::new(&mut sink);
+
+            let result = renderer.render_mut_with_input(Present::from_input(settings), &report);
+
+            assert!(result.is_err(), "sink failure was discarded for {needle}");
+            assert!(
+                matches!(sink, Reject::Failed),
+                "the selected output fragment was not attempted for {needle}"
+            );
         }
     }
 
