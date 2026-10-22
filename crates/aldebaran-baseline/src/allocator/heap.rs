@@ -100,7 +100,9 @@ unsafe impl<A: Allocator, const P: Profiled> Allocator for Heap<A, P> {
     unsafe fn deallocate(&self, ptr: NonNull<u8>, layout: Layout) {
         let Self { alloc, .. } = self;
 
-        // SAFETY: upheld by upstream caller
+        // SAFETY: The caller supplies a live allocation from this allocator
+        // with a fitting layout. Heap forwards the same pointer and layout to
+        // the underlying allocator that created it.
         unsafe {
             alloc.deallocate(ptr, layout);
         }

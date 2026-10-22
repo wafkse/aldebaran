@@ -57,7 +57,8 @@ impl<T, const N: usize> StaticVec<T, N> {
         // FIXME: use `get_unchecked_mut` once it can be used in const fn
         let target_slot = &mut storage_buffer[*storage_len];
 
-        // SAFETY: this is a write to uninitialized memory, which is safe.
+        // SAFETY: The capacity check selects an uninitialized slot within the
+        // array. Its exclusive borrow provides aligned, writable storage for T.
         unsafe {
             target_slot.as_mut_ptr().write(value);
         }
@@ -86,8 +87,8 @@ impl<T, const N: usize> StaticVec<T, N> {
 
         let target_value = mem::replace(target_slot, MaybeUninit::uninit());
 
-        // SAFETY: `target_value` is initialized, since it was taken from a
-        // `MaybeUninit` slot that had a value written to it.
+        // SAFETY: The previous length was nonzero, so this slot belonged to
+        // the initialized prefix. Replacing it transfers ownership to this value.
         let target_value = unsafe { target_value.assume_init() };
 
         Some(target_value)
@@ -133,8 +134,10 @@ impl<T, const N: usize> StaticVec<T, N> {
 
         let storage_addr = storage_slice.as_ptr().cast::<T>();
 
-        // SAFETY: The pointer is valid, since it was obtained from a valid
-        // slice of `MaybeUninit<T>`, which has the same representation as `T`.
+        // SAFETY: The array provides aligned, nonnull storage for N elements,
+        // including when N is zero. The invariant bounds len by N and guarantees
+        // that this prefix contains initialized T values. The returned slice
+        // shares the array's borrow and cannot outlive it.
         unsafe { slice::from_raw_parts(storage_addr, len) }
     }
 
@@ -146,13 +149,12 @@ impl<T, const N: usize> StaticVec<T, N> {
             storage_len: len,
         } = self;
 
-        // FIXME: use `as_mut_slice` once stable in const fn
-        let storage_slice = storage_buffer.as_slice();
+        let storage_addr = storage_buffer.as_mut_ptr().cast::<T>();
 
-        let storage_addr = storage_slice.as_ptr().cast::<T>().cast_mut();
-
-        // SAFETY: The pointer is valid, since it was obtained from a valid
-        // slice of `MaybeUninit<T>`, which has the same representation as `T`.
+        // SAFETY: The mutable array borrow provides exclusive, aligned, nonnull
+        // storage for N elements, including when N is zero. The invariant bounds
+        // len by N and guarantees that this prefix contains initialized T values.
+        // The returned slice retains that exclusive borrow for its lifetime.
         unsafe { slice::from_raw_parts_mut(storage_addr, len) }
     }
 }
@@ -181,9 +183,9 @@ impl<T, const N: usize> Drop for StaticVec<T, N> {
             storage_len,
         } = self;
 
-        // SAFETY: The elements in the storage buffer are not dropped, since
-        // they are `MaybeUninit`. So, we can safely drop the elements
-        // in the buffer.
+        // SAFETY: The invariant makes exactly this prefix initialized and owned
+        // by the vector. Each slot is dropped once through its exclusive borrow,
+        // and dropping the MaybeUninit array does not drop those values again.
         unsafe {
             storage_buffer
                 .iter_mut()
