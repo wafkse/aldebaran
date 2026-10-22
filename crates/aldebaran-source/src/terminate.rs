@@ -612,6 +612,49 @@ mod tests {
     }
 
     #[test]
+    fn eof_selection_replays_saved_state_for_terminated_and_unterminated_lines() {
+        use crate::line::{LineExtent, SourceLines};
+        use aldebaran_baseline::prelude::Spanned;
+
+        for (source, number, extent, content, line_break) in [("abcdefg", 3, 5..7, "f", Some("g")), ("abcdefgh", 4, 7..8, "h", None)] {
+            let target = Span::unit(source.len());
+            let selection = source.segment_with(super::Every::<2>(None), target).expect("final periodic line");
+            let bytes = source
+                .as_bytes()
+                .segment_with(super::Every::<2>(None), target)
+                .expect("final periodic byte line");
+
+            assert_eq!(selection.metadata(), bytes.metadata());
+            assert_eq!(selection.metadata().bytes().range(), extent);
+            assert_eq!(selection.metadata().lines().range(), number..=number);
+            assert_eq!(selection.metadata().length().into_pair(), (extent.len(), extent.len()));
+
+            for _ in 0..2 {
+                let mut lines = selection.lines();
+                let line = lines.next().expect("selected periodic line");
+
+                assert_eq!(line.number().get(), number);
+                assert_eq!(line.span().range(), extent);
+                assert_eq!(line.content().map(|content| *content.value()), Some(content));
+                assert_eq!(line.content_break().map(|line_break| *line_break.line_break()), line_break);
+                assert!(lines.next().is_none(), "only the final periodic line is selected");
+
+                let mut lines = bytes.lines();
+                let line = lines.next().expect("selected periodic byte line");
+
+                assert_eq!(line.number().get(), number);
+                assert_eq!(line.span().range(), extent);
+                assert_eq!(line.content().map(|content| *content.value()), Some(content.as_bytes()));
+                assert_eq!(
+                    line.content_break().map(|line_break| *line_break.line_break()),
+                    line_break.map(str::as_bytes)
+                );
+                assert!(lines.next().is_none(), "only the final periodic byte line is selected");
+            }
+        }
+    }
+
+    #[test]
     fn repeated_prefix_restarts_at_the_latest_utf8_component() {
         let source = "ααβ";
         let mut terminator = Two::tuple(('α', 'β'));

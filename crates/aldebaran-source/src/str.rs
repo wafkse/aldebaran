@@ -107,17 +107,44 @@ impl<'a> SourceDiff<'a> for str {
 mod test {
     use core::{iter::once, num::NonZero, ops::Deref};
 
-    use aldebaran_baseline::prelude::Span;
+    use aldebaran_baseline::prelude::{Span, Spanned};
 
     use crate::line::{LineBreak, LineContent, LineExtent, LineSegmented, Piecewise, SourceLines};
     use crate::source::Source;
 
     #[test]
-    fn terminal_boundary_does_not_segment_source_lines() {
-        let source = "abc";
-        let terminal_boundary = Span::unit(source.len());
+    fn terminal_boundary_selects_the_physical_line_with_intact_utf8_and_break() {
+        for (source, content, line_break, extent) in [
+            ("a\né", Some("é"), None, 2..4),
+            ("a\n🦀\n", Some("🦀"), Some("\n"), 2..7),
+            ("a\n終\r\n", Some("終"), Some("\r\n"), 2..7),
+            ("a\n\n", None, Some("\n"), 2..3),
+            ("a\n\r\n", None, Some("\r\n"), 2..4),
+        ] {
+            let terminal_boundary = Span::unit(source.size());
+            let selection = source.segment(terminal_boundary).expect("EOF selects the final physical line");
+            let mut lines = selection.lines();
+            let line = lines.next().expect("final physical line");
 
-        assert!(source.segment(terminal_boundary).is_none());
+            assert_eq!(line.number().get(), 2);
+            assert_eq!(line.span().range(), extent);
+            assert_eq!(line.content().map(|content| *content.value()), content);
+            assert_eq!(line.content_break().map(|line_break| *line_break.line_break()), line_break);
+            assert!(lines.next().is_none(), "EOF must not manufacture an empty trailing line");
+
+            let bytes = source
+                .as_bytes()
+                .segment(terminal_boundary)
+                .expect("byte EOF selects the final line");
+            let line = bytes.lines().next().expect("final byte line");
+
+            assert_eq!(line.span().range(), extent);
+            assert_eq!(line.content().map(|content| *content.value()), content.map(str::as_bytes));
+            assert_eq!(
+                line.content_break().map(|line_break| *line_break.line_break()),
+                line_break.map(str::as_bytes)
+            );
+        }
     }
 
     #[test]

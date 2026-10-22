@@ -79,21 +79,26 @@ pub trait SourceLines<'a>: Source<'a> + SourceDissect<'a> + Terminated<'a, Self>
         self.footprint().and_then(|span| self.segment_with::<T>(terminator, span))
     }
 
-    /// Select lines whose full source spans overlap `span`.
+    /// Selects physical source lines using [`Terminated::DEFAULT_TERMINATOR`].
     ///
-    /// The default implementation uses [`Terminated::DEFAULT_TERMINATOR`]. A
-    /// unit span at the exclusive source end does not select a line.
+    /// See [`Self::segment_with`] for target selection and EOF behavior.
     #[inline]
     fn segment(&'a self, span: Span) -> Option<Self::Extents<Self::TerminatedBy>> {
         self.segment_with(Self::DEFAULT_TERMINATOR, span)
     }
 
-    /// Select exactly the contiguous lines whose full spans overlap `span`.
+    /// Selects physical source lines intersecting the target span.
     ///
-    /// Since line spans include their terminators, an overlap with a terminator
-    /// also selects its line. Iteration and metadata then describe only those
-    /// selected lines. When no line overlaps, including for empty sources and unit
-    /// spans at the exclusive source end, the result is `None`.
+    /// Line terminators participate in overlap checks.
+    ///
+    /// # Remarks
+    ///
+    /// A unit span at EOF selects the final physical line of nonempty input.
+    ///
+    /// This does not synthesize a trailing empty line.
+    ///
+    /// Empty input yields no selection. Other targets select only overlapping
+    /// lines, including when part of the target extends beyond the source.
     fn segment_with<T>(&'a self, terminator: T, span: Span) -> Option<Self::Extents<T>>
     where
         T: Terminator<'a, Self>;
@@ -111,11 +116,21 @@ where
     where
         T: Terminator<'a, Self>;
 
+    #[expect(
+        clippy::missing_inline_in_public_items,
+        reason = "Line selection scans source components and assembles aggregate metadata."
+    )]
     fn segment_with<T>(&'a self, terminator: T, relevant_span: Span) -> Option<Self::Extents<T>>
     where
         T: Terminator<'a, Self>,
     {
-        let is_relevant = |target_line: &LineId<'a, S>| target_line.span().overlaps(relevant_span);
+        let source_end = self.size();
+        let is_eof = relevant_span == Span::unit(source_end);
+        let is_relevant = |target_line: &LineId<'a, S>| {
+            let span = target_line.span();
+
+            span.overlaps(relevant_span) || (is_eof && span.end() == source_end)
+        };
 
         let mut line_iter = LineIter::<'a, S, T>::new_with(self, terminator);
 
@@ -155,20 +170,26 @@ mod tests {
     use aldebaran_baseline::prelude::{Span, Spanned};
 
     use super::{LineExtent, SourceLines};
+    use crate::terminate::Standard;
 
-    /// Expected line numbers and absolute extents define the selection contract.
+    /// Check default and explicit policies against absolute extents and metadata.
     fn check_selection(source: &str, target: Span, expected: &[(usize, Range<usize>)]) {
         let selection = source.segment(target);
         let bytes = source.as_bytes().segment(target);
+        let explicit = source.segment_with(Standard::<char>::new(), target);
+        let explicit_bytes = source.as_bytes().segment_with(Standard::<u8>::new(), target);
+
+        assert_eq!(selection, explicit);
+        assert_eq!(bytes, explicit_bytes);
 
         if expected.is_empty() {
-            assert!(selection.is_none(), "no string lines should overlap {target}");
-            assert!(bytes.is_none(), "no byte lines should overlap {target}");
+            assert!(selection.is_none(), "no string lines should be selected by {target}");
+            assert!(bytes.is_none(), "no byte lines should be selected by {target}");
             return;
         }
 
-        let selection = selection.expect("overlapping lines exist");
-        let bytes = bytes.expect("overlapping byte lines exist");
+        let selection = selection.expect("selected lines exist");
+        let bytes = bytes.expect("selected byte lines exist");
         let mut lines = selection.lines();
         let actual: Vec<_> = lines.by_ref().map(|line| (line.number().get(), line.span().range())).collect();
         assert_eq!(actual, expected);
@@ -217,9 +238,16 @@ mod tests {
     }
 
     #[test]
-    fn all_small_spans_agree_with_full_line_overlap_and_metadata() {
+    fn all_small_spans_agree_with_overlap_or_exact_unit_eof_and_metadata() {
         for (source, full_lines) in [
             ("", &[][..]),
+            ("abc", &[(1, 0..3)][..]),
+            ("é", &[(1, 0..2)][..]),
+            ("🦀", &[(1, 0..4)][..]),
+            ("a\n", &[(1, 0..2)][..]),
+            ("a\r\n", &[(1, 0..3)][..]),
+            ("\n", &[(1, 0..1)][..]),
+            ("\r\n", &[(1, 0..2)][..]),
             ("a\nbbb\r\nc\nlast", &[(1, 0..2), (2, 2..7), (3, 7..9), (4, 9..13)][..]),
             ("é\r\n\n🦀\n終", &[(1, 0..4), (2, 4..5), (3, 5..10), (4, 10..13)][..]),
             ("\r\n\n", &[(1, 0..2), (2, 2..3)][..]),
@@ -227,16 +255,19 @@ mod tests {
             for start in 0..=source.len() + 1 {
                 for length in 1..=source.len() + 2 {
                     let target = Span::new(start, NonZero::new(length).expect("positive length"));
-                    let expected: Vec<_> = full_lines
-                        .iter()
-                        .filter(|(_, span)| span.start < target.end() && span.end > start)
-                        .cloned()
-                        .collect();
+                    let expected: Vec<_> = if start == source.len() && length == 1 {
+                        full_lines.last().cloned().into_iter().collect()
+                    } else {
+                        full_lines
+                            .iter()
+                            .filter(|(_, span)| span.start < target.end() && span.end > start)
+                            .cloned()
+                            .collect()
+                    };
 
                     check_selection(source, target, &expected);
                 }
             }
-            assert!(source.segment(Span::unit(source.len())).is_none(), "EOF has no overlapping line");
             assert_eq!(source.extents().is_none(), source.is_empty());
         }
     }
