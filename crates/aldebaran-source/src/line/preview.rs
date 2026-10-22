@@ -135,9 +135,7 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let &Self(target_source) = self;
 
-        let target_terminator = S::DEFAULT_TERMINATOR;
-
-        let target_value = PreviewWith(target_source, target_terminator);
+        let target_value = PreviewWith(target_source, S::DEFAULT_TERMINATOR);
 
         fmt::Debug::fmt(&target_value, f)
     }

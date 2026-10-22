@@ -1,8 +1,9 @@
 //! Indexed terminal colors selected without palette conversion.
 //!
 //! [`Ansi8Bit`] emits its index through the extended SGR color form, with
-//! [`Surface`] choosing foreground or background. Appearance depends on the
-//! terminal's interpretation of that palette slot.
+//! [`Surface`] choosing foreground or background.
+//!
+//! Appearance depends on the terminal's interpretation of that palette slot.
 
 use core::fmt;
 

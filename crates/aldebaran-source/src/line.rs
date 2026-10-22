@@ -116,16 +116,15 @@ where
     where
         T: Terminator<'a, Self>;
 
-    #[expect(
-        clippy::missing_inline_in_public_items,
-        reason = "Line selection scans source components and assembles aggregate metadata."
-    )]
+    #[inline]
     fn segment_with<T>(&'a self, terminator: T, relevant_span: Span) -> Option<Self::Extents<T>>
     where
         T: Terminator<'a, Self>,
     {
         let source_end = self.size();
+
         let is_eof = relevant_span == Span::unit(source_end);
+
         let is_relevant = |target_line: &LineId<'a, S>| {
             let span = target_line.span();
 

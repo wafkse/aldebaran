@@ -47,7 +47,7 @@ pub trait Print {
     /// Use this rendering in standard formatting with a fresh default context each time.
     #[inline]
     #[must_use]
-    fn display(&self) -> impl fmt::Display + '_
+    fn display(&self) -> impl fmt::Display + use<'_, Self>
     where
         Self::Context: Default,
     {
@@ -58,7 +58,7 @@ pub trait Print {
     /// The adapter retains both borrows until formatting has finished.
     #[inline]
     #[must_use]
-    fn display_with_context<'a>(&'a self, context: &'a Self::Context) -> impl fmt::Display + 'a {
+    fn display_with_context<'a>(&'a self, context: &'a Self::Context) -> impl fmt::Display + use<'a, Self> {
         DisplayWith {
             target_value: self,
             context,
