@@ -567,13 +567,12 @@ where
 
                 Outcome::Continue(())
             }
-            Self(Some(count)) => match NonZero::new(count.get() % Self::FORCEFUL_MODULUS) {
-                Some(..) => {
+            Self(Some(count)) => {
+                if NonZero::new(count.get() % Self::FORCEFUL_MODULUS).is_some() {
                     *count = count.saturating_add(1);
 
                     Outcome::Continue(())
-                }
-                None => {
+                } else {
                     *self = Every(Some(NonZero::<usize>::MIN));
 
                     let span = ctx.span();
@@ -582,7 +581,7 @@ where
 
                     Outcome::Break(LineBreak::tuple((target_line, span)))
                 }
-            },
+            }
         }
     }
 }

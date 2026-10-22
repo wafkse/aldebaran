@@ -55,29 +55,26 @@ where
 
         let annotations = error.annotations().list();
 
-        match annotations {
-            Some(annotations) => {
-                for annotation in annotations.iter() {
-                    let message = annotation.message();
-                    let target = annotation.target();
+        if let Some(annotations) = annotations {
+            for annotation in annotations.iter() {
+                let message = annotation.message();
+                let target = annotation.target();
 
-                    '\t'.sequence('@')
-                        .sequence(target)
-                        .sequence(' ')
-                        .sequence(':'.times(2))
-                        .sequence(' ')
-                        .sequence(message.content())
-                        .sequence('\n')
-                        .print(sink)?
-                }
-
-                '\n'.sequence(annotations.rest().len())
+                '\t'.sequence('@')
+                    .sequence(target)
                     .sequence(' ')
-                    .sequence("extraneous annotations found")
+                    .sequence(':'.times(2))
+                    .sequence(' ')
+                    .sequence(message.content())
                     .sequence('\n')
-                    .print(sink)?;
+                    .print(sink)?
             }
-            None => {}
+
+            '\n'.sequence(annotations.rest().len())
+                .sequence(' ')
+                .sequence("extraneous annotations found")
+                .sequence('\n')
+                .print(sink)?;
         }
 
         Ok(())

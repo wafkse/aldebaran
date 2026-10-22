@@ -251,12 +251,9 @@ where
             }
         };
 
-        match line_id {
-            Some(ref line_id) => {
-                *target_offset += line_id.span().length().get();
-                *target_index = line_index.saturating_add(1);
-            }
-            None => (),
+        if let Some(ref line_id) = line_id {
+            *target_offset += line_id.span().length().get();
+            *target_index = line_index.saturating_add(1);
         }
 
         line_id

@@ -338,15 +338,16 @@ impl Struct {
                         let output_ident = output_iter.rev();
 
                         (
-                            match &field_list {
-                                Fields::Unit => quote! { Self },
-                                _ => quote! {
+                            if let Fields::Unit = &field_list {
+                                quote! { Self }
+                            } else {
+                                quote! {
                                     Self(
                                         #(
                                             #field_iter
                                         ),*
                                     )
-                                },
+                                }
                             },
                             quote! {
                                 #(
@@ -656,15 +657,16 @@ impl Enum {
                             let output_ident = output_iter.rev();
 
                             (
-                                match &field_list {
-                                    Fields::Unit => quote! {},
-                                    _ => quote! {
+                                if let Fields::Unit = &field_list {
+                                    quote! {}
+                                } else {
+                                    quote! {
                                         (
                                             #(
                                                 #field_iter
                                             ),*
                                         )
-                                    },
+                                    }
                                 },
                                 quote! {
                                     #(

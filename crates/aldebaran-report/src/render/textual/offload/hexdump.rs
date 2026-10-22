@@ -281,46 +281,43 @@ where
 
             "|\n".print(sink)?;
 
-            match annotations {
-                Some(annotations) => {
-                    for annotation in annotations.iter() {
-                        let annotation_span = annotation.target();
-                        let is_source_boundary = annotation_span == Span::unit(source_length);
-                        let is_final_row = row_end_offset == source_length;
+            if let Some(annotations) = annotations {
+                for annotation in annotations.iter() {
+                    let annotation_span = annotation.target();
+                    let is_source_boundary = annotation_span == Span::unit(source_length);
+                    let is_final_row = row_end_offset == source_length;
 
-                        if is_source_boundary && is_final_row {
+                    if is_source_boundary && is_final_row {
+                        ' '.times(10).print(sink)?;
+
+                        for _ in 0..source_length - row_start_offset {
+                            ' '.times(3).print(sink)?;
+                        }
+
+                        point_glyph
+                            .sequence(' ')
+                            .sequence(annotation.message().content())
+                            .sequence('\n')
+                            .print(sink)?;
+                    } else {
+                        let annotation_start = cmp::max(annotation_span.start(), row_start_offset);
+                        let annotation_end = cmp::min(annotation_span.end(), row_end_offset);
+
+                        if annotation_start < annotation_end {
                             ' '.times(10).print(sink)?;
 
-                            for _ in 0..source_length - row_start_offset {
+                            for _ in row_start_offset..annotation_start {
                                 ' '.times(3).print(sink)?;
                             }
 
-                            point_glyph
-                                .sequence(' ')
-                                .sequence(annotation.message().content())
-                                .sequence('\n')
-                                .print(sink)?;
-                        } else {
-                            let annotation_start = cmp::max(annotation_span.start(), row_start_offset);
-                            let annotation_end = cmp::min(annotation_span.end(), row_end_offset);
-
-                            if annotation_start < annotation_end {
-                                ' '.times(10).print(sink)?;
-
-                                for _ in row_start_offset..annotation_start {
-                                    ' '.times(3).print(sink)?;
-                                }
-
-                                for _ in annotation_start..annotation_end {
-                                    span_glyph.times(2).sequence(' ').print(sink)?;
-                                }
-
-                                annotation.message().content().sequence('\n').print(sink)?;
+                            for _ in annotation_start..annotation_end {
+                                span_glyph.times(2).sequence(' ').print(sink)?;
                             }
+
+                            annotation.message().content().sequence('\n').print(sink)?;
                         }
                     }
                 }
-                None => {}
             }
         }
 

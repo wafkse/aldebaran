@@ -182,9 +182,8 @@ impl Span {
             let start = max(self.start(), other.start());
             let end = min(self.end(), other.end());
 
-            let length = match NonZero::new(end - start) {
-                Some(length) => length,
-                None => return None,
+            let Some(length) = NonZero::new(end - start) else {
+                return None;
             };
 
             Some(Self { start, length })
