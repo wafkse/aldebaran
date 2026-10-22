@@ -222,10 +222,7 @@ where
     type Output = ();
     type Error = fmt::Error;
 
-    #[expect(
-        clippy::missing_inline_in_public_items,
-        reason = "Formatting every source byte and annotation row is substantial traversal work."
-    )]
+    #[inline]
     fn offload<'input, W>(error: &'source E, ctx: &mut OffloadContext<'source, 'input, W, Self, E>) -> Result<Self::Output, Self::Error>
     where
         'source: 'input,
