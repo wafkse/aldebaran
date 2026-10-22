@@ -180,7 +180,6 @@ crates.
 | Facade feature | Capability |
 | --- | --- |
 | `report-codegen` | Derive support for report types |
-| `allocator` | Baseline integration with `allocator-api2` |
 | `source-storage` | Source-aware interner storage |
 
 These switches enable additional functionality. Component crates may also enable

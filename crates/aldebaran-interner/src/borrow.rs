@@ -33,6 +33,6 @@ where
     /// to the issuing interner despite the value-type tag.
     #[inline]
     fn try_resolve_tagged(&self, tagged_id: TaggedId<B, K>) -> Option<&B> {
-        self.try_resolve(tagged_id.into_inner())
+        self.try_resolve(tagged_id.unwrap())
     }
 }

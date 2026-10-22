@@ -63,7 +63,7 @@ impl<'a, T> RefNonempty<'a, T> {
 
     /// Recover the input references without shortening their lifetimes.
     #[inline]
-    pub const fn into_raw_parts(self) -> (&'a T, &'a [T]) {
+    pub const fn partitioned(self) -> (&'a T, &'a [T]) {
         let Self(parts) = self;
 
         parts
@@ -83,5 +83,60 @@ impl<'a, T> RefNonempty<'a, T> {
         let Self((first, rest)) = *self;
 
         iter::once(first).chain(rest.iter())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::vec::Vec;
+    use core::ptr;
+
+    use super::RefNonempty;
+
+    #[test]
+    fn iterators_survive_borrowed_views_and_remain_exhausted() {
+        let first = 1;
+        let rest = [2, 3];
+        let mut values = {
+            let view = RefNonempty::multiple(&first, &rest);
+
+            view.iter()
+        };
+
+        assert_eq!(values.next_back(), Some(&3));
+        assert_eq!(values.next(), Some(&1));
+        assert_eq!(values.next_back(), Some(&2));
+        assert_eq!(values.next(), None);
+        assert_eq!(values.next_back(), None);
+        assert_eq!(values.next(), None);
+    }
+
+    #[test]
+    fn copying_a_borrowed_view_does_not_require_copy_elements() {
+        /// A value that deliberately implements neither `Copy` nor `Clone`.
+        #[derive(Debug, PartialEq, Eq)]
+        // NOTE(invariant): None.
+        struct Value(u32);
+
+        let first = Value(1);
+        let rest = [Value(2)];
+        let view = RefNonempty::tuple((&first, &rest));
+        let copy = view;
+
+        assert!(
+            ptr::eq(view.first(), copy.first()),
+            "copying the view must retain its input references"
+        );
+        assert_eq!(copy.partitioned(), (&first, rest.as_slice()));
+        assert_eq!(RefNonempty::single(&first).iter().collect::<Vec<_>>(), [&first]);
+    }
+
+    #[test]
+    fn zero_sized_tail_lengths_saturate_without_losing_nonemptiness() {
+        let first = ();
+        let rest = [(); usize::MAX];
+        let view = RefNonempty::multiple(&first, &rest);
+
+        assert_eq!(view.len().get(), usize::MAX);
     }
 }

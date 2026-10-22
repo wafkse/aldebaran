@@ -41,7 +41,7 @@ where
 {
     /// Reuse the annotation message as the heading under the supplied classification.
     #[inline]
-    pub const fn from_raw_parts(source: &'a S, annotation: A, kind: K) -> Self {
+    pub const fn raw(source: &'a S, annotation: A, kind: K) -> Self {
         Self { source, annotation, kind }
     }
 

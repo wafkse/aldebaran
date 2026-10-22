@@ -166,3 +166,31 @@ macro_rules! Accessors {
 }
 
 Accessors!(0..32 for IdArray);
+
+#[cfg(test)]
+mod tests {
+    use alloc::vec::Vec;
+
+    use super::IdArray;
+    use crate::ident::Id;
+
+    crate::Id!(
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        become TestId
+    );
+
+    TestId!(8 become);
+
+    #[test]
+    fn uniform_conversion_preserves_slot_order_and_duplicate_ids() {
+        let mut ids = IdArray::uniform((TestId::MAX, TestId::MIN, TestId::MAX));
+
+        assert_eq!(ids.id0(), &TestId::MAX);
+        assert_eq!(ids.id1(), &TestId::MIN);
+        assert_eq!(ids.id2(), &TestId::MAX);
+
+        *ids.id1_mut() = TestId::MAX;
+
+        assert_eq!(ids.into_iter().collect::<Vec<_>>(), [TestId::MAX; 3]);
+    }
+}

@@ -298,7 +298,7 @@ where
 
     /// Preserve nonzero validity when transferring the value to standard integer APIs.
     #[inline]
-    pub fn into_inner(self) -> T::Type {
+    pub fn unwrap(self) -> T::Type {
         let Self(inner) = self;
 
         inner

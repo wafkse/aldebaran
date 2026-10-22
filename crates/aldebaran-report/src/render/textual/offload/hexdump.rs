@@ -61,7 +61,7 @@ impl HexdumpSettings {
     /// Select byte grouping, digit case, and glyphs without validating glyph widths.
     #[inline]
     #[must_use]
-    pub const fn from_raw_parts(bytes_per_row: NonZero<usize>, case: HexCase, replacement: char, span: char, point: char) -> Self {
+    pub const fn raw(bytes_per_row: NonZero<usize>, case: HexCase, replacement: char, span: char, point: char) -> Self {
         Self {
             bytes_per_row,
             case,
@@ -167,7 +167,7 @@ impl<T> Hex<T> {
     }
 
     /// Construct a hexadecimal value from its formatting parts.
-    const fn from_raw_parts(value: T, width: usize, case: HexCase) -> Self {
+    const fn raw(value: T, width: usize, case: HexCase) -> Self {
         Self { value, width, case }
     }
 }
@@ -248,14 +248,14 @@ where
         for (row_index, source_row) in source_rows.enumerate() {
             let row_start_offset = row_index.saturating_mul(bytes_per_row);
             let row_end_offset = row_start_offset.saturating_add(source_row.len());
-            let row_offset = Hex::from_raw_parts(row_start_offset, 8, hex_case);
+            let row_offset = Hex::raw(row_start_offset, 8, hex_case);
 
             row_offset.sequence(' '.times(2)).print(sink)?;
 
             for column_index in 0..bytes_per_row {
                 match source_row.get(column_index) {
                     Some(source_byte) => {
-                        let formatted_byte = Hex::from_raw_parts(*source_byte, 2, hex_case);
+                        let formatted_byte = Hex::raw(*source_byte, 2, hex_case);
 
                         formatted_byte.sequence(' ').print(sink)?;
                     }

@@ -255,7 +255,7 @@ impl Padding {
     ///
     /// Horizontal amounts count spaces. Vertical units are determined by the consumer.
     #[inline]
-    pub const fn from_raw_parts(left: PaddingPrimitive, right: PaddingPrimitive, top: PaddingPrimitive, bottom: PaddingPrimitive) -> Self {
+    pub const fn raw(left: PaddingPrimitive, right: PaddingPrimitive, top: PaddingPrimitive, bottom: PaddingPrimitive) -> Self {
         Self {
             horizontal: HorizontalPadding::pair(left, right),
             vertical: VerticalPadding::new(top, bottom),
@@ -265,7 +265,7 @@ impl Padding {
     /// Assign the same numeric count to every edge without converting between axis units.
     #[inline]
     pub const fn uniform(padding: PaddingPrimitive) -> Self {
-        Self::from_raw_parts(padding, padding, padding, padding)
+        Self::raw(padding, padding, padding, padding)
     }
 
     /// Leave content extents unchanged by reserving no edge padding.

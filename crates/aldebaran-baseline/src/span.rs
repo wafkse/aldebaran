@@ -5,6 +5,11 @@
 //! within the same source. Endpoints saturate on overflow, so a nonzero stored
 //! length can describe fewer addressable coordinates near `usize::MAX`.
 
+mod maybe_spanned;
+mod spanned;
+
+pub use self::{maybe_spanned::MaybeSpanned, spanned::Spanned};
+
 use core::{fmt, num::NonZero, ops::Range};
 
 use aldebaran_print::prelude::Print;
@@ -244,5 +249,170 @@ impl fmt::Display for Span {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}:{}", self.start(), self.end())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use core::num::NonZeroUsize;
+
+    use super::Span;
+
+    #[test]
+    fn span_new() {
+        let length = NonZeroUsize::new(5).expect("test length is nonzero");
+        let span = Span::new(10, length);
+        assert_eq!(span.start(), 10);
+        assert_eq!(span.length(), length);
+    }
+
+    #[test]
+    fn span_unit() {
+        let span = Span::unit(10);
+        assert_eq!(span.start(), 10);
+        assert_eq!(span.length().get(), 1);
+    }
+
+    #[test]
+    fn span_start() {
+        let length = NonZeroUsize::new(5).expect("test length is nonzero");
+        let span = Span::new(10, length);
+        assert_eq!(span.start(), 10);
+    }
+
+    #[test]
+    fn span_end() {
+        let length = NonZeroUsize::new(5).expect("test length is nonzero");
+        let span = Span::new(10, length);
+        assert_eq!(span.end(), 15);
+    }
+
+    #[test]
+    fn span_contains() {
+        let length = NonZeroUsize::new(5).expect("test length is nonzero");
+        let span = Span::new(10, length);
+        assert!(span.contains(12));
+        assert!(!span.contains(15));
+    }
+
+    #[test]
+    fn span_within() {
+        let length1 = NonZeroUsize::new(5).expect("test length is nonzero");
+        let span1 = Span::new(10, length1);
+        let length2 = NonZeroUsize::new(10).expect("test length is nonzero");
+        let span2 = Span::new(5, length2);
+        assert!(span1.within(span2));
+        assert!(!span2.within(span1));
+    }
+
+    #[test]
+    fn span_overlaps() {
+        let length1 = NonZeroUsize::new(5).expect("test length is nonzero");
+        let span1 = Span::new(10, length1);
+        let length2 = NonZeroUsize::new(10).expect("test length is nonzero");
+        let span2 = Span::new(12, length2);
+        assert!(span1.overlaps(span2));
+        assert!(span2.overlaps(span1));
+    }
+
+    #[test]
+    fn span_superset() {
+        let length1 = NonZeroUsize::new(5).expect("test length is nonzero");
+        let span1 = Span::new(10, length1);
+        let length2 = NonZeroUsize::new(10).expect("test length is nonzero");
+        let span2 = Span::new(5, length2);
+        let superset = span1.superset(span2);
+        assert_eq!(superset.start(), 5);
+        assert_eq!(superset.end(), 15);
+    }
+
+    #[test]
+    fn span_intersect() {
+        let length1 = NonZeroUsize::new(5).expect("test length is nonzero");
+        let span1 = Span::new(10, length1);
+        let length2 = NonZeroUsize::new(10).expect("test length is nonzero");
+        let span2 = Span::new(12, length2);
+        let intersection = span1.intersect(span2).expect("test spans overlap");
+
+        assert_eq!(intersection.start(), 12);
+        assert_eq!(intersection.end(), 15);
+    }
+
+    #[test]
+    fn span_englobes() {
+        let length1 = NonZeroUsize::new(10).expect("test length is nonzero");
+        let span1 = Span::new(5, length1);
+        let length2 = NonZeroUsize::new(5).expect("test length is nonzero");
+        let span2 = Span::new(10, length2);
+        assert!(span1.englobes(span2));
+        assert!(!span2.englobes(span1));
+    }
+
+    #[test]
+    fn span_range() {
+        let length = NonZeroUsize::new(5).expect("test length is nonzero");
+        let span = Span::new(10, length);
+        let range = span.range();
+        assert_eq!(range.start, 10);
+        assert_eq!(range.end, 15);
+    }
+
+    #[test]
+    fn touching_and_disjoint_spans_have_no_intersection() {
+        let left = Span::new(2, NonZeroUsize::new(3).expect("nonzero length"));
+
+        assert!(!left.contains(1));
+        assert!(left.contains(2));
+        assert!(left.contains(4));
+        assert!(!left.contains(5));
+
+        for right in [Span::unit(5), Span::unit(7)] {
+            assert!(!left.overlaps(right));
+            assert!(!right.overlaps(left));
+            assert_eq!(left.intersect(right), None);
+            assert_eq!(right.intersect(left), None);
+            assert!(!left.within(right));
+            assert!(!left.englobes(right));
+        }
+    }
+
+    #[test]
+    fn equal_and_nested_spans_preserve_set_relationships() {
+        let outer = Span::new(2, NonZeroUsize::new(6).expect("nonzero length"));
+        let inner = Span::new(3, NonZeroUsize::new(2).expect("nonzero length"));
+
+        for contained in [outer, inner] {
+            assert!(contained.within(outer));
+            assert!(outer.englobes(contained));
+            assert_eq!(outer.intersect(contained), Some(contained));
+            assert_eq!(contained.intersect(outer), Some(contained));
+            assert_eq!(outer.superset(contained), outer);
+            assert_eq!(contained.superset(outer), outer);
+        }
+    }
+
+    #[test]
+    fn saturated_spans_exclude_the_maximum_coordinate() {
+        let span = Span::new(usize::MAX - 2, NonZeroUsize::new(5).expect("nonzero length"));
+
+        assert_eq!(span.end(), usize::MAX);
+        assert_eq!(span.length().get(), 5);
+        assert!(span.contains(usize::MAX - 1));
+        assert!(!span.contains(usize::MAX));
+        assert_eq!(span.range(), usize::MAX - 2..usize::MAX);
+        assert_eq!(span.normal().range(), 0..5);
+        assert_eq!(span.intersect(Span::ALL).map(|value| value.range()), Some(span.range()));
+        assert_eq!(span.intersect(Span::END_OF_WORLD), None);
+        assert!(!Span::END_OF_WORLD.overlaps(span));
+        assert!(Span::END_OF_WORLD.range().is_empty());
+        assert!(!Span::END_OF_WORLD.contains(usize::MAX));
+        assert_eq!(Span::ALL.range(), 0..usize::MAX);
+        assert_eq!(Span::MIN, Span::unit(0));
+    }
+
+    #[test]
+    #[should_panic(expected = "length is never zero")]
+    fn superset_of_two_maximum_starts_panics() {
+        let _span = Span::END_OF_WORLD.superset(Span::unit(usize::MAX));
     }
 }

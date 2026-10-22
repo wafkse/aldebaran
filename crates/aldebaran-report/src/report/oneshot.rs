@@ -50,7 +50,6 @@ where
 {
     /// Use a separate heading and primary annotation under the error classification.
     #[inline]
-    #[doc(alias = "from_raw_parts")]
     pub const fn new(title: T, source: &'source S, annotation: A) -> Self {
         Self { title, source, annotation }
     }
@@ -149,7 +148,7 @@ where
     A: Annotated,
     S: SourceLines<'source> + SourceMetadata<'source> + ?Sized,
 {
-    OneshotConcise::from_raw_parts(source, annotation)
+    OneshotConcise::raw(source, annotation)
 }
 
 /// Build a concise report whose label covers the source footprint.
@@ -164,7 +163,7 @@ where
 {
     let annotation = Label::all(source, reason);
 
-    OneshotConcise::from_raw_parts(source, annotation)
+    OneshotConcise::raw(source, annotation)
 }
 
 /// Build a report whose title comes from the annotation and whose kind is
@@ -176,7 +175,7 @@ where
     K: ErrorKind,
     S: SourceLines<'source> + SourceMetadata<'source> + ?Sized,
 {
-    OneshotKinded::from_raw_parts(source, annotation, kind)
+    OneshotKinded::raw(source, annotation, kind)
 }
 
 /// Build a report with a separate title and a nonempty annotation collection.
@@ -192,5 +191,5 @@ where
     A: Annotated,
     'source: 'borrow,
 {
-    OneshotMany::from_raw_parts(source, title, annotations)
+    OneshotMany::raw(source, title, annotations)
 }

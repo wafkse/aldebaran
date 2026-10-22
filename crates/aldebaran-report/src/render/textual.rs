@@ -133,7 +133,7 @@ where
 {
     /// Use this backend input with the standard [`Viewport`].
     #[inline]
-    pub const fn from_input(input: O::Input<'input>) -> Self {
+    pub const fn with_input(input: O::Input<'input>) -> Self {
         Self {
             input,
             viewport: Viewport::standard(),
@@ -142,7 +142,7 @@ where
 
     /// Use this [`Viewport`] with the backend's default input.
     #[inline]
-    pub fn from_viewport(viewport: Viewport) -> Self
+    pub fn with_viewport(viewport: Viewport) -> Self
     where
         O::Input<'input>: Default,
     {
@@ -153,7 +153,7 @@ where
 
     /// Combine explicit backend input and viewport without applying defaults.
     #[inline]
-    pub const fn from_raw_parts(input: O::Input<'input>, viewport: Viewport) -> Self {
+    pub const fn raw(input: O::Input<'input>, viewport: Viewport) -> Self {
         Self { input, viewport }
     }
 
@@ -249,7 +249,7 @@ where
             write_sink: ref mut sink, ..
         } = self;
 
-        let ctx = &mut OffloadContext::from_raw_parts(sink, input);
+        let ctx = &mut OffloadContext::raw(sink, input);
 
         O::offload(error, ctx)
     }

@@ -152,12 +152,12 @@ where
             .last();
 
         let end_id = end_id.as_ref().unwrap_or(&start_id);
-        let line_range = LineRange::from_raw_parts(start_id.number(), end_id.number());
+        let line_range = LineRange::raw(start_id.number(), end_id.number());
         let englobing_span = start_id.span().superset(end_id.span());
 
-        let metadata = Metadata::from_raw_parts(englobing_span, line_range, line_size_minmax);
+        let metadata = Metadata::raw(englobing_span, line_range, line_size_minmax);
 
-        Some(LineHandle::from_raw_parts(self, metadata, start_id, terminator))
+        Some(LineHandle::raw(self, metadata, start_id, terminator))
     }
 }
 
@@ -213,7 +213,7 @@ mod tests {
             (*first_number..=*last_number).collect::<Vec<_>>()
         );
         assert_eq!(
-            metadata.length().into_pair(),
+            metadata.length().partitioned(),
             (
                 *lengths.iter().min().expect("selected lengths"),
                 *lengths.iter().max().expect("selected lengths")

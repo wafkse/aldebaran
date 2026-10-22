@@ -185,7 +185,7 @@ where
 {
     /// Pair an output sink with presentation settings.
     #[inline]
-    pub(in crate::render::textual) const fn from_raw_parts(sink: W, present: Present<'source, 'input, O, E>) -> Self {
+    pub(in crate::render::textual) const fn raw(sink: W, present: Present<'source, 'input, O, E>) -> Self {
         Self { sink, present }
     }
 
@@ -242,6 +242,6 @@ where
 
         let present = present.referenced_with(map);
 
-        OffloadContext::from_raw_parts(sink, present)
+        OffloadContext::raw(sink, present)
     }
 }

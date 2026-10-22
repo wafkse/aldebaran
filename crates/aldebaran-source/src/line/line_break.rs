@@ -210,7 +210,7 @@ where
 
     /// Separate the break representation from its absolute source extent.
     #[inline]
-    pub fn into_raw_parts(self) -> (S::Line, Span) {
+    pub fn partitioned(self) -> (S::Line, Span) {
         let Self { line_break, span } = self;
 
         (line_break, span)

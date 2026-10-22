@@ -124,7 +124,7 @@ where
     /// When `line_break` is present, the caller must ensure its span immediately
     /// follows the content span and both refer to the same source.
     #[inline]
-    pub fn from_raw_parts(line_number: NonZero<usize>, line_content: LineContent<'a, S>, line_break: Option<LineBreak<'a, S>>) -> Self {
+    pub fn raw(line_number: NonZero<usize>, line_content: LineContent<'a, S>, line_break: Option<LineBreak<'a, S>>) -> Self {
         let line_inner = match line_break {
             Some(line_break) => LineIdInner::WithBreak {
                 line_number,

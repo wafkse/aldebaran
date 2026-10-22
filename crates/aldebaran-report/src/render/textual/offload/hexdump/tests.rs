@@ -50,7 +50,7 @@ fn renders_byte_spans() {
     let attached = report.attach(source.as_slice());
     let mut output = String::new();
     let mut renderer = Textual::<'_, _, Hexdump, _>::new(&mut output);
-    let settings = Present::from_input(HexdumpSettings::default());
+    let settings = Present::with_input(HexdumpSettings::default());
 
     renderer
         .render_mut_with_input(settings, &attached)
@@ -74,8 +74,8 @@ fn customizes_hexdump_presentation() {
     let mut output = String::new();
     let mut renderer = Textual::<'_, _, Hexdump, _>::new(&mut output);
     let bytes_per_row = NonZero::<usize>::MIN.saturating_add(2);
-    let settings = HexdumpSettings::from_raw_parts(bytes_per_row, HexCase::Lower, '?', '~', '!');
-    let settings = Present::from_input(settings);
+    let settings = HexdumpSettings::raw(bytes_per_row, HexCase::Lower, '?', '~', '!');
+    let settings = Present::with_input(settings);
 
     renderer
         .render_mut_with_input(settings, &attached)
@@ -97,10 +97,10 @@ fn ascii_projection_replaces_controls_and_preserves_space() {
     let attached = report.attach(source.as_slice());
     let mut output = String::new();
     let mut renderer = Textual::<'_, _, Hexdump, _>::new(&mut output);
-    let settings = HexdumpSettings::from_raw_parts(NonZero::new(source.len()).expect("nonempty source"), HexCase::Upper, '?', '^', '^');
+    let settings = HexdumpSettings::raw(NonZero::new(source.len()).expect("nonempty source"), HexCase::Upper, '?', '^', '^');
 
     renderer
-        .render_mut_with_input(Present::from_input(settings), &attached)
+        .render_mut_with_input(Present::with_input(settings), &attached)
         .expect("render controls");
 
     assert!(output.contains("|A??????? ~?|"), "incorrect ASCII projection {output:?}");

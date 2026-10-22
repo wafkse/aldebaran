@@ -52,7 +52,7 @@ where
     /// bounds, and length extrema. `terminator` must carry the state immediately
     /// before `start_id`.
     #[inline]
-    pub const fn from_raw_parts(source: &'a S, metadata: Metadata, start_id: LineId<'a, S>, terminator: T) -> Self {
+    pub const fn raw(source: &'a S, metadata: Metadata, start_id: LineId<'a, S>, terminator: T) -> Self {
         Self {
             source,
             metadata,

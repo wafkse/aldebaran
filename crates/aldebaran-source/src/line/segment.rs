@@ -94,13 +94,13 @@ where
     /// Associate a line window with data covering its source region.
     /// The caller must keep the view within the data's span in the original source.
     #[inline]
-    pub const fn from_raw_parts(line_view: <S::Line as LineSegmented<'a, S>>::View, data: D) -> Self {
+    pub const fn raw(line_view: <S::Line as LineSegmented<'a, S>>::View, data: D) -> Self {
         Self { line_view, data }
     }
 
     /// Separate the renderable window from its original annotation.
     #[inline]
-    pub fn into_raw_parts(self) -> (<S::Line as LineSegmented<'a, S>>::View, D) {
+    pub fn partitioned(self) -> (<S::Line as LineSegmented<'a, S>>::View, D) {
         let Self { line_view, data } = self;
 
         (line_view, data)

@@ -21,7 +21,7 @@ use crate::{
 /// Empty input has no lines, and a trailing break adds no empty final line.
 /// A blank terminated line has a break view without a content view. Numbering
 /// starts at one even when traversal begins at a nonzero source offset, unless
-/// a number is supplied through [`from_raw_parts`](Self::from_raw_parts).
+/// a number is supplied through [`raw`](Self::raw).
 // NOTE(invariant): Terminator = StateBefore(NextLine.TargetOffset)
 pub struct LineIter<'a, S, T>
 where
@@ -206,7 +206,7 @@ where
 
             loop {
                 if let Some((component_index, target_component)) = target_iter.next() {
-                    let ctx = TerminatorContext::from_raw_parts(
+                    let ctx = TerminatorContext::raw(
                         target_slice,
                         target_component,
                         Span::new(line_offset + component_index, target_component.size()),
@@ -226,7 +226,7 @@ where
                             let line_id = if let Some(line_span) = line_span {
                                 let target_line = target_slice.dissect(line_span);
 
-                                let line_content = LineContent::from_raw_parts(target_line, line_span);
+                                let line_content = LineContent::raw(target_line, line_span);
 
                                 LineId::full(line_index, line_content, target_break)
                             } else {
@@ -241,7 +241,7 @@ where
                         Some(target_footprint) => {
                             let line_span = Span::new(line_offset, target_footprint.length());
                             let target_line = target_slice.dissect(line_span);
-                            let line_content = LineContent::from_raw_parts(target_line, line_span);
+                            let line_content = LineContent::raw(target_line, line_span);
 
                             Some(LineId::standalone(line_index, line_content))
                         }
@@ -330,7 +330,7 @@ where
     /// must correspond to that position. The supplied number labels the first
     /// yielded line rather than being derived from preceding source content.
     #[inline]
-    pub const fn from_raw_parts(target_slice: &'a S, target_offset: usize, target_index: NonZero<usize>, terminator: T) -> Self {
+    pub const fn raw(target_slice: &'a S, target_offset: usize, target_index: NonZero<usize>, terminator: T) -> Self {
         Self {
             target_slice,
             target_offset,
@@ -387,7 +387,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use aldebaran_baseline::spanned::Spanned;
+    use aldebaran_baseline::span::Spanned;
 
     use crate::terminate::Standard;
 

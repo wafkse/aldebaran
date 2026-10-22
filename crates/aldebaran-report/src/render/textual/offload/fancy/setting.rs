@@ -196,7 +196,7 @@ where
     }
     /// Use an explicit theme with the chosen styling, layout, and glyphs.
     #[inline]
-    pub const fn from_raw_parts(colored: Colored, layout: LayoutSettings, charset: Charset, theme: T) -> Self {
+    pub const fn raw(colored: Colored, layout: LayoutSettings, charset: Charset, theme: T) -> Self {
         let layout = Some(layout);
         let tab_width = NonZero::new(4).expect("four is nonzero");
 
@@ -348,7 +348,7 @@ mod tests {
             let layout = LayoutSettings::standard();
             let charset = Charset::standard();
 
-            FancySettings::from_raw_parts(Colored::No, layout, charset, DefaultTheme)
+            FancySettings::raw(Colored::No, layout, charset, DefaultTheme)
         };
 
         for settings in [standard, default, tuple, raw] {
@@ -367,7 +367,7 @@ mod tests {
         let layout = LayoutSettings::standard();
         let charset = Charset::standard();
         let tuple = FancySettings::<CustomTheme>::tuple((Colored::Yes, layout, charset));
-        let raw = FancySettings::from_raw_parts(Colored::Yes, layout, charset, CustomTheme);
+        let raw = FancySettings::raw(Colored::Yes, layout, charset, CustomTheme);
 
         for settings in [tuple, raw] {
             assert_eq!(settings.tab_width().get(), 4);

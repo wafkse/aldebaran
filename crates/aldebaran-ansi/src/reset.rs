@@ -43,7 +43,7 @@ where
 
     /// Recover the original setting, allowing its activation sequence to be used again.
     #[inline]
-    pub fn into_inner(self) -> R {
+    pub fn unwrap(self) -> R {
         let Self(inner, ..) = self;
 
         inner

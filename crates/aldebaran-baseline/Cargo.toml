@@ -13,11 +13,9 @@ edition = "2024"
 [features]
 default = ["alloc"]
 alloc = []
-allocator = ["alloc", "dep:allocator-api2"]
 
 [dependencies]
 aldebaran-print.workspace = true
-allocator-api2 = { workspace = true, optional = true }
 tokel.workspace = true
 
 [lints]

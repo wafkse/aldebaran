@@ -45,7 +45,7 @@ where
 {
     /// Retain the borrowed annotation order under a separate heading and error kind.
     #[inline]
-    pub const fn from_raw_parts(source: &'source S, title: T, annotation: RefNonempty<'borrow, A>) -> Self {
+    pub const fn raw(source: &'source S, title: T, annotation: RefNonempty<'borrow, A>) -> Self {
         Self { source, title, annotation }
     }
 

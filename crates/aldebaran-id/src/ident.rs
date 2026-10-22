@@ -167,7 +167,7 @@ where
 {
     /// Erase the value-type distinction while preserving the original identity.
     #[inline]
-    pub const fn into_inner(self) -> I {
+    pub const fn unwrap(self) -> I {
         let Self { target_id, .. } = self;
 
         target_id
@@ -331,7 +331,7 @@ mod tests {
         let id = TestId::MIN;
         let tagged = TaggedId::<str, TestId>::new(id);
 
-        assert_eq!(tagged.into_inner(), id);
+        assert_eq!(tagged.unwrap(), id);
     }
 
     #[test]

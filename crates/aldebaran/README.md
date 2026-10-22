@@ -8,7 +8,6 @@ The facade is `no_std` and has no default features. Enable optional capabilities
 as needed.
 
 - `report-codegen` enables the report derive.
-- `allocator` enables `allocator-api2` support in the baseline crate.
 - `source-storage` enables source-aware interning.
 
 ## Source coordinates

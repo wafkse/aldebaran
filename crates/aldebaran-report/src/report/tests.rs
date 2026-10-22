@@ -3,7 +3,7 @@ use core::ptr;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
-use aldebaran_baseline::{nonempty::reference::RefNonempty, span::Span};
+use aldebaran_baseline::{nonempty::RefNonempty, span::Span};
 
 use crate::annotated::{Annotations, InlineAnnotations, label::Label};
 

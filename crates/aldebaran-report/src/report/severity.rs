@@ -72,7 +72,7 @@ impl Metadata {
 impl Metadata {
     /// Select impact and priority explicitly without imposing a relationship between them.
     #[inline]
-    pub const fn from_raw_parts(severity: Severity, importance: Importance) -> Self {
+    pub const fn raw(severity: Severity, importance: Importance) -> Self {
         Self { severity, importance }
     }
 

@@ -23,7 +23,7 @@ pub struct Ansi8Bit(u8);
 impl Ansi8Bit {
     /// Numeric palette slot preserved by indexed-color emission.
     #[inline]
-    pub const fn into_inner(self) -> u8 {
+    pub const fn unwrap(self) -> u8 {
         let Self(inner) = self;
 
         inner
@@ -32,7 +32,7 @@ impl Ansi8Bit {
     /// Select a slot in the terminal's 256-color palette.
     /// Every byte value is a valid index.
     #[inline]
-    pub const fn from_u8(value: u8) -> Self {
+    pub const fn raw(value: u8) -> Self {
         Self(value)
     }
 }

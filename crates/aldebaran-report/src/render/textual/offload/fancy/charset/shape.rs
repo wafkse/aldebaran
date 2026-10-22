@@ -261,13 +261,7 @@ impl Join {
 impl Join {
     /// Configure a crossing and four branches by their outgoing stroke directions.
     #[inline]
-    pub const fn from_raw_parts(
-        four_way: char,
-        left_right_up: char,
-        left_right_down: char,
-        left_up_down: char,
-        right_up_down: char,
-    ) -> Self {
+    pub const fn raw(four_way: char, left_right_up: char, left_right_down: char, left_up_down: char, right_up_down: char) -> Self {
         Self {
             four_way,
             left_right_up,
@@ -469,7 +463,7 @@ impl Corner {
 impl Corner {
     /// Configure turns for the top-left, top-right, bottom-left, and bottom-right positions.
     #[inline]
-    pub const fn from_raw_parts(top_left: char, top_right: char, bottom_left: char, bottom_right: char) -> Self {
+    pub const fn raw(top_left: char, top_right: char, bottom_left: char, bottom_right: char) -> Self {
         Self {
             top_left,
             top_right,

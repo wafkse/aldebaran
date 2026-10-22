@@ -133,7 +133,7 @@ where
 
     /// Consume the bounds as `(minimum, maximum)`.
     #[inline]
-    pub const fn into_pair(self) -> (T, T) {
+    pub const fn partitioned(self) -> (T, T) {
         let Self { min, max } = self;
 
         (min, max)
@@ -168,7 +168,7 @@ pub struct LineRange {
 impl LineRange {
     /// Store the inclusive bounds without reordering them.
     #[inline]
-    pub const fn from_raw_parts(start: NonZero<usize>, end: NonZero<usize>) -> Self {
+    pub const fn raw(start: NonZero<usize>, end: NonZero<usize>) -> Self {
         Self { start, end }
     }
 
@@ -265,7 +265,7 @@ impl Metadata {
     /// Store the supplied bounds and statistics. The caller must ensure they
     /// describe the same line selection.
     #[inline]
-    pub const fn from_raw_parts(line_byte_bounds: Span, line_range: LineRange, line_length: MinMax<usize>) -> Self {
+    pub const fn raw(line_byte_bounds: Span, line_range: LineRange, line_length: MinMax<usize>) -> Self {
         Self {
             line_byte_bounds,
             line_range,
@@ -319,7 +319,7 @@ mod tests {
             (usize::MAX - 1, usize::MAX, &[usize::MAX - 1, usize::MAX][..]),
             (usize::MAX, usize::MAX - 1, &[][..]),
         ] {
-            let range = LineRange::from_raw_parts(
+            let range = LineRange::raw(
                 NonZero::new(start).expect("positive start"),
                 NonZero::new(end).expect("positive end"),
             );

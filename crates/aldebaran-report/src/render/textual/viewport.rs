@@ -11,7 +11,7 @@ use core::num::NonZero;
 
 /// Available terminal dimensions with an independent layout preference.
 ///
-/// [`Self::from_extents`] derives the preference from the dimensions.
+/// [`Self::new`] derives the preference from the dimensions.
 /// [`Self::wide`] and [`Self::tall`] override it without changing the wrapping
 /// width, so layout policy need not follow the terminal's proportions.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
@@ -46,7 +46,7 @@ impl Viewport {
 
     /// Let the dimensions determine the layout preference through [`Extents::shape`].
     #[inline]
-    pub const fn from_extents(extents: Extents) -> Self {
+    pub const fn new(extents: Extents) -> Self {
         let viewport_shape = extents.shape();
 
         Self {
@@ -59,9 +59,9 @@ impl Viewport {
     ///
     /// The explicit shape takes precedence even when it disagrees with the extents,
     /// allowing callers to supply their own layout classification. When the shape
-    /// should follow the dimensions instead, use [`Viewport::from_extents`].
+    /// should follow the dimensions instead, use [`Viewport::new`].
     #[inline]
-    pub const fn from_raw_parts(extents: Extents, shape: ViewportShape) -> Self {
+    pub const fn raw(extents: Extents, shape: ViewportShape) -> Self {
         Self {
             viewport_extents: extents,
             viewport_shape: shape,

@@ -109,7 +109,7 @@ mod tests {
         let settings = FancySettings::tuple((Colored::No, LayoutSettings::marginal(), Charset::UNICODE));
 
         renderer
-            .render_mut_with_input(Present::from_input(settings), &report)
+            .render_mut_with_input(Present::with_input(settings), &report)
             .expect("render diagnostic");
         output
     }
@@ -182,7 +182,7 @@ mod tests {
         let settings = FancySettings::tuple((Colored::No, LayoutSettings::marginal(), Charset::UNICODE));
 
         renderer
-            .render_mut_with_input(Present::from_input(settings), &report)
+            .render_mut_with_input(Present::with_input(settings), &report)
             .expect("render multiple annotations");
         assert!(output.contains("2│ abc\n │  ^\n"), "content annotation moved: {output}");
         assert!(output.contains("3│ \n │ *\n"), "terminal annotation moved: {output}");
@@ -284,7 +284,7 @@ mod tests {
         let settings = FancySettings::tuple((Colored::No, LayoutSettings::standard(), Charset::UNICODE));
 
         renderer
-            .render_mut_with_input(Present::from_input(settings), &report)
+            .render_mut_with_input(Present::with_input(settings), &report)
             .expect("failed to render unicode diagnostic");
 
         assert!(output.contains("let résumé = 1;"));
@@ -324,7 +324,7 @@ mod tests {
             *settings.tab_width_mut() = NonZero::new(width).expect("positive tab interval");
 
             renderer
-                .render_mut_with_input(Present::from_input(settings), &report)
+                .render_mut_with_input(Present::with_input(settings), &report)
                 .expect("render configured tabs");
 
             assert!(output.contains(expected), "incorrect tab interval {width} in {output}");
@@ -341,11 +341,11 @@ mod tests {
         let mut settings = FancySettings::tuple((Colored::No, LayoutSettings::marginal(), Charset::UNICODE));
         let width = NonZero::new(8).expect("positive viewport width");
         let extents = Extents::tuple((width, width));
-        let viewport = Viewport::from_extents(extents);
+        let viewport = Viewport::new(extents);
 
         *settings.tab_width_mut() = width;
 
-        let present = Present::from_raw_parts(settings, viewport);
+        let present = Present::raw(settings, viewport);
 
         renderer.render_mut_with_input(present, &report).expect("render wrapped tabs");
 
@@ -386,7 +386,7 @@ mod tests {
             let settings = FancySettings::tuple((Colored::No, LayoutSettings::marginal(), Charset::UNICODE));
             let mut renderer = Textual::<'_, _, Fancy, _>::new(&mut sink);
 
-            let result = renderer.render_mut_with_input(Present::from_input(settings), &report);
+            let result = renderer.render_mut_with_input(Present::with_input(settings), &report);
 
             assert!(result.is_err(), "sink failure was discarded for {needle}");
             assert!(
@@ -430,7 +430,7 @@ mod tests {
         let settings = FancySettings::tuple((Colored::No, LayoutSettings::marginal(), Charset::UNICODE));
 
         renderer
-            .render_mut_with_input(Present::from_input(settings), &report)
+            .render_mut_with_input(Present::with_input(settings), &report)
             .expect("render equal endpoints");
 
         let positions: Vec<_> = ["first detail", "second detail", "third detail", "fourth detail"]

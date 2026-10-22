@@ -114,7 +114,7 @@ mod tests {
         let mut renderer = Textual::<'_, _, Summarized, _>::new(&mut target_sink);
 
         renderer
-            .render_mut_with_input(Present::from_input(()), &err)
+            .render_mut_with_input(Present::with_input(()), &err)
             .expect("failed to render error");
 
         println!("{}", target_sink);

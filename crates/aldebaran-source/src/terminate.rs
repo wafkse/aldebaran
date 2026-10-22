@@ -83,7 +83,7 @@ where
     /// Store a component context. The caller must ensure the component and span
     /// describe that position in `source`.
     #[inline]
-    pub const fn from_raw_parts(source: &'a S, component: S::Component, span: Span) -> Self {
+    pub const fn raw(source: &'a S, component: S::Component, span: Span) -> Self {
         Self { source, component, span }
     }
 }
@@ -265,7 +265,7 @@ where
 
     /// Return the two terminators that make up this composition.
     #[inline]
-    pub fn into_raw_parts(self) -> (L, R) {
+    pub fn partitioned(self) -> (L, R) {
         let Self { left, right, _marker } = self;
 
         (left, right)
@@ -607,7 +607,7 @@ mod tests {
         let lines: Vec<_> = selection.lines().map(|line| (line.number().get(), line.span().range())).collect();
         assert_eq!(lines, [(2, 3..5)]);
         assert_eq!(selection.metadata().bytes().range(), 3..5);
-        assert_eq!(selection.metadata().length().into_pair(), (2, 2));
+        assert_eq!(selection.metadata().length().partitioned(), (2, 2));
     }
 
     #[test]
@@ -626,7 +626,7 @@ mod tests {
             assert_eq!(selection.metadata(), bytes.metadata());
             assert_eq!(selection.metadata().bytes().range(), extent);
             assert_eq!(selection.metadata().lines().range(), number..=number);
-            assert_eq!(selection.metadata().length().into_pair(), (extent.len(), extent.len()));
+            assert_eq!(selection.metadata().length().partitioned(), (extent.len(), extent.len()));
 
             for _ in 0..2 {
                 let mut lines = selection.lines();
@@ -662,7 +662,7 @@ mod tests {
         for (index, component) in source.char_indices() {
             let width = NonZero::new(component.len_utf8()).expect("a Unicode scalar has a nonzero UTF-8 width");
             let span = Span::new(index, width);
-            let context = TerminatorContext::from_raw_parts(source, component, span);
+            let context = TerminatorContext::raw(source, component, span);
 
             match terminator.state(&context) {
                 Outcome::Continue(()) => (),
@@ -681,7 +681,7 @@ mod tests {
 
         for (index, component) in source.iter().copied().enumerate() {
             let span = Span::unit(index);
-            let context = TerminatorContext::from_raw_parts(source, component, span);
+            let context = TerminatorContext::raw(source, component, span);
 
             match terminator.state(&context) {
                 Outcome::Continue(()) => (),
@@ -700,7 +700,7 @@ mod tests {
 
         for (index, component) in source.char_indices() {
             let span = Span::unit(index);
-            let context = TerminatorContext::from_raw_parts(source, component, span);
+            let context = TerminatorContext::raw(source, component, span);
 
             match terminator.state(&context) {
                 Outcome::Continue(()) => (),

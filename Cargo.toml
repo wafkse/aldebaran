@@ -26,7 +26,6 @@ repository = "https://github.com/wafkse/aldebaran"
 homepage = "https://github.com/wafkse/aldebaran"
 
 [workspace.dependencies]
-allocator-api2 = { version = "0.4.0", default-features = false, features = ["alloc"] }
 aldebaran = { version = "0.1.0", path = "crates/aldebaran" }
 aldebaran-ansi = { version = "0.1.0", path = "crates/aldebaran-ansi" }
 aldebaran-baseline = { version = "0.1.0", path = "crates/aldebaran-baseline" }

@@ -51,8 +51,8 @@ impl LayoutSettings {
         match viewport.shape() {
             ViewportShape::Squarish => Self::marginal(),
             ViewportShape::Rectangular(target_trend) => match target_trend {
-                viewport::Trend::Rightwards => Self::from_raw_parts(HorizontalPadding::tuple((1, 2))),
-                viewport::Trend::Downwards => Self::from_raw_parts(HorizontalPadding::uniform(1)),
+                viewport::Trend::Rightwards => Self::raw(HorizontalPadding::tuple((1, 2))),
+                viewport::Trend::Downwards => Self::raw(HorizontalPadding::uniform(1)),
             },
         }
     }
@@ -69,7 +69,7 @@ impl LayoutSettings {
 
     /// Fix the spaces before and after the digits independently of viewport shape.
     #[inline]
-    pub const fn from_raw_parts(line_no_col_padding: HorizontalPadding) -> Self {
+    pub const fn raw(line_no_col_padding: HorizontalPadding) -> Self {
         Self { line_no_col_padding }
     }
 

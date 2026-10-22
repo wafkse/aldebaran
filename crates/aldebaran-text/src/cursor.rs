@@ -725,7 +725,7 @@ mod tests {
         let mut renderer = Textual::<'_, _, Fancy, _>::new(&mut target_sink);
 
         renderer
-            .render_mut_with_input(Present::from_input(FancySettings::level(Fancyness::Outblown)), &report)
+            .render_mut_with_input(Present::with_input(FancySettings::level(Fancyness::Outblown)), &report)
             .expect("failed to render error");
 
         println!("{}", target_sink);

@@ -58,7 +58,7 @@ impl Charset {
 
     /// Configure framing independently of annotation and directional cues.
     #[inline]
-    pub const fn from_raw_parts(delimit: Delimit, indicator: Indicator) -> Self {
+    pub const fn raw(delimit: Delimit, indicator: Indicator) -> Self {
         Self { delimit, indicator }
     }
 

@@ -69,7 +69,7 @@ impl TextAttribute {
     /// Return the attribute for a supported activation code. Other codes yield
     /// [`Option::None`].
     #[inline]
-    pub const fn from_code(code: u8) -> Option<Self> {
+    pub const fn code(code: u8) -> Option<Self> {
         match code {
             1 => Some(Self::Bold),
             2 => Some(Self::Dim),
@@ -134,7 +134,7 @@ impl Iterator for Attributes {
 
         *target_value &= !(1 << msb);
 
-        TextAttribute::from_code(msb as u8)
+        TextAttribute::code(msb as u8)
     }
 }
 

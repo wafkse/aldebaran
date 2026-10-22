@@ -261,7 +261,7 @@ where
 
     /// Retain the supplied collection order and diagnostic classification.
     #[inline]
-    pub const fn from_raw_parts(source: &'a S, title: T, annotations: Nonempty<A>, kind: K) -> Self {
+    pub const fn raw(source: &'a S, title: T, annotations: Nonempty<A>, kind: K) -> Self {
         Self {
             source,
             annotations,

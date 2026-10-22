@@ -6,7 +6,7 @@
 
 use core::num::NonZero;
 
-use crate::{span::Span, spanned::Spanned};
+use super::{Span, Spanned};
 
 /// A value whose nonempty coordinate extent may be available.
 ///
@@ -67,5 +67,36 @@ where
     #[inline]
     fn maybe_spanned(&self) -> Option<Span> {
         self.as_ref().and_then(MaybeSpanned::maybe_spanned)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{MaybeSpanned, Span, Spanned};
+
+    #[test]
+    fn optional_spans_preserve_coordinates_and_absence() {
+        let span = Span::unit(7);
+
+        assert_eq!(span.span(), span);
+        assert_eq!(span.maybe_spanned(), Some(span));
+        assert_eq!(Some(span).maybe_spanned(), Some(span));
+        assert_eq!(None::<Span>.maybe_spanned(), None);
+        assert_eq!(Some(None::<Span>).maybe_spanned(), None);
+        assert_eq!("".maybe_spanned(), None);
+        assert_eq!("é🦀".maybe_spanned().map(|value| value.range()), Some(0..6));
+    }
+
+    #[test]
+    fn slice_spans_count_elements_through_shared_and_mutable_references() {
+        let mut values = ["é", "🦀"];
+        let shared = values.as_slice();
+
+        assert_eq!(<[&str]>::maybe_spanned(shared).map(|value| value.range()), Some(0..2));
+        assert_eq!(<&[&str]>::maybe_spanned(&shared).map(|value| value.range()), Some(0..2));
+
+        let exclusive = values.as_mut_slice();
+        assert_eq!(<&mut [&str]>::maybe_spanned(&exclusive).map(|value| value.range()), Some(0..2));
+        assert_eq!(exclusive[..0].maybe_spanned(), None);
     }
 }

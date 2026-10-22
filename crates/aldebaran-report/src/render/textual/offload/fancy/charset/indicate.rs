@@ -48,7 +48,7 @@ impl Indicator {
     /// The marker sequence must borrow static storage because the indicator set
     /// can be retained independently of the source being rendered.
     #[inline]
-    pub const fn from_raw_parts(arrow: Arrow, point: Point, connote: Connote, marker: Marker<'static>) -> Self {
+    pub const fn raw(arrow: Arrow, point: Point, connote: Connote, marker: Marker<'static>) -> Self {
         Self {
             arrow,
             point,
@@ -179,7 +179,7 @@ impl Default for Indicator {
 /// Symbols that distinguish diagnostic meanings independently of their text.
 ///
 /// Warning and error symbols are always present. Note and help symbols can be
-/// omitted with [`Self::from_raw_parts`], while the tuple and array constructors
+/// omitted with [`Self::raw`], while the tuple and array constructors
 /// include all four cues.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 // NOTE(invariant): None.
@@ -214,7 +214,7 @@ impl Connote {
 impl Connote {
     /// Configure warning and error symbols with independently optional note and help cues.
     #[inline]
-    pub const fn from_raw_parts(warning: char, error: char, note: Option<char>, help: Option<char>) -> Self {
+    pub const fn raw(warning: char, error: char, note: Option<char>, help: Option<char>) -> Self {
         Self {
             warning,
             error,
@@ -394,7 +394,7 @@ impl Point {
 impl Point {
     /// Assign tips for up, down, left, and right independently of the arrow set.
     #[inline]
-    pub const fn from_raw_parts(up: char, down: char, left: char, right: char) -> Self {
+    pub const fn raw(up: char, down: char, left: char, right: char) -> Self {
         Self { up, down, left, right }
     }
 
@@ -558,7 +558,7 @@ impl Arrow {
 impl Arrow {
     /// Assign arrows for up, down, left, and right independently of their tips.
     #[inline]
-    pub const fn from_raw_parts(up: char, down: char, left: char, right: char) -> Self {
+    pub const fn raw(up: char, down: char, left: char, right: char) -> Self {
         Self { up, down, left, right }
     }
 

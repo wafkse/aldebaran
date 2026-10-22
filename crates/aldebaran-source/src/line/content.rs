@@ -54,7 +54,7 @@ where
     ///
     /// The caller must ensure the span belongs to that view.
     #[inline]
-    pub const fn from_raw_parts(line_content: S::Line, span: Span) -> Self {
+    pub const fn raw(line_content: S::Line, span: Span) -> Self {
         Self { line_content, span }
     }
 }
@@ -91,7 +91,7 @@ where
 
         let line_content = map(line_content);
 
-        LineContent::from_raw_parts(line_content, span)
+        LineContent::raw(line_content, span)
     }
 }
 

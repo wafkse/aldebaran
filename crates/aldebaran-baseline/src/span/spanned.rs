@@ -1,10 +1,10 @@
 //! Required source extents for values exchanged between processing stages.
 //!
 //! [`Spanned`] always supplies a nonempty [`Span`]. Values that may have no
-//! extent use [`MaybeSpanned`](crate::maybe_spanned::MaybeSpanned) instead, while
+//! extent use [`MaybeSpanned`](super::MaybeSpanned) instead, while
 //! both contracts leave the coordinate unit and source identity to their users.
 
-use crate::span::Span;
+use super::Span;
 
 /// A value with a definite [`Span`].
 ///

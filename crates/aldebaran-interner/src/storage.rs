@@ -230,7 +230,7 @@ where
     /// The type tag does not establish that this storage issued the ID.
     #[inline]
     pub fn try_resolve_tagged(&self, tagged_id: TaggedId<S, I>) -> Option<&S> {
-        self.try_resolve(tagged_id.into_inner())
+        self.try_resolve(tagged_id.unwrap())
     }
 }
 

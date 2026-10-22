@@ -14,7 +14,6 @@ edition = "2024"
 [features]
 default = []
 report-codegen = ["aldebaran-report/codegen"]
-allocator = ["aldebaran-baseline/allocator"]
 source-storage = ["aldebaran-interner/source-storage"]
 
 [dependencies]

@@ -35,7 +35,7 @@ where
 {
     /// Use the annotation message as the report heading under the error classification.
     #[inline]
-    pub const fn from_raw_parts(source: &'source S, annotation: A) -> Self {
+    pub const fn raw(source: &'source S, annotation: A) -> Self {
         Self { source, annotation }
     }
 
