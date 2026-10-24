@@ -3,31 +3,24 @@
 //! A long source line can occupy several [`Phase`] values, which share the
 //! rendering context and original source coordinates.
 
-use core::{
-    cmp::Ordering,
-    fmt, iter,
-    iter::FusedIterator,
-    num::{NonZero, NonZeroU32},
-};
+use core::{fmt, num::NonZero, ops::Range};
 
-use alloc::{string::String, vec::Vec};
+use alloc::vec::Vec;
 
-use aldebaran_ansi::{brush::Paintable, predicate::Should, prelude::Style};
+use aldebaran_ansi::prelude::Style;
 use aldebaran_baseline::prelude::Span;
 use aldebaran_print::{
+    layout::TextRow,
     prelude::{Combine, Print},
-    visualize::Visualize,
 };
-use aldebaran_source::prelude::{LineContent, LineSegmented, SourceLines};
-use unicode_width::UnicodeWidthStr;
 
 use crate::annotated::{Annotated, title::Title};
-use crate::render::textual::{
-    offload::fancy::{Colored, FancySettings, Theme},
-    viewport::Viewport,
-};
+use crate::render::textual::offload::fancy::Theme;
 
-use super::{Context, Gutter};
+use super::{
+    Context, Gutter,
+    part::{AnnotationMessage, AnnotationReference, SourcePart, Underline, UnderlineRow, UnderlineSegment},
+};
 
 /// A row of source context and the annotations displayed beneath it.
 ///
@@ -37,54 +30,69 @@ use super::{Context, Gutter};
 /// # Remarks
 ///
 /// A phase can also represent an EOF insertion without stored source content.
-// NOTE(invariant): (Row = Content => Columns = SourceBoundaryColumns(Span, Text))
-// And (Number In Some(Value) => Digits(Value) <= Gutter.DigitWidth)
+// NOTE(invariant): Text.CoordinateSpace = Markers.CoordinateSpace && (LineNumber.IsSome => LineNumber.Digits <= Gutter.LineNumberDigitWidth)
 pub(in crate::render::textual::offload::fancy::detail) struct Phase<'gutter> {
     /// Content shown at this source location.
-    row: Row,
+    row_content: PhaseContent<'gutter>,
 
     /// Source line number, absent on continuation rows.
-    number: Option<NonZero<usize>>,
+    line_number: Option<NonZero<usize>>,
 
     /// Alignment with the other rows of the excerpt.
     gutter: &'gutter Gutter,
 }
 
 /// Content shown by a source row, including an insertion with no stored text.
-enum Row {
+enum PhaseContent<'layout> {
     /// A wrapped portion of a physical source line.
     Content {
-        /// Absolute source extent displayed on this row.
-        span: Span,
-
         /// Exclusive source endpoint of the line's content, before its break.
         content_end: usize,
 
-        /// Text as it appears after the gutter.
-        text: String,
-
-        /// Correspondence between source boundaries and columns after the gutter.
-        columns: Vec<(usize, u32)>,
+        /// Borrowed displayed text and fixed-size terminal cells for this row.
+        text_row: TextRow<'layout>,
     },
+
     /// The insertion position after a final line break.
     Terminal {
         /// Source coordinate of the insertion.
-        boundary: usize,
+        insertion_offset: usize,
     },
 }
 
 impl<'gutter> Phase<'gutter> {
+    /// Present a borrowed source row under the excerpt's gutter.
+    #[inline]
+    pub(in crate::render::textual::offload::fancy::detail) const fn content(
+        text_row: TextRow<'gutter>,
+        content_end: usize,
+        line_number: Option<NonZero<usize>>,
+        gutter: &'gutter Gutter,
+    ) -> Self {
+        let row_content = PhaseContent::Content { content_end, text_row };
+
+        Self {
+            row_content,
+            line_number,
+            gutter,
+        }
+    }
+
     /// Create source context for an insertion after a final line break.
     #[inline]
     pub(in crate::render::textual::offload::fancy::detail) const fn terminal(
-        boundary: usize,
-        number: NonZero<usize>,
+        insertion_offset: usize,
+        line_number: NonZero<usize>,
         gutter: &'gutter Gutter,
     ) -> Self {
-        let row = Row::Terminal { boundary };
-        let number = Some(number);
+        let row_content = PhaseContent::Terminal { insertion_offset };
+        let line_number = Some(line_number);
 
-        Self { row, number, gutter }
+        Self {
+            row_content,
+            line_number,
+            gutter,
+        }
     }
 
     /// Write the source row, numbering only the first row of a wrapped line.
@@ -94,76 +102,171 @@ impl<'gutter> Phase<'gutter> {
         W: fmt::Write,
         T: Theme,
     {
-        let Self { row, number, gutter } = self;
+        let Self {
+            row_content,
+            line_number,
+            gutter,
+        } = self;
 
-        gutter.line(*number, context)?;
+        let source = match row_content {
+            PhaseContent::Content { text_row, .. } => Some(SourcePart(text_row.text())),
+            PhaseContent::Terminal { .. } => None,
+        };
 
-        match row {
-            Row::Content { text, .. } => context.sink.write_str(text)?,
-            Row::Terminal { .. } => {}
-        }
-
-        '\n'.print(context.sink)
+        gutter
+            .prefix(*line_number, context.fancy_settings)
+            .sequence(source)
+            .sequence('\n')
+            .print(context.sink)
     }
 
-    /// Mark visible annotation ranges on separate rows when they overlap,
-    /// retaining caller order for equal endpoints.
-    pub(in crate::render::textual::offload::fancy::detail) fn marker<'a, A, W, T, I>(
+    /// Prepare row geometry once, assign lanes, then print borrowed marker rows.
+    pub(in crate::render::textual::offload::fancy::detail) fn marker<A, W, T, I>(
         &self,
-        annotations: impl Iterator<Item = &'a A>,
+        annotation_record_list: &mut [AnnotationRecord<'_, A>],
+        annotation_index_list: &[usize],
+        marker_layout: &mut MarkerLayout,
         context: &mut Context<'_, '_, W, T, I>,
     ) -> fmt::Result
     where
-        A: Annotated + 'a,
+        A: Annotated,
         W: fmt::Write,
         T: Theme,
         I: Iterator<Item = Style>,
     {
-        let Self { row, gutter, .. } = self;
+        let Self { gutter, .. } = self;
 
-        let mut remaining: Vec<_> = annotations
-            .filter_map(|annotation| self.project(annotation.target()).map(|target| (target, annotation)))
-            .collect();
+        let MarkerLayout {
+            projection_list,
+            underline_segment_list,
+            lane_tree,
+        } = marker_layout;
 
-        remaining.sort_by_key(|(target, _)| target.end());
+        projection_list.clear();
+        underline_segment_list.clear();
 
-        let lanes = Lanes { remaining };
+        for &annotation_index in annotation_index_list {
+            let annotation_record = annotation_record_list.get_mut(annotation_index).ok_or(fmt::Error)?;
 
-        for lane in lanes {
-            gutter.line(None, context)?;
+            let AnnotationRecord {
+                target_span,
+                has_visible_projection,
+                ..
+            } = annotation_record;
 
-            let mut rightmost = match row {
-                Row::Content { span, .. } => span.start(),
-                Row::Terminal { boundary } => *boundary,
-            };
+            let column_range = self.marker_columns(*target_span);
 
-            for (target, annotation) in lane {
-                let (marker, style) = context.marker(annotation.target());
+            *has_visible_projection = column_range.is_some();
 
-                let padding = self.width(rightmost, target.start());
-                let width = self.width(target.start(), target.end()).max(1);
-                let settings = context.settings;
-                let colored = Should::tuple((settings.colored_ref(), Colored::colored));
-
-                ' '.times(padding)
-                    .sequence(marker.times(width).stylable().styled(style).only_when(&colored))
-                    .print(context.sink)?;
-
-                rightmost = target.end();
+            if let Some(column_range) = column_range {
+                projection_list.push(Projection {
+                    annotation_index,
+                    column_range,
+                    lane_index: usize::MIN,
+                    endpoint_order_index: usize::MIN,
+                });
             }
-
-            '\n'.print(context.sink)?;
         }
 
-        Ok(())
+        if let usize::MIN = projection_list.len() {
+            Ok(())
+        } else {
+            projection_list.sort_unstable_by_key(
+                |Projection {
+                     column_range,
+                     annotation_index,
+                     ..
+                 }| (column_range.end, *annotation_index),
+            );
+            lane_tree.reset(projection_list.len());
+
+            for (
+                position,
+                Projection {
+                    column_range,
+                    lane_index,
+                    endpoint_order_index,
+                    ..
+                },
+            ) in projection_list.iter_mut().enumerate()
+            {
+                *lane_index = lane_tree.assign(column_range.start, column_range.end);
+                *endpoint_order_index = position;
+            }
+
+            projection_list.sort_unstable_by_key(
+                |Projection {
+                     lane_index,
+                     endpoint_order_index,
+                     ..
+                 }| (*lane_index, *endpoint_order_index),
+            );
+
+            for Projection {
+                annotation_index,
+                column_range,
+                ..
+            } in projection_list.iter()
+            {
+                let annotation_record = annotation_record_list.get_mut(*annotation_index).ok_or(fmt::Error)?;
+
+                let AnnotationRecord {
+                    target_span,
+                    marker_presentation,
+                    ..
+                } = annotation_record;
+
+                let (marker, style) = *marker_presentation.get_or_insert_with(|| context.marker(*target_span));
+
+                let width = u32::try_from(column_range.end - column_range.start).unwrap_or(u32::MAX);
+                let underline = Underline { marker, style, width };
+
+                let column_range = column_range.clone();
+
+                underline_segment_list.push(UnderlineSegment { column_range, underline });
+            }
+
+            let mut segment_start_index = usize::MIN;
+
+            for lane_projection_list in projection_list.chunk_by(|left, right| {
+                let Projection {
+                    lane_index: left_lane_index,
+                    ..
+                } = left;
+
+                let Projection {
+                    lane_index: right_lane_index,
+                    ..
+                } = right;
+
+                left_lane_index == right_lane_index
+            }) {
+                let segment_end_index = segment_start_index + lane_projection_list.len();
+                let underline_segment_list = underline_segment_list
+                    .get(segment_start_index..segment_end_index)
+                    .ok_or(fmt::Error)?;
+                let colored = context.fancy_settings.colored_ref();
+                let underline_row = UnderlineRow {
+                    underline_segment_list,
+                    colored,
+                };
+
+                gutter
+                    .prefix(None, context.fancy_settings)
+                    .sequence(underline_row)
+                    .sequence('\n')
+                    .print(context.sink)?;
+                segment_start_index = segment_end_index;
+            }
+
+            Ok(())
+        }
     }
 
-    /// Display a message at its annotation's final visible position in this line.
-    ///
-    /// The caller must defer it if the annotation continues onto a later source line.
+    /// Emit a selected message using the row projection and cached marker identity.
     pub(in crate::render::textual::offload::fancy::detail) fn message<A, W, T, I>(
         &self,
-        annotation: &A,
+        annotation_record: &mut AnnotationRecord<'_, A>,
         context: &mut Context<'_, '_, W, T, I>,
     ) -> fmt::Result
     where
@@ -171,330 +274,259 @@ impl<'gutter> Phase<'gutter> {
         <A::Title as Title>::Context: Default,
         W: fmt::Write,
         T: Theme,
-        I: Iterator<Item = Style>,
     {
-        let Self { row, gutter, .. } = self;
+        let Self { row_content, gutter, .. } = self;
 
-        let target = annotation.target();
-        let is_final = match row {
-            Row::Content { span, content_end, .. } => target.end() <= span.end() || span.end() == *content_end,
-            Row::Terminal { .. } => true,
-        };
+        let AnnotationRecord {
+            annotation,
+            target_span,
+            marker_presentation,
+            has_visible_projection,
+            message_emitted,
+            ..
+        } = annotation_record;
 
-        match self.project(target).filter(|_| is_final) {
-            Some(_) => {
-                let (marker, style) = context.marker(target);
+        if *message_emitted || !*has_visible_projection {
+            Ok(())
+        } else {
+            let (should_emit_message, emphasized) = match row_content {
+                PhaseContent::Content { text_row, content_end } => {
+                    let row_end = text_row.source_range().end;
+                    let should_emit_message = target_span.end() <= row_end || row_end == *content_end;
 
-                let settings = context.settings;
-                let colored = Should::tuple((settings.colored_ref(), Colored::colored));
-
-                gutter.line(None, context)?;
-
-                match row {
-                    Row::Content { .. } => {
-                        "  ".sequence('['.stylable().bold().only_when(&colored))
-                            .sequence(marker.stylable().styled(style).only_when(&colored))
-                            .sequence(']'.stylable().bold().only_when(&colored))
-                            .sequence(": ")
-                            .sequence(annotation.message().content())
-                            .sequence('\n')
-                            .print(context.sink)?;
-
-                        gutter.line(None, context)?;
-
-                        '\n'.print(context.sink)
-                    }
-                    Row::Terminal { .. } => "  ["
-                        .sequence(marker.stylable().styled(style).only_when(&colored))
-                        .sequence("]: ")
-                        .sequence(annotation.message().content())
-                        .sequence('\n')
-                        .print(context.sink),
+                    (should_emit_message, true)
                 }
-            }
-            None => Ok(()),
-        }
-    }
+                PhaseContent::Terminal { .. } => (true, false),
+            };
 
-    /// Clip a target to this row, including an insertion at the end of its source line.
-    #[inline]
-    fn project(&self, target: Span) -> Option<Span> {
-        let Self { row, .. } = self;
+            if should_emit_message {
+                let (marker, style) = marker_presentation.ok_or(fmt::Error)?;
 
-        match row {
-            Row::Content { span, content_end, .. } => match target.intersect(*span) {
-                Some(projected) => Some(projected),
-                None => (target == Span::unit(*content_end) && span.end() == *content_end).then_some(target),
-            },
-            Row::Terminal { boundary } => (target == Span::unit(*boundary)).then_some(target),
-        }
-    }
-
-    /// Display width between source boundaries, or zero if either has no column.
-    #[inline]
-    fn width(&self, start: usize, end: usize) -> u32 {
-        let Self { row, .. } = self;
-
-        match row {
-            Row::Content { columns, .. } => {
-                let column = |index| {
-                    columns
-                        .binary_search_by_key(&index, |(source, _)| *source)
-                        .ok()
-                        .and_then(|index| columns.get(index))
-                        .map(|(_, column)| *column)
+                let colored = context.fancy_settings.colored_ref();
+                let reference = AnnotationReference {
+                    marker,
+                    style,
+                    colored,
+                    emphasized,
                 };
+                let annotation = *annotation;
+                let message = AnnotationMessage { annotation, reference };
 
-                match (column(start), column(end)) {
-                    (Some(start), Some(end)) => end.saturating_sub(start),
-                    _ => 0,
+                gutter
+                    .prefix(None, context.fancy_settings)
+                    .sequence("  ")
+                    .sequence(message)
+                    .sequence('\n')
+                    .print(context.sink)?;
+
+                if emphasized {
+                    gutter.prefix(None, context.fancy_settings).sequence('\n').print(context.sink)?;
+                }
+
+                *message_emitted = true;
+            }
+
+            Ok(())
+        }
+    }
+
+    /// Terminal columns to mark for a source target or the final insertion.
+    #[inline]
+    pub(in crate::render::textual::offload::fancy::detail) fn marker_columns(&self, target_span: Span) -> Option<Range<usize>> {
+        let Self { row_content, .. } = self;
+
+        match row_content {
+            PhaseContent::Content { text_row, content_end } => {
+                let is_content_end_insertion = target_span == Span::unit(*content_end);
+                let is_final_content_row = text_row.source_range().end == *content_end;
+
+                if is_content_end_insertion && is_final_content_row {
+                    let insertion_column = text_row.cells().len();
+
+                    Some(insertion_column..insertion_column + 1)
+                } else {
+                    text_row
+                        .columns_for(target_span.range())
+                        .map(|column_range| column_range.start..column_range.end.max(column_range.start + 1))
                 }
             }
-            Row::Terminal { .. } => 0,
+            PhaseContent::Terminal { insertion_offset } => (target_span == Span::unit(*insertion_offset)).then_some(usize::MIN..1),
         }
     }
 }
 
-/// Marker rows whose annotation ranges do not overlap.
-// NOTE(invariant): StableSortedByEnd(Remaining)
-struct Lanes<'a, A> {
-    /// Targets awaiting a row, ordered by their endpoint.
-    remaining: Vec<(Span, &'a A)>,
+/// One annotation retained once for the whole excerpt.
+// NOTE(invariant): MarkerPresentation.IsSome => MarkerPresentation = AssignedPresentation(TargetSpan)
+pub(in crate::render::textual::offload::fancy::detail) struct AnnotationRecord<'a, A> {
+    /// Original report annotation.
+    pub(in crate::render::textual::offload::fancy::detail) annotation: &'a A,
+
+    /// Cached original target coordinates.
+    pub(in crate::render::textual::offload::fancy::detail) target_span: Span,
+
+    /// Last physical line whose content can project the target.
+    pub(in crate::render::textual::offload::fancy::detail) last_line_number: Option<NonZero<usize>>,
+
+    /// Marker identity assigned on its first visible row.
+    pub(in crate::render::textual::offload::fancy::detail) marker_presentation: Option<(char, Style)>,
+
+    /// Whether the current row has a visible projection.
+    pub(in crate::render::textual::offload::fancy::detail) has_visible_projection: bool,
+
+    /// Whether its annotation message has already been written.
+    pub(in crate::render::textual::offload::fancy::detail) message_emitted: bool,
 }
 
-impl<'a, A> Iterator for Lanes<'a, A> {
-    type Item = Vec<(Span, &'a A)>;
+/// An annotation's projected columns and stable lane ordering.
+// NOTE(invariant): ColumnRange.Start < ColumnRange.End
+struct Projection {
+    /// Index into the excerpt's annotation table.
+    annotation_index: usize,
 
-    fn next(&mut self) -> Option<Self::Item> {
-        let &mut Self { ref mut remaining } = self;
+    /// Terminal cells selected on the current row.
+    column_range: Range<usize>,
 
-        let mut lane = Vec::new();
-        let mut overlapping = Vec::new();
-        let mut rightmost = remaining.first().map(|(span, _)| span.start())?;
+    /// Assigned output lane.
+    lane_index: usize,
 
-        for target @ (span, _) in remaining.drain(..) {
-            if span.start() >= rightmost {
-                rightmost = span.end();
-                lane.push(target);
-            } else {
-                overlapping.push(target);
-            }
-        }
-
-        *remaining = overlapping;
-
-        Some(lane)
-    }
+    /// Position in stable endpoint order.
+    endpoint_order_index: usize,
 }
 
-impl<A> FusedIterator for Lanes<'_, A> {}
+/// Scratch storage retained across every physical and wrapped row.
+#[derive(Default)]
+// NOTE(invariant): None.
+pub(in crate::render::textual::offload::fancy::detail) struct MarkerLayout {
+    /// Temporary row projections, sorted without allocating sort storage.
+    projection_list: Vec<Projection>,
 
-/// Wrapped rows for the content of a physical source line.
-///
-/// # Remarks
-///
-/// A row can exceed the viewport width when its first source component is wider,
-/// so wrapping preserves that component rather than splitting it.
-// NOTE(invariant): Start In ValidSourceBoundaries(Content) Union {Content.Span.End}
-pub(in crate::render::textual::offload::fancy::detail) struct Phases<'line, 'source, 'settings, S, T: Theme>
-where
-    S: SourceLines<'source> + ?Sized,
-{
-    /// Line content in the original source coordinates.
-    content: &'line LineContent<'source, S>,
+    /// Prepared marker runs in lane order.
+    underline_segment_list: Vec<UnderlineSegment>,
 
-    /// Source coordinate at which the next row begins.
-    start: usize,
-
-    /// Source line number shown on the first wrapped row.
-    number: NonZero<usize>,
-
-    /// Alignment with the rest of the excerpt.
-    gutter: &'line Gutter,
-
-    /// Presentation policy for the line's text.
-    settings: &'settings FancySettings<T>,
-
-    /// Available row width in terminal cells.
-    viewport: &'settings Viewport,
+    /// First-compatible-lane search tree.
+    lane_tree: LaneTree,
 }
 
-impl<'line, 'source, 'settings, S, T: Theme> Phases<'line, 'source, 'settings, S, T>
-where
-    S: SourceLines<'source> + ?Sized,
-{
-    /// Wrap the line using the render's settings and viewport.
-    #[inline]
-    pub(in crate::render::textual::offload::fancy::detail) const fn new(
-        content: &'line LineContent<'source, S>,
-        number: NonZero<usize>,
-        gutter: &'line Gutter,
-        settings: &'settings FancySettings<T>,
-        viewport: &'settings Viewport,
-    ) -> Self {
-        let start = content.span().start();
+/// Minimum lane endpoints supporting first-compatible placement in logarithmic time.
+#[derive(Default)]
+// NOTE(invariant): LaneEndpointList.IsEmpty Or (LaneEndpointList.Length = 2 * LeafStartIndex And IsPowerOfTwo(LeafStartIndex))
+struct LaneTree {
+    /// Minimum occupied endpoint for each subtree; unused lanes end at zero.
+    lane_endpoint_list: Vec<usize>,
 
-        Self {
-            content,
-            start,
-            number,
-            gutter,
-            settings,
-            viewport,
-        }
-    }
+    /// Index of the first leaf and maximum number of lanes.
+    leaf_start_index: usize,
 }
 
-impl<'line, 'source, S, T: Theme> Iterator for Phases<'line, 'source, '_, S, T>
-where
-    S: SourceLines<'source> + ?Sized,
-    <<S as SourceLines<'source>>::Line as LineSegmented<'source, S>>::View: Visualize,
-{
-    type Item = Result<Phase<'line>, fmt::Error>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let &mut Self {
-            content,
-            ref mut start,
-            number,
-            gutter,
-            settings,
-            viewport,
+impl LaneTree {
+    /// Clear lane endpoints while retaining storage from previous rows.
+    pub(in crate::render::textual::offload::fancy::detail) fn reset(&mut self, lane_count: usize) {
+        let Self {
+            lane_endpoint_list,
+            leaf_start_index,
         } = self;
 
-        let content_span = content.span();
+        *leaf_start_index = lane_count.next_power_of_two();
+        lane_endpoint_list.resize(*leaf_start_index * 2, usize::MIN);
+        lane_endpoint_list.fill(usize::MIN);
+    }
 
-        match (*start).cmp(&content_span.end()) {
-            Ordering::Less => {
-                let text = String::new();
-                let mut visible = VisibleText { text, settings };
-                let mut columns = Vec::new();
-                let mut end = *start;
-                let mut candidate = *start;
-                let mut error = None;
+    /// Select the lowest numbered compatible lane, preserving the old greedy order.
+    pub(in crate::render::textual::offload::fancy::detail) fn assign(&mut self, start_column: usize, end_column: usize) -> usize {
+        let Self {
+            lane_endpoint_list,
+            leaf_start_index,
+        } = self;
 
-                columns.push((end, visible.width()));
+        let mut node_index = 1;
 
-                while candidate < content_span.end() {
-                    candidate += 1;
+        while node_index < *leaf_start_index {
+            let left_child_index = node_index * 2;
 
-                    let Some(length) = NonZero::new(candidate - end) else {
-                        break;
-                    };
+            assert!(left_child_index + 1 < lane_endpoint_list.len(), "lane tree children exist");
 
-                    let relative = Span::new(end - content_span.start(), length);
+            node_index = if lane_endpoint_list[left_child_index] <= start_column {
+                left_child_index
+            } else {
+                left_child_index + 1
+            };
+        }
 
-                    match content.value().window(relative) {
-                        Some(view) => {
-                            let checkpoint = visible.text.len();
+        let lane_index = node_index - *leaf_start_index;
 
-                            match view.visualize(&mut visible) {
-                                Ok(()) => {
-                                    if visible.width() > u32::from(viewport.extents().width()) && end > *start {
-                                        visible.text.truncate(checkpoint);
-                                        break;
-                                    }
+        assert!(node_index < lane_endpoint_list.len(), "selected lane exists");
 
-                                    end = candidate;
-                                    columns.push((end, visible.width()));
-                                }
-                                Err(failure) => {
-                                    error = Some(failure);
-                                    break;
-                                }
-                            }
-                        }
-                        None => continue,
+        lane_endpoint_list[node_index] = end_column;
+
+        while node_index > 1 {
+            node_index /= 2;
+
+            let left_child_index = node_index * 2;
+
+            assert!(left_child_index + 1 < lane_endpoint_list.len(), "lane tree children exist");
+
+            lane_endpoint_list[node_index] = lane_endpoint_list[left_child_index].min(lane_endpoint_list[left_child_index + 1]);
+        }
+
+        lane_index
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::vec::Vec;
+
+    use super::LaneTree;
+
+    #[test]
+    fn logarithmic_lane_assignment_matches_repeated_greedy_passes() {
+        let mut tree = LaneTree::default();
+
+        for count in [1, 16, 257, 32] {
+            let mut indexed_range_list: Vec<_> = (usize::MIN..count)
+                .map(|index| {
+                    let start = index * 73 % 97;
+
+                    (start..start + 1 + index * 19 % 100, index)
+                })
+                .collect();
+
+            indexed_range_list.sort_unstable_by_key(|(range, index)| (range.end, *index));
+
+            let mut pending_range_list: Vec<_> = indexed_range_list.iter().enumerate().collect();
+            let mut expected_lane_list = alloc::vec![usize::MIN; count];
+            let mut lane = usize::MIN;
+
+            while let Some((_, (first, _))) = pending_range_list.first() {
+                let mut rightmost = first.start;
+
+                pending_range_list.retain(|(position, (range, _))| {
+                    if range.start < rightmost {
+                        return true;
                     }
-                }
-                match error {
-                    Some(error) => {
-                        *start = content_span.end();
 
-                        Some(Err(error))
-                    }
-                    None => {
-                        if let Some(length) = NonZero::new(end - *start) {
-                            let span = Span::new(*start, length);
-                            let content_end = content_span.end();
-                            let text = visible.text;
-                            let row = Row::Content {
-                                span,
-                                content_end,
-                                text,
-                                columns,
-                            };
-                            let number = (*start == content_span.start()).then_some(number);
-                            let phase = Phase { row, number, gutter };
+                    assert!(*position < expected_lane_list.len(), "original position exists");
 
-                            *start = end;
+                    expected_lane_list[*position] = lane;
+                    rightmost = range.end;
 
-                            Some(Ok(phase))
-                        } else {
-                            *start = content_span.end();
+                    false
+                });
 
-                            None
-                        }
-                    }
-                }
+                lane += 1;
             }
-            Ordering::Equal | Ordering::Greater => None,
+
+            tree.reset(count);
+
+            let actual_lane_list: Vec<_> = indexed_range_list
+                .iter()
+                .map(|(range, _)| tree.assign(range.start, range.end))
+                .collect();
+
+            assert_eq!(
+                actual_lane_list, expected_lane_list,
+                "lane and marker encounter order must remain stable"
+            );
         }
-    }
-}
-
-impl<'source, S, T: Theme> FusedIterator for Phases<'_, 'source, '_, S, T>
-where
-    S: SourceLines<'source> + ?Sized,
-    <<S as SourceLines<'source>>::Line as LineSegmented<'source, S>>::View: Visualize,
-{
-}
-
-/// Source text with tabs expanded and terminal controls made visible.
-// NOTE(invariant): None.
-struct VisibleText<'settings, T: Theme> {
-    /// Text displayed after the gutter.
-    text: String,
-
-    /// Tab-stop policy for this text.
-    settings: &'settings FancySettings<T>,
-}
-
-impl<T: Theme> VisibleText<'_, T> {
-    /// Terminal cells occupied by the text, saturating at `u32::MAX`.
-    #[inline]
-    fn width(&self) -> u32 {
-        let Self { text, .. } = self;
-
-        u32::try_from(text.width()).unwrap_or(u32::MAX)
-    }
-}
-
-impl<T: Theme> fmt::Write for VisibleText<'_, T> {
-    #[inline]
-    fn write_str(&mut self, source: &str) -> fmt::Result {
-        for character in source.chars() {
-            self.write_char(character)?;
-        }
-
-        Ok(())
-    }
-
-    #[inline]
-    fn write_char(&mut self, character: char) -> fmt::Result {
-        let &mut Self { ref mut text, settings } = self;
-
-        match character {
-            '\t' => {
-                let width = NonZeroU32::from(settings.tab_width()).get();
-                let padding = width - u32::try_from(text.width()).unwrap_or(u32::MAX) % width;
-
-                text.extend(iter::repeat_n(' ', padding as usize));
-            }
-            character if character.is_control() => text.push(char::REPLACEMENT_CHARACTER),
-            character => text.push(character),
-        }
-
-        Ok(())
     }
 }

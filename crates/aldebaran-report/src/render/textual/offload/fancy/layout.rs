@@ -1,4 +1,4 @@
-//! Gutter spacing between the margin, line numbers, and source separator.
+//! Gutter spacing between the margin, line numbers, separator, and source.
 //!
 //! [`LayoutSettings`] uses [`padding::HorizontalPadding`] to add spaces around
 //! the digit column. [`Fancy`] reserves the same gutter width on source, marker,
@@ -11,9 +11,71 @@ pub mod padding;
 
 use padding::HorizontalPadding;
 
+use core::{fmt, num::NonZero};
+
+use aldebaran_print::prelude::{Combine, Print};
+
 use crate::render::textual::viewport::{self, Viewport, ViewportShape};
 
-/// Extra spaces on either side of [`Fancy`]'s line-number digits.
+use super::run::GlyphRun;
+
+/// Spacing immediately after the gutter separator and before source or markers.
+///
+/// Tabs expand to spaces, with their stops measured from immediately after the
+/// separator. Their configured width is independent of the destination's tab
+/// stops and of tabs within source text.
+#[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+pub enum SourceSpacing {
+    /// A nonzero number of spaces.
+    Spaces {
+        /// Number of spaces to emit.
+        amount: NonZero<u32>,
+    },
+
+    /// A nonzero number of tabs, each occupying the configured number of cells.
+    Tabs {
+        /// Number of spaces occupied by each tab.
+        width: NonZero<u32>,
+
+        /// Number of tabs to expand.
+        amount: NonZero<u32>,
+    },
+}
+
+impl Default for SourceSpacing {
+    #[inline]
+    fn default() -> Self {
+        Self::Spaces {
+            amount: NonZero::<u32>::MIN,
+        }
+    }
+}
+
+impl Print for SourceSpacing {
+    type Context = ();
+
+    #[inline]
+    fn print_with_context<W>(&self, writer: &mut W, _: &Self::Context) -> fmt::Result
+    where
+        W: fmt::Write,
+    {
+        match *self {
+            Self::Spaces { amount } => GlyphRun {
+                glyph: ' ',
+                count: amount.get(),
+            }
+            .print(writer),
+            Self::Tabs { width, amount } => GlyphRun {
+                glyph: ' ',
+                count: width.get(),
+            }
+            .times(amount.get())
+            .print(writer),
+        }
+    }
+}
+
+/// Spacing around [`Fancy`]'s line-number digits and after the source separator.
 ///
 /// The digit column is sized to the largest displayed line number. These spaces
 /// widen that gutter without reducing the viewport width used for source
@@ -26,6 +88,9 @@ use crate::render::textual::viewport::{self, Viewport, ViewportShape};
 pub struct LayoutSettings {
     /// Spaces before the digit column and between the digits and source separator.
     line_no_col_padding: HorizontalPadding,
+
+    /// Shared indentation for source, marker, and message rows after the separator.
+    source_spacing: SourceSpacing,
 }
 
 impl LayoutSettings {
@@ -62,15 +127,22 @@ impl LayoutSettings {
     /// Keep only the width needed for the line-number digits, as [`Default`] does.
     #[inline]
     pub const fn marginal() -> Self {
-        let line_no_col_padding = HorizontalPadding::uniform(0);
+        let line_no_col_padding = HorizontalPadding::uniform(u32::MIN);
 
-        Self { line_no_col_padding }
+        Self::raw(line_no_col_padding)
     }
 
     /// Fix the spaces before and after the digits independently of viewport shape.
     #[inline]
     pub const fn raw(line_no_col_padding: HorizontalPadding) -> Self {
-        Self { line_no_col_padding }
+        let source_spacing = SourceSpacing::Spaces {
+            amount: NonZero::<u32>::MIN,
+        };
+
+        Self {
+            line_no_col_padding,
+            source_spacing,
+        }
     }
 
     /// Spaces before the digit column and before the source separator.
@@ -79,5 +151,23 @@ impl LayoutSettings {
         let &Self { line_no_col_padding, .. } = self;
 
         line_no_col_padding
+    }
+
+    /// Indentation immediately after the separator, defaulting to one space.
+    #[inline]
+    pub const fn source_spacing(&self) -> SourceSpacing {
+        let &Self { source_spacing, .. } = self;
+
+        source_spacing
+    }
+
+    /// Change indentation shared by source, marker, and message rows.
+    #[inline]
+    pub const fn source_spacing_mut(&mut self) -> &mut SourceSpacing {
+        let &mut Self {
+            ref mut source_spacing, ..
+        } = self;
+
+        source_spacing
     }
 }

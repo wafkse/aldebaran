@@ -1,10 +1,15 @@
 //! Styled diagnostics with annotated source excerpts.
 
 pub mod charset;
-mod detail;
+
 pub mod layout;
+
 pub mod setting;
+
 pub mod theme;
+
+mod detail;
+mod run;
 
 pub use self::{
     layout::LayoutSettings,
@@ -32,8 +37,11 @@ use crate::render::textual::{Offload, OffloadContext};
 /// Annotation targets use the source's original coordinates, including UTF-8
 /// byte offsets for strings.
 ///
-/// Layout, however, uses terminal cells. Tabs follow [`FancySettings::tab_width`],
-/// while other control characters appear as replacement glyphs.
+/// Layout uses [`aldebaran_print::layout::TextLayout`] for grapheme segmentation,
+/// source projection, and terminal cells. Clusters stay intact across wrapped rows.
+/// Tabs follow [`FancySettings::tab_width`], while other control characters
+/// appear as replacement glyphs. Annotation columns come from the same cells
+/// used to lay out the displayed text.
 ///
 /// # Remarks
 ///
@@ -93,7 +101,7 @@ mod tests {
             RenderMut,
             textual::{
                 Present, Textual,
-                offload::fancy::{Colored, FancySettings, LayoutSettings, charset::Charset},
+                offload::fancy::{Colored, FancySettings, LayoutSettings, charset::Charset, layout::SourceSpacing},
             },
         },
     };
@@ -356,6 +364,57 @@ mod tests {
     }
 
     #[test]
+    fn source_spacing_aligns_wrapped_source_markers_messages_and_terminal_rows() {
+        let three = NonZero::new(3).expect("positive spacing");
+        let four = NonZero::new(4).expect("positive tab width");
+        let two = NonZero::new(2).expect("positive tab count");
+
+        for (spacing, indentation) in [
+            (SourceSpacing::Spaces { amount: three }, "   "),
+            (SourceSpacing::Tabs { width: four, amount: two }, "        "),
+            (
+                SourceSpacing::Tabs {
+                    width: three,
+                    amount: NonZero::<u32>::MIN,
+                },
+                "   ",
+            ),
+        ] {
+            let source = "z\n".repeat(9) + "a\tx" + &"a".repeat(140) + "\n";
+
+            for (target, expected) in [
+                (Span::unit(20), format!("  │{indentation}    ^\n")),
+                (Span::unit(source.len()), format!("11│{indentation}\n  │{indentation}^\n")),
+            ] {
+                let report = oneshot::single(source.as_str(), Label::new("spacing detail", target));
+                let mut output = String::new();
+                let mut renderer = Textual::<'_, _, Fancy, _>::new(&mut output);
+                let mut layout = LayoutSettings::marginal();
+
+                *layout.source_spacing_mut() = spacing;
+
+                let settings = FancySettings::tuple((Colored::No, layout, Charset::UNICODE));
+
+                renderer
+                    .render_mut_with_input(Present::with_input(settings), &report)
+                    .expect("render configured source spacing");
+
+                assert!(output.contains(&format!("10│{indentation}a   x")), "source tabs changed: {output}");
+                assert!(
+                    output.contains(&format!("  │{indentation}aaaaa\n")),
+                    "wrapped source moved: {output}"
+                );
+                assert!(output.contains(&expected), "markers moved: {output}");
+                assert!(
+                    output.contains(&format!("  │{indentation}  [^]: spacing detail\n")),
+                    "message moved: {output}"
+                );
+                assert!(!output.contains('\t'), "configured tabs must have deterministic width: {output}");
+            }
+        }
+    }
+
+    #[test]
     fn sink_failures_propagate_from_source_markers_and_messages() {
         enum Reject<'a> {
             Pending(&'a str),
@@ -455,5 +514,56 @@ mod tests {
             "final line markers are missing: {output}"
         );
         assert_eq!(output.matches("[^]: annotation detail").count(), 1);
+    }
+
+    #[test]
+    fn annotations_inside_clusters_mark_the_entire_grapheme() {
+        let output = render_target("e\u{301}!", Span::new(1, NonZero::new(2).expect("accent bytes")));
+
+        assert!(
+            output.contains("1│ e\u{301}!\n │ ^\n"),
+            "accent must highlight the base cluster: {output}"
+        );
+
+        let family = "👨‍👩‍👧‍👦";
+        let source = "a".repeat(139) + family + "!";
+        let output = render_target(
+            &source,
+            Span::new(139 + "👨‍".len(), NonZero::new("👩".len()).expect("emoji scalar")),
+        );
+
+        assert!(
+            output.contains(&("1│ ".to_owned() + &"a".repeat(139) + "\n")),
+            "family must wrap intact: {output}"
+        );
+        assert!(
+            output.contains(" │ 👨‍👩‍👧‍👦!\n │ ^^\n"),
+            "partial emoji target must select both family cells: {output}"
+        );
+        assert_eq!(output.matches("annotation detail").count(), 1, "one annotation emits one message");
+    }
+
+    #[test]
+    fn disjoint_source_ranges_sharing_a_cluster_use_separate_marker_lanes() {
+        use aldebaran_baseline::prelude::RefNonempty;
+
+        let source = "e\u{301}";
+        let base = Label::new("base", Span::unit(0));
+        let accent = [Label::new("accent", Span::new(1, NonZero::new(2).expect("accent bytes")))];
+        let report = oneshot::many(source, "shared cell", RefNonempty::multiple(&base, &accent));
+        let mut output = String::new();
+        let mut renderer = Textual::<'_, _, Fancy, _>::new(&mut output);
+        let settings = FancySettings::tuple((Colored::No, LayoutSettings::marginal(), Charset::UNICODE));
+
+        renderer
+            .render_mut_with_input(Present::with_input(settings), &report)
+            .expect("render shared cluster");
+
+        assert!(
+            output.contains("1│ e\u{301}\n │ ^\n │ *\n"),
+            "annotations overlap in cells and require separate lanes: {output}"
+        );
+        assert_eq!(output.matches("[^]: base").count(), 1);
+        assert_eq!(output.matches("[*]: accent").count(), 1);
     }
 }

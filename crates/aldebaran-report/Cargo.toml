@@ -19,10 +19,9 @@ aldebaran-report-macro = { workspace = true, optional = true }
 aldebaran-ansi.workspace = true
 aldebaran-baseline.workspace = true
 aldebaran-logic.workspace = true
-aldebaran-print.workspace = true
+aldebaran-print = { workspace = true, features = ["alloc"] }
 aldebaran-source.workspace = true
 hashbrown.workspace = true
-unicode-width.workspace = true
 
 [lints]
 workspace = true
