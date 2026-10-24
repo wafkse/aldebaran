@@ -94,6 +94,11 @@ impl<'source> LineSegmented<'source, str> for &'source str {
 
         self.get(target_range)
     }
+
+    #[inline]
+    fn as_str(&self) -> Option<&str> {
+        Some(self)
+    }
 }
 
 impl<'a> SourceDiff<'a> for str {

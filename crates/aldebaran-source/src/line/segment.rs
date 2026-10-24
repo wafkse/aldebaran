@@ -50,6 +50,16 @@ where
     /// `None` means the window is out of bounds or not representable. For
     /// string views both endpoints must be UTF-8 boundaries.
     fn window(&self, span: Span) -> Option<Self::View>;
+
+    /// Borrow the complete content when its source coordinates are UTF-8 byte offsets.
+    ///
+    /// The returned text must match this line's visualization exactly, and every
+    /// byte offset must retain its original source coordinate. Other line
+    /// representations leave this unavailable and use their windows instead.
+    #[inline]
+    fn as_str(&self) -> Option<&str> {
+        None
+    }
 }
 
 /// A line window retaining the annotation that selected it.
