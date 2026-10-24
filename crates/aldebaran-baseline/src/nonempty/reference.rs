@@ -115,8 +115,7 @@ mod tests {
     fn copying_a_borrowed_view_does_not_require_copy_elements() {
         /// A value that deliberately implements neither `Copy` nor `Clone`.
         #[derive(Debug, PartialEq, Eq)]
-        // NOTE(invariant): None.
-        struct Value(u32);
+        struct Value(pub u32);
 
         let first = Value(1);
         let rest = [Value(2)];
