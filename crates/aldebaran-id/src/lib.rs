@@ -1,4 +1,7 @@
+#![doc = include_str!("../../../docs/part/COMPONENT.md")]
 #![doc = include_str!("../README.md")]
+#![doc = include_str!("../../../docs/part/FACADE.md")]
+#![doc = include_str!("../../../docs/part/LICENSE.md")]
 #![cfg_attr(not(test), no_std)]
 
 extern crate alloc;

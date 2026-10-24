@@ -1,4 +1,7 @@
+#![doc = include_str!("../../../../docs/part/COMPONENT.md")]
 #![doc = include_str!("../README.md")]
+#![doc = include_str!("../../../../docs/part/FACADE.md")]
+#![doc = include_str!("../../../../docs/part/LICENSE.md")]
 
 use proc_macro::TokenStream;
 
@@ -872,11 +875,14 @@ impl Param {
             let conjunctive = metadata.conjunctive == Some(true);
             let disjunctive = metadata.disjunctive == Some(true);
 
-            match (conjunctive, disjunctive) {
-                (true, false) => Ok(Self::Conjunctive),
-                (false, true) => Ok(Self::Disjunctive),
-                (true, true) => Err(Error::new(attr_span, "assertion policy cannot be both conjunctive and disjunctive")),
-                (false, false) => Err(Error::new(attr_span, "expected conjunctive or disjunctive assertion metadata")),
+            if conjunctive && disjunctive {
+                Err(Error::new(attr_span, "assertion policy cannot be both conjunctive and disjunctive"))
+            } else if conjunctive {
+                Ok(Self::Conjunctive)
+            } else if disjunctive {
+                Ok(Self::Disjunctive)
+            } else {
+                Err(Error::new(attr_span, "expected conjunctive or disjunctive assertion metadata"))
             }
         }
     }

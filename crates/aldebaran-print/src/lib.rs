@@ -1,5 +1,14 @@
 #![no_std]
+#![doc = include_str!("../../../docs/part/COMPONENT.md")]
 #![doc = include_str!("../README.md")]
+#![doc = include_str!("../../../docs/part/FACADE.md")]
+#![doc = include_str!("../../../docs/part/LICENSE.md")]
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
+#[cfg(feature = "alloc")]
+pub mod layout;
 
 pub mod combine;
 pub mod print;

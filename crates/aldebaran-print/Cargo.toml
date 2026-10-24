@@ -10,5 +10,13 @@ homepage.workspace = true
 documentation = "https://docs.rs/aldebaran-print"
 edition = "2024"
 
+[features]
+default = []
+alloc = ["dep:unicode-segmentation", "dep:unicode-width"]
+
+[dependencies]
+unicode-segmentation = { workspace = true, optional = true }
+unicode-width = { workspace = true, optional = true }
+
 [lints]
 workspace = true

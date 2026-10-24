@@ -1,4 +1,5 @@
 #![doc = include_str!("../README.md")]
+#![doc = include_str!("../../../docs/part/LICENSE.md")]
 #![no_std]
 
 pub use aldebaran_ansi as ansi;
