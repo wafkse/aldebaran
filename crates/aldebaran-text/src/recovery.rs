@@ -148,6 +148,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`recovery`] module.
+    //!
+    //! [`recovery`]: super
+
     use super::{AnyOf, Recover, Skip, Until};
     use crate::cursor::Cursor;
 

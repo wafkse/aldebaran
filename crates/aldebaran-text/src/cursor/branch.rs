@@ -89,6 +89,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`branch`] module.
+    //!
+    //! [`branch`]: super
+
     use crate::cursor::Cursor;
 
     #[test]

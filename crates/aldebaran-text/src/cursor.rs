@@ -566,6 +566,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`cursor`] module.
+    //!
+    //! [`cursor`]: super
+
     use alloc::string::String;
     use core::num::NonZero;
 
