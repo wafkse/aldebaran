@@ -426,6 +426,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`storage`] module.
+    //!
+    //! [`storage`]: super
+
     use alloc::{borrow::Cow, format, string::String, vec::Vec};
 
     use crate::{borrow::BorrowInterner, owned::OwnedInterner};
