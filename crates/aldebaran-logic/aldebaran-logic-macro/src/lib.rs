@@ -17,6 +17,48 @@ use syn::{
     spanned::Spanned,
 };
 
+/// Runtime namespace selected by the declaration's dependency policy.
+/// Resolution accepts Cargo aliases and uses the facade unless direct dependency
+/// metadata is present.
+#[derive(Debug)]
+// NOTE(invariant): Tokens = AccessibleRuntimeNamespace(DeclarationPolicy)
+struct RuntimePath(
+    /// Resolved namespace providing the generated implementation's runtime contracts.
+    TokenStream2,
+);
+
+impl RuntimePath {
+    /// Resolve the runtime namespace after admitting at most one dependency policy.
+    fn resolve(attributes: &[syn::Attribute]) -> syn::Result<Self> {
+        let policy = attributes
+            .iter()
+            .filter(|attribute| attribute.path().is_ident("aldebaran"))
+            .try_fold(None, |policy, attribute| match policy {
+                None => attribute.parse_args::<syn::Token![crate]>().map(Some),
+                Some(_) => Err(syn::Error::new_spanned(attribute, "duplicate aldebaran dependency policy")),
+            })?;
+
+        let local = policy.is_some();
+
+        let dependency = if local { "aldebaran-logic" } else { "aldebaran" };
+        let found = proc_macro_crate::crate_name(dependency)
+            .map_err(|error| syn::Error::new(Span2::call_site(), format!("failed to resolve {dependency}: {error}")))?;
+
+        let path = match found {
+            proc_macro_crate::FoundCrate::Itself => quote!(crate),
+            proc_macro_crate::FoundCrate::Name(name) => {
+                let ident = quote::format_ident!("{}", name);
+
+                quote!(::#ident)
+            }
+        };
+
+        let runtime = if local { path } else { quote!(#path::rexport::aldebaran_logic) };
+
+        Ok(Self(runtime))
+    }
+}
+
 /// A generated type parameter must not collide with declared type or const parameters.
 fn fresh(generics: &Generics, base: &str) -> Ident {
     let mut name = base.to_owned();
@@ -32,17 +74,23 @@ fn fresh(generics: &Generics, base: &str) -> Ident {
     Ident::new(&name, Span2::call_site())
 }
 
-#[proc_macro_derive(Choose)]
+#[proc_macro_derive(Choose, attributes(aldebaran))]
 /// Derive [`Choose`](https://docs.rs/aldebaran-logic/latest/aldebaran_logic/choose/trait.Choose.html)
 /// for a type implementing [`Assert`](https://docs.rs/aldebaran-logic/latest/aldebaran_logic/assert/trait.Assert.html)
 /// and [`Clone`]. Accepted inputs return a clone of the value.
 #[inline]
 pub fn derive_choose(input: TokenStream) -> TokenStream {
     let DeriveInput {
+        attrs,
         ident: name_ident,
         generics,
         ..
     } = syn::parse_macro_input!(input as DeriveInput);
+
+    let RuntimePath(runtime) = match RuntimePath::resolve(&attrs) {
+        Ok(runtime) => runtime,
+        Err(error) => return error.into_compile_error().into(),
+    };
 
     let (.., ty_generics, _) = generics.split_for_impl();
 
@@ -50,25 +98,23 @@ pub fn derive_choose(input: TokenStream) -> TokenStream {
 
     let mut choose_generics = generics.clone();
 
-    choose_generics
-        .params
-        .push(parse_quote!(#choose_ty: ::aldebaran_logic::prelude::Input));
+    choose_generics.params.push(parse_quote!(#choose_ty: #runtime::prelude::Input));
 
     choose_generics
         .make_where_clause()
         .predicates
-        .push(parse_quote!(Self: ::aldebaran_logic::prelude::Assert<#choose_ty> + ::core::clone::Clone));
+        .push(parse_quote!(Self: #runtime::prelude::Assert<#choose_ty> + ::core::clone::Clone));
 
     let (impl_generics, _, where_clause) = choose_generics.split_for_impl();
 
     TokenStream::from(quote! {
         #[automatically_derived]
-        impl #impl_generics ::aldebaran_logic::prelude::Choose<#choose_ty> for #name_ident #ty_generics #where_clause {
+        impl #impl_generics #runtime::prelude::Choose<#choose_ty> for #name_ident #ty_generics #where_clause {
             type Unit = Self;
 
             #[inline]
             fn choose(&self, input: #choose_ty) -> ::core::option::Option<Self::Unit> {
-                if ::aldebaran_logic::prelude::Assert::assert(self, input) {
+                if #runtime::prelude::Assert::assert(self, input) {
                     ::core::option::Option::Some(::core::clone::Clone::clone(self))
                 } else {
                     ::core::option::Option::None
@@ -94,7 +140,7 @@ pub fn derive_choose(input: TokenStream) -> TokenStream {
 ///
 /// A struct or each enum variant requires exactly one supported attribute.
 /// Enums use the active variant's rule, and unions are unsupported.
-#[proc_macro_derive(Assert, attributes(assert))]
+#[proc_macro_derive(Assert, attributes(assert, aldebaran))]
 #[inline]
 pub fn derive_assert(input: TokenStream) -> TokenStream {
     let DeriveInput {
@@ -104,6 +150,11 @@ pub fn derive_assert(input: TokenStream) -> TokenStream {
         data,
         ..
     } = syn::parse_macro_input!(input as _);
+
+    let RuntimePath(runtime) = match RuntimePath::resolve(&attribute_list) {
+        Ok(runtime) => runtime,
+        Err(error) => return error.into_compile_error().into(),
+    };
 
     let target_code: syn::Result<TokenStream2> = 'a: {
         let target_input = match data {
@@ -165,7 +216,7 @@ pub fn derive_assert(input: TokenStream) -> TokenStream {
             Data::Union(..) => break 'a Err(Error::new(Span2::call_site(), "union not supported")),
         };
 
-        match target_input.map(Target::expand) {
+        match target_input.map(|target| target.expand(&runtime)) {
             Ok(Ok(target_code)) => Ok(target_code),
             Ok(Err(target_error)) | Err(target_error) => Err(target_error),
         }
@@ -190,10 +241,10 @@ enum Target {
 impl Target {
     /// Produce acceptance and descriptions governed by the declaration's rule.
     #[inline]
-    pub fn expand(self) -> syn::Result<TokenStream2> {
+    pub fn expand(self, runtime: &TokenStream2) -> syn::Result<TokenStream2> {
         match self {
-            Target::Struct(target_struct) => target_struct.expand(),
-            Target::Enum(target_enum) => target_enum.expand(),
+            Target::Struct(target_struct) => target_struct.expand(runtime),
+            Target::Enum(target_enum) => target_enum.expand(runtime),
         }
     }
 }
@@ -219,7 +270,7 @@ struct Struct {
 
 impl Struct {
     /// Apply the struct's rule to acceptance and descriptions for a shared input type.
-    pub fn expand(self) -> syn::Result<TokenStream2> {
+    pub fn expand(self, runtime: &TokenStream2) -> syn::Result<TokenStream2> {
         let Self {
             param,
             generics,
@@ -234,9 +285,7 @@ impl Struct {
 
         let mut assert_generics = generics.clone();
 
-        assert_generics
-            .params
-            .push(parse_quote!(#assert_ty: ::aldebaran_logic::prelude::Input));
+        assert_generics.params.push(parse_quote!(#assert_ty: #runtime::prelude::Input));
 
         match param {
             Param::Conjunctive | Param::Disjunctive => {
@@ -262,14 +311,14 @@ impl Struct {
 
                         let (connective, binary_connective, precedence) = match param {
                             Param::Conjunctive => (
-                                quote! { ::aldebaran_logic::fmt::Connective::AND },
-                                quote! { ::aldebaran_logic::fmt::BinaryConnective::AND },
-                                quote! { ::aldebaran_logic::fmt::Precedence::AND },
+                                quote! { #runtime::fmt::Connective::AND },
+                                quote! { #runtime::fmt::BinaryConnective::AND },
+                                quote! { #runtime::fmt::Precedence::AND },
                             ),
                             Param::Disjunctive => (
-                                quote! { ::aldebaran_logic::fmt::Connective::OR },
-                                quote! { ::aldebaran_logic::fmt::BinaryConnective::OR },
-                                quote! { ::aldebaran_logic::fmt::Precedence::OR },
+                                quote! { #runtime::fmt::Connective::OR },
+                                quote! { #runtime::fmt::BinaryConnective::OR },
+                                quote! { #runtime::fmt::Precedence::OR },
                             ),
                             _ => unreachable!(),
                         };
@@ -290,7 +339,7 @@ impl Struct {
                             },
                             quote! {
                                 #(
-                                    ::aldebaran_logic::prelude::Assert::<#assert_ty>::assert(#ident_iter, input) #operator_token
+                                    #runtime::prelude::Assert::<#assert_ty>::assert(#ident_iter, input) #operator_token
                                 )*
 
                                 #last_cond
@@ -299,13 +348,13 @@ impl Struct {
                                 F::start(writer, #connective, target_precedence)?;
 
                                 #(
-                                    ::aldebaran_logic::prelude::Assert::<#assert_ty>::output_with::<W, F>(#output_ident, writer, #precedence)?;
+                                    #runtime::prelude::Assert::<#assert_ty>::output_with::<W, F>(#output_ident, writer, #precedence)?;
 
                                     F::middle(writer, #binary_connective, target_precedence)?;
                                 )*
 
                                 #(
-                                    ::aldebaran_logic::prelude::Assert::<#assert_ty>::output_with::<W, F>(#last_output, writer, #precedence)?;
+                                    #runtime::prelude::Assert::<#assert_ty>::output_with::<W, F>(#last_output, writer, #precedence)?;
                                 )*
 
                                 F::end(writer, #connective, target_precedence)?;
@@ -322,14 +371,14 @@ impl Struct {
 
                         let (connective, binary_connective, precedence) = match param {
                             Param::Conjunctive => (
-                                quote! { ::aldebaran_logic::fmt::Connective::AND },
-                                quote! { ::aldebaran_logic::fmt::BinaryConnective::AND },
-                                quote! { ::aldebaran_logic::fmt::Precedence::AND },
+                                quote! { #runtime::fmt::Connective::AND },
+                                quote! { #runtime::fmt::BinaryConnective::AND },
+                                quote! { #runtime::fmt::Precedence::AND },
                             ),
                             Param::Disjunctive => (
-                                quote! { ::aldebaran_logic::fmt::Connective::OR },
-                                quote! { ::aldebaran_logic::fmt::BinaryConnective::OR },
-                                quote! { ::aldebaran_logic::fmt::Precedence::OR },
+                                quote! { #runtime::fmt::Connective::OR },
+                                quote! { #runtime::fmt::BinaryConnective::OR },
+                                quote! { #runtime::fmt::Precedence::OR },
                             ),
                             _ => unreachable!(),
                         };
@@ -354,7 +403,7 @@ impl Struct {
                             },
                             quote! {
                                 #(
-                                    ::aldebaran_logic::prelude::Assert::<#assert_ty>::assert(#ident_iter, input) #operator_token
+                                    #runtime::prelude::Assert::<#assert_ty>::assert(#ident_iter, input) #operator_token
                                 )*
 
                                 #last_cond
@@ -363,13 +412,13 @@ impl Struct {
                                 F::start(writer, #connective, target_precedence)?;
 
                                 #(
-                                    ::aldebaran_logic::prelude::Assert::<#assert_ty>::output_with::<W, F>(#output_ident, writer, #precedence)?;
+                                    #runtime::prelude::Assert::<#assert_ty>::output_with::<W, F>(#output_ident, writer, #precedence)?;
 
                                     F::middle(writer, #binary_connective, target_precedence)?;
                                 )*
 
                                 #(
-                                    ::aldebaran_logic::prelude::Assert::<#assert_ty>::output_with::<W, F>(#last_output, writer, #precedence)?;
+                                    #runtime::prelude::Assert::<#assert_ty>::output_with::<W, F>(#last_output, writer, #precedence)?;
                                 )*
 
                                 F::end(writer, #connective, target_precedence)?;
@@ -384,14 +433,14 @@ impl Struct {
                     assert_generics
                         .make_where_clause()
                         .predicates
-                        .push(parse_quote!(#ty: ::aldebaran_logic::prelude::Assert<#assert_ty>));
+                        .push(parse_quote!(#ty: #runtime::prelude::Assert<#assert_ty>));
                 }
 
                 let (impl_generics, _, where_clause) = assert_generics.split_for_impl();
 
                 Ok(quote! {
                     #[automatically_derived]
-                    impl #impl_generics ::aldebaran_logic::prelude::Assert<#assert_ty> for #name_ident #ty_generics #where_clause
+                    impl #impl_generics #runtime::prelude::Assert<#assert_ty> for #name_ident #ty_generics #where_clause
                     {
                         #[inline]
                         fn assert(&self, input: #assert_ty) -> bool {
@@ -401,10 +450,10 @@ impl Struct {
                         }
 
                         #[inline]
-                        fn output_with<W, F>(target_value: &Self, writer: &mut W, target_precedence: ::aldebaran_logic::fmt::Precedence) -> ::core::fmt::Result
+                        fn output_with<W, F>(target_value: &Self, writer: &mut W, target_precedence: #runtime::fmt::Precedence) -> ::core::fmt::Result
                         where
                             W: ::core::fmt::Write,
-                            F: ::aldebaran_logic::fmt::Formatter
+                            F: #runtime::fmt::Formatter
                         {
                             let #field_pat = target_value;
 
@@ -419,30 +468,30 @@ impl Struct {
                 assert_generics
                     .make_where_clause()
                     .predicates
-                    .push(parse_quote!(#expr_ty: ::aldebaran_logic::prelude::Assert<#assert_ty>));
+                    .push(parse_quote!(#expr_ty: #runtime::prelude::Assert<#assert_ty>));
 
                 let (impl_generics, _, where_clause) = assert_generics.split_for_impl();
 
                 let tokens = quote! {
                     #[automatically_derived]
-                    impl #impl_generics ::aldebaran_logic::prelude::Assert<#assert_ty> for #name_ident #ty_generics #where_clause
+                    impl #impl_generics #runtime::prelude::Assert<#assert_ty> for #name_ident #ty_generics #where_clause
                     {
                         #[inline]
                         fn assert(&self, input: #assert_ty) -> bool {
                             let target_expr: #expr_ty = #expr_value;
 
-                            ::aldebaran_logic::prelude::Assert::<#assert_ty>::assert(&target_expr, input)
+                            #runtime::prelude::Assert::<#assert_ty>::assert(&target_expr, input)
                         }
 
                         #[inline]
-                        fn output_with<W, F>(target_value: &Self, writer: &mut W, target_precedence: ::aldebaran_logic::fmt::Precedence) -> ::core::fmt::Result
+                        fn output_with<W, F>(target_value: &Self, writer: &mut W, target_precedence: #runtime::fmt::Precedence) -> ::core::fmt::Result
                         where
                             W: ::core::fmt::Write,
-                            F: ::aldebaran_logic::fmt::Formatter
+                            F: #runtime::fmt::Formatter
                         {
                             let target_expr: #expr_ty = #expr_value;
 
-                            ::aldebaran_logic::prelude::Assert::<#assert_ty>::output_with::<W, F>(&target_expr, writer, target_precedence)
+                            #runtime::prelude::Assert::<#assert_ty>::output_with::<W, F>(&target_expr, writer, target_precedence)
                         }
                     }
                 };
@@ -471,7 +520,7 @@ struct Enum {
 
 impl Enum {
     /// Preserve each alternative's acceptance and description rules for a shared input type.
-    pub fn expand(self) -> syn::Result<TokenStream2> {
+    pub fn expand(self, runtime: &TokenStream2) -> syn::Result<TokenStream2> {
         let Self {
             generics,
             name_ident,
@@ -485,9 +534,7 @@ impl Enum {
 
         let mut assert_generics = generics.clone();
 
-        assert_generics
-            .params
-            .push(parse_quote!(#assert_ty: ::aldebaran_logic::prelude::Input));
+        assert_generics.params.push(parse_quote!(#assert_ty: #runtime::prelude::Input));
 
         let mut evaluated_arms = Vec::with_capacity(variant_list.len());
 
@@ -541,7 +588,7 @@ impl Enum {
                             Self::#name_ident #field_pat => {
                                 let target_expr: #expr_ty = #expr_value;
 
-                                ::aldebaran_logic::prelude::Assert::<#assert_ty>::assert(&target_expr, input)
+                                #runtime::prelude::Assert::<#assert_ty>::assert(&target_expr, input)
                             }
                         }
                     });
@@ -551,7 +598,7 @@ impl Enum {
                             Self::#name_ident #field_pat => {
                                 let target_expr: #expr_ty = #expr_value;
 
-                                ::aldebaran_logic::prelude::Assert::<#assert_ty>::output_with::<W, F>(&target_expr, writer, target_precedence)
+                                #runtime::prelude::Assert::<#assert_ty>::output_with::<W, F>(&target_expr, writer, target_precedence)
                             }
                         }
                     });
@@ -581,14 +628,14 @@ impl Enum {
 
                             let (connective, binary_connective, precedence) = match param {
                                 Param::Conjunctive => (
-                                    quote! { ::aldebaran_logic::fmt::Connective::AND },
-                                    quote! { ::aldebaran_logic::fmt::BinaryConnective::AND },
-                                    quote! { ::aldebaran_logic::fmt::Precedence::AND },
+                                    quote! { #runtime::fmt::Connective::AND },
+                                    quote! { #runtime::fmt::BinaryConnective::AND },
+                                    quote! { #runtime::fmt::Precedence::AND },
                                 ),
                                 Param::Disjunctive => (
-                                    quote! { ::aldebaran_logic::fmt::Connective::OR },
-                                    quote! { ::aldebaran_logic::fmt::BinaryConnective::OR },
-                                    quote! { ::aldebaran_logic::fmt::Precedence::OR },
+                                    quote! { #runtime::fmt::Connective::OR },
+                                    quote! { #runtime::fmt::BinaryConnective::OR },
+                                    quote! { #runtime::fmt::Precedence::OR },
                                 ),
                                 _ => unreachable!(),
                             };
@@ -609,7 +656,7 @@ impl Enum {
                                 },
                                 quote! {
                                     #(
-                                        ::aldebaran_logic::prelude::Assert::<#assert_ty>::assert(#ident_iter, input) #operator_token
+                                        #runtime::prelude::Assert::<#assert_ty>::assert(#ident_iter, input) #operator_token
                                     )*
 
                                     #last_cond
@@ -618,13 +665,13 @@ impl Enum {
                                     F::start(writer, #connective, target_precedence)?;
 
                                     #(
-                                        ::aldebaran_logic::prelude::Assert::<#assert_ty>::output_with::<W, F>(#output_ident, writer, #precedence)?;
+                                        #runtime::prelude::Assert::<#assert_ty>::output_with::<W, F>(#output_ident, writer, #precedence)?;
 
                                         F::middle(writer, #binary_connective, target_precedence)?;
                                     )*
 
                                     #(
-                                        ::aldebaran_logic::prelude::Assert::<#assert_ty>::output_with::<W, F>(#last_output, writer, #precedence)?;
+                                        #runtime::prelude::Assert::<#assert_ty>::output_with::<W, F>(#last_output, writer, #precedence)?;
                                     )*
 
                                     F::end(writer, #connective, target_precedence)?;
@@ -641,14 +688,14 @@ impl Enum {
 
                             let (connective, binary_connective, precedence) = match param {
                                 Param::Conjunctive => (
-                                    quote! { ::aldebaran_logic::fmt::Connective::AND },
-                                    quote! { ::aldebaran_logic::fmt::BinaryConnective::AND },
-                                    quote! { ::aldebaran_logic::fmt::Precedence::AND },
+                                    quote! { #runtime::fmt::Connective::AND },
+                                    quote! { #runtime::fmt::BinaryConnective::AND },
+                                    quote! { #runtime::fmt::Precedence::AND },
                                 ),
                                 Param::Disjunctive => (
-                                    quote! { ::aldebaran_logic::fmt::Connective::OR },
-                                    quote! { ::aldebaran_logic::fmt::BinaryConnective::OR },
-                                    quote! { ::aldebaran_logic::fmt::Precedence::OR },
+                                    quote! { #runtime::fmt::Connective::OR },
+                                    quote! { #runtime::fmt::BinaryConnective::OR },
+                                    quote! { #runtime::fmt::Precedence::OR },
                                 ),
                                 _ => unreachable!(),
                             };
@@ -673,7 +720,7 @@ impl Enum {
                                 },
                                 quote! {
                                     #(
-                                        ::aldebaran_logic::prelude::Assert::<#assert_ty>::assert(#ident_iter, input) #operator_token
+                                        #runtime::prelude::Assert::<#assert_ty>::assert(#ident_iter, input) #operator_token
                                     )*
 
                                     #last_cond
@@ -682,13 +729,13 @@ impl Enum {
                                     F::start(writer, #connective, target_precedence)?;
 
                                     #(
-                                        ::aldebaran_logic::prelude::Assert::<#assert_ty>::output_with::<W, F>(#output_ident, writer, #precedence)?;
+                                        #runtime::prelude::Assert::<#assert_ty>::output_with::<W, F>(#output_ident, writer, #precedence)?;
 
                                         F::middle(writer, #binary_connective, target_precedence)?;
                                     )*
 
                                     #(
-                                        ::aldebaran_logic::prelude::Assert::<#assert_ty>::output_with::<W, F>(#last_output, writer, #precedence)?;
+                                        #runtime::prelude::Assert::<#assert_ty>::output_with::<W, F>(#last_output, writer, #precedence)?;
                                     )*
 
                                     F::end(writer, #connective, target_precedence)?;
@@ -726,14 +773,14 @@ impl Enum {
             assert_generics
                 .make_where_clause()
                 .predicates
-                .push(parse_quote!(#ty: ::aldebaran_logic::prelude::Assert<#assert_ty>));
+                .push(parse_quote!(#ty: #runtime::prelude::Assert<#assert_ty>));
         }
 
         let (impl_generics, _, where_clause) = assert_generics.split_for_impl();
 
         Ok(quote! {
             #[automatically_derived]
-            impl #impl_generics ::aldebaran_logic::prelude::Assert<#assert_ty> for #name_ident #ty_generics #where_clause
+            impl #impl_generics #runtime::prelude::Assert<#assert_ty> for #name_ident #ty_generics #where_clause
             {
                 #[inline]
                 fn assert(&self, input: #assert_ty) -> bool {
@@ -745,10 +792,10 @@ impl Enum {
                 }
 
                 #[inline]
-                fn output_with<W, F>(target_value: &Self, writer: &mut W, target_precedence: ::aldebaran_logic::fmt::Precedence) -> ::core::fmt::Result
+                fn output_with<W, F>(target_value: &Self, writer: &mut W, target_precedence: #runtime::fmt::Precedence) -> ::core::fmt::Result
                 where
                     W: ::core::fmt::Write,
-                    F: ::aldebaran_logic::fmt::Formatter
+                    F: #runtime::fmt::Formatter
                 {
                     match target_value {
                         #(

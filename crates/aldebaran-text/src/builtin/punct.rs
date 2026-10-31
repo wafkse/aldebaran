@@ -7,6 +7,7 @@ use super::Ascii;
 
 /// Selects a parenthesis side as an ASCII equality predicate for either source kind.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Assert)]
+#[aldebaran(crate)]
 pub enum Parenthesis {
     /// A left parenthesis `(`.
     #[assert(use Ascii::LeftParenthesis type Ascii)]
@@ -19,6 +20,7 @@ pub enum Parenthesis {
 
 /// Selects a square-bracket side as an ASCII equality predicate for either source kind.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Assert)]
+#[aldebaran(crate)]
 pub enum Bracket {
     /// A left bracket `[`.
     #[assert(use Ascii::LeftBracket type Ascii)]
@@ -31,6 +33,7 @@ pub enum Bracket {
 
 /// Selects a brace side as an ASCII equality predicate for either source kind.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Assert)]
+#[aldebaran(crate)]
 pub enum Brace {
     /// A left brace `{`.
     #[assert(use Ascii::LeftBrace type Ascii)]
@@ -43,6 +46,7 @@ pub enum Brace {
 
 /// Selects an angle-bracket side as an ASCII equality predicate for either source kind.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Assert)]
+#[aldebaran(crate)]
 pub enum AngleBracket {
     /// A left angle bracket `<`.
     #[assert(use Ascii::LessThan type Ascii)]

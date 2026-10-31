@@ -47,21 +47,25 @@ mod tests {
 
                     /// Its acceptance is the selected connective's identity.
                     #[derive(Debug, Clone, PartialEq, Eq, Assert, Choose)]
+                    #[aldebaran(crate)]
                     #[assert($policy)]
                     pub struct Unit;
 
                     /// Its acceptance is the selected connective's identity.
                     #[derive(Debug, Clone, PartialEq, Eq, Assert, Choose)]
+                    #[aldebaran(crate)]
                     #[assert($policy)]
                     pub struct Tuple();
 
                     /// Its acceptance is the selected connective's identity.
                     #[derive(Debug, Clone, PartialEq, Eq, Assert, Choose)]
+                    #[aldebaran(crate)]
                     #[assert($policy)]
                     pub struct Named {}
 
                     /// Alternatives sharing the selected connective's acceptance identity.
                     #[derive(Debug, Clone, PartialEq, Eq, Assert, Choose)]
+                    #[aldebaran(crate)]
                     pub enum Variants {
                         /// Accepts according to the connective's identity without operands.
                         #[assert($policy)]
@@ -161,6 +165,7 @@ mod tests {
 
     /// Requires all operands to accept, with declaration-order predicate priority.
     #[derive(Assert)]
+    #[aldebaran(crate)]
     #[assert(conjunctive)]
     // NOTE(invariant): None.
     struct All<A> {
@@ -176,12 +181,14 @@ mod tests {
 
     /// Accepts any operand, with declaration-order predicate priority.
     #[derive(Assert)]
+    #[aldebaran(crate)]
     #[assert(disjunctive)]
     // NOTE(invariant): None.
     struct Any<A>(A, A, A);
 
     /// Alternatives selecting all-operand or any-operand acceptance.
     #[derive(Assert)]
+    #[aldebaran(crate)]
     enum Ordered<A> {
         /// Requires all payload predicates to accept.
         #[assert(conjunctive)]

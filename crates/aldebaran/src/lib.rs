@@ -24,6 +24,47 @@ pub use aldebaran_source as source;
 
 pub use aldebaran_text as text;
 
+#[doc(hidden)]
+pub mod rexport {
+    //! Internal crates exposed under their original names for derive macro expansions.
+    //!
+    //! These paths let generated implementations use the facade as their sole
+    //! Aldebaran dependency.
+
+    /// ANSI terminal styling primitives.
+    pub use aldebaran_ansi;
+
+    /// Source coordinates and reusable type-level utilities.
+    pub use aldebaran_baseline;
+
+    /// Token stream primitives for hand-written parsers.
+    pub use aldebaran_grammar;
+
+    /// Internal compiler error utilities.
+    pub use aldebaran_ice;
+
+    /// Strongly typed identities and ID-indexed collections.
+    pub use aldebaran_id;
+
+    /// Borrowed and owned value interning with stable identities.
+    pub use aldebaran_interner;
+
+    /// Composable assertions, predicates, and input classification.
+    pub use aldebaran_logic;
+
+    /// Sink-oriented printing with optional external context.
+    pub use aldebaran_print;
+
+    /// Diagnostic reports and source annotations.
+    pub use aldebaran_report;
+
+    /// Source capabilities and line-oriented metadata.
+    pub use aldebaran_source;
+
+    /// Lexical scanning and text processing.
+    pub use aldebaran_text;
+}
+
 pub mod prelude {
     //! The `aldebaran` prelude.
     //!

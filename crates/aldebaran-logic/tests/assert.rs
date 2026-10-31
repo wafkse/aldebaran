@@ -68,6 +68,7 @@ mod tests {
     assertion!(Right, ')', b')');
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Assert, Choose)]
+    #[aldebaran(crate)]
     enum Token {
         #[assert(use Left type Left)]
         Left,

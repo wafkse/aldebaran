@@ -40,6 +40,7 @@ mod tests {
         };
 
         #[derive(Debug, crate::codegen::Report)]
+        #[aldebaran(crate)]
         #[error("invalid value {value}")]
         #[report(title = "invalid value", message_with = issue_message)]
         // NOTE(invariant): None.
@@ -53,6 +54,7 @@ mod tests {
         }
 
         #[derive(Debug, crate::codegen::Report)]
+        #[aldebaran(crate)]
         #[error("multiple labels")]
         #[report(title = "multiple labels", annotations = labels)]
         // NOTE(invariant): None.
@@ -61,6 +63,7 @@ mod tests {
         }
 
         #[derive(Debug, crate::codegen::Report)]
+        #[aldebaran(crate)]
         #[error(transparent(inner))]
         #[report(transparent(inner))]
         // NOTE(invariant): None.
@@ -70,6 +73,7 @@ mod tests {
         }
 
         #[derive(Debug, crate::codegen::Report)]
+        #[aldebaran(crate)]
         enum EnumIssue {
             #[error("source issue")]
             #[report(title = "source issue", message = "invalid source")]

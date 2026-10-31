@@ -7,56 +7,49 @@ mod report;
 
 use proc_macro::TokenStream;
 
-use proc_macro_crate::{FoundCrate, crate_name};
-use proc_macro2::TokenStream as TokenStream2;
-use quote::{format_ident, quote};
+use proc_macro2::{Span as Span2, TokenStream as TokenStream2};
+use quote::quote;
 use syn::{DeriveInput, parse_macro_input};
 
-/// The report namespace available to the deriving crate, including renamed dependencies.
+/// Runtime namespace selected by the declaration's dependency policy.
+/// Resolution accepts Cargo aliases and uses the facade unless direct dependency
+/// metadata is present.
 #[derive(Debug)]
-// NOTE(invariant): None.
+// NOTE(invariant): Tokens = AccessibleRuntimeNamespace(DeclarationPolicy)
 struct RuntimePath(
-    /// Namespace providing the reporting traits and their supporting re-exports.
+    /// Resolved namespace providing the generated implementation's runtime contracts.
     TokenStream2,
 );
 
 impl RuntimePath {
-    /// Select an accessible report namespace, preferring the direct runtime over the facade.
-    fn resolve() -> syn::Result<Self> {
-        match crate_name("aldebaran-report") {
-            Ok(found) => Ok(Self(Self::direct(found))),
-            Err(_) => match crate_name("aldebaran") {
-                Ok(found) => Ok(Self(Self::facade(found))),
-                Err(error) => Err(syn::Error::new(
-                    proc_macro2::Span::call_site(),
-                    format!("failed to resolve Aldebaran report runtime: {error}"),
-                )),
-            },
-        }
-    }
+    /// Resolve the runtime namespace after admitting at most one dependency policy.
+    fn resolve(attributes: &[syn::Attribute]) -> syn::Result<Self> {
+        let policy = attributes
+            .iter()
+            .filter(|attribute| attribute.path().is_ident("aldebaran"))
+            .try_fold(None, |policy, attribute| match policy {
+                None => attribute.parse_args::<syn::Token![crate]>().map(Some),
+                Some(_) => Err(syn::Error::new_spanned(attribute, "duplicate aldebaran dependency policy")),
+            })?;
 
-    /// The direct runtime namespace under its name in the deriving crate.
-    fn direct(found: FoundCrate) -> TokenStream2 {
-        match found {
-            FoundCrate::Itself => quote!(crate),
-            FoundCrate::Name(name) => {
-                let ident = format_ident!("{}", name);
+        let local = policy.is_some();
+
+        let dependency = if local { "aldebaran-report" } else { "aldebaran" };
+        let found = proc_macro_crate::crate_name(dependency)
+            .map_err(|error| syn::Error::new(Span2::call_site(), format!("failed to resolve {dependency}: {error}")))?;
+
+        let path = match found {
+            proc_macro_crate::FoundCrate::Itself => quote!(crate),
+            proc_macro_crate::FoundCrate::Name(name) => {
+                let ident = quote::format_ident!("{}", name);
 
                 quote!(::#ident)
             }
-        }
-    }
+        };
 
-    /// The facade's report namespace under its name in the deriving crate.
-    fn facade(found: FoundCrate) -> TokenStream2 {
-        match found {
-            FoundCrate::Itself => quote!(crate::report),
-            FoundCrate::Name(name) => {
-                let ident = format_ident!("{}", name);
+        let runtime = if local { path } else { quote!(#path::rexport::aldebaran_report) };
 
-                quote!(::#ident::report)
-            }
-        }
+        Ok(Self(runtime))
     }
 }
 
@@ -115,19 +108,17 @@ impl RuntimePath {
 ///
 /// # Dependencies and type requirements
 ///
-/// Generated report paths use the deriving crate's direct `aldebaran-report`
-/// dependency or the `aldebaran::report` facade, including renamed dependencies.
 /// Report implementations preserve declared generics and where clauses without
 /// inferring additional field bounds, so those bounds must already support the
 /// chosen report policy. Struct and variant options must have recognized names
 /// and cannot be repeated or conflict, and unions are unsupported.
 /// Targets are not checked against any source, and callers
 /// must pair reports with a source using the same coordinates.
-#[proc_macro_derive(Report, attributes(error, report))]
+#[proc_macro_derive(Report, attributes(error, report, aldebaran))]
 #[inline]
 pub fn report_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let expanded = RuntimePath::resolve().and_then(|runtime| {
+    let expanded = RuntimePath::resolve(&input.attrs).and_then(|runtime| {
         let RuntimePath(runtime) = runtime;
 
         let error = fack_codegen::generate(&input)?;
