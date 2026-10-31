@@ -304,6 +304,10 @@ impl Metadata {
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`metadata`] module.
+    //!
+    //! [`metadata`]: super
+
     use alloc::vec::Vec;
     use core::num::NonZero;
 

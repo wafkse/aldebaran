@@ -162,6 +162,10 @@ lengthed!(
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`component`] module.
+    //!
+    //! [`component`]: super
+
     use super::{AsciiByte, AsciiComponent as _, DigitComponent as _, TextComponent};
 
     fn require_text_component<C>(_: C)

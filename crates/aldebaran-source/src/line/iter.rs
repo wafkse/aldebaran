@@ -387,6 +387,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`iter`] module.
+    //!
+    //! [`iter`]: super
+
     use aldebaran_baseline::span::Spanned;
 
     use crate::terminate::Standard;

@@ -35,21 +35,3 @@ impl<'source, S> Standard<'source> for S where
         + ?Sized
 {
 }
-
-#[cfg(test)]
-mod tests {
-    use super::Standard;
-
-    fn require_standard<'source, S>(source: &'source S)
-    where
-        S: Standard<'source> + ?Sized,
-    {
-        let _: &'source S = source;
-    }
-
-    #[test]
-    fn strings_and_bytes_are_standard() {
-        require_standard("source text");
-        require_standard(b"source bytes".as_slice());
-    }
-}

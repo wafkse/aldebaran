@@ -163,6 +163,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`line`] module.
+    //!
+    //! [`line`]: super
+
     use alloc::vec::Vec;
     use core::{num::NonZero, ops::Range};
 

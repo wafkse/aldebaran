@@ -588,6 +588,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`terminate`] module.
+    //!
+    //! [`terminate`]: super
+
     use alloc::vec::Vec;
     use core::num::NonZero;
 
