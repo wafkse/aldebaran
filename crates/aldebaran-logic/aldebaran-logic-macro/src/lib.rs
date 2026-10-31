@@ -911,6 +911,10 @@ struct ParamExpr {
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`aldebaran_logic_macro`] module.
+    //!
+    //! [`aldebaran_logic_macro`]: super
+
     use syn::{Attribute, parse_quote};
 
     use super::{Param, ParamExpr, fresh};
