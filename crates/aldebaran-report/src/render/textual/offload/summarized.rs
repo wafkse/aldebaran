@@ -83,6 +83,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`summarized`] module.
+    //!
+    //! [`summarized`]: super
+
     use core::num::NonZero;
 
     use crate::{

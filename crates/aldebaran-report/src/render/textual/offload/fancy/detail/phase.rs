@@ -474,6 +474,10 @@ impl LaneTree {
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`phase`] module.
+    //!
+    //! [`phase`]: super
+
     use alloc::vec::Vec;
 
     use super::LaneTree;

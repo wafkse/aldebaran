@@ -93,6 +93,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`fancy`] module.
+    //!
+    //! [`fancy`]: super
+
     use core::{fmt, num::NonZero};
 
     use crate::{

@@ -2,6 +2,10 @@
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`allocations`] module.
+    //!
+    //! [`allocations`]: super
+
     use aldebaran_baseline::prelude::Span;
     use aldebaran_report::{
         prelude::{Label, oneshot},

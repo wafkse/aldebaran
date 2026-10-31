@@ -324,6 +324,10 @@ impl Default for FancySettings {
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`setting`] module.
+    //!
+    //! [`setting`]: super
+
     use super::{Charset, Colored, DefaultTheme, FancySettings, Fancyness, LayoutSettings, NonZero, Theme};
     use crate::{render::textual::offload::fancy::theme::HeaderTheme, report::severity::Metadata};
 

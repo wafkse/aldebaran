@@ -53,6 +53,10 @@ impl Print for GlyphRun {
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`run`] module.
+    //!
+    //! [`run`]: super
+
     use aldebaran_print::prelude::Print;
 
     use super::GlyphRun;

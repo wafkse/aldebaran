@@ -741,6 +741,10 @@ impl<'a> Iterator for Marker<'a> {
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`indicate`] module.
+    //!
+    //! [`indicate`]: super
+
     use super::Marker;
 
     #[test]

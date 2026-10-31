@@ -275,4 +275,8 @@ where
 // bare print
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    //! Tests module for the [`textual`] module.
+    //!
+    //! [`textual`]: super
+}

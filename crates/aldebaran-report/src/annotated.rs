@@ -173,6 +173,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`annotated`] module.
+    //!
+    //! [`annotated`]: super
+
     use aldebaran_baseline::span::Span;
 
     use super::{Annotations, InlineAnnotations, PrimaryAnnotations, label::Label};
