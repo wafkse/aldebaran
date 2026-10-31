@@ -94,6 +94,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`storage`] module.
+    //!
+    //! [`storage`]: super
+
     use core::ptr;
 
     use super::Store;

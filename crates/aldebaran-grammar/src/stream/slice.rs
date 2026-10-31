@@ -76,6 +76,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`slice`] module.
+    //!
+    //! [`slice`]: super
+
     use super::Slice;
     use crate::stream::{TokenStream, lookahead::Lookahead};
 

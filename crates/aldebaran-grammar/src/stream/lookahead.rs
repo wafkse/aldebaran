@@ -79,6 +79,10 @@ lookahead!(1..32);
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`lookahead`] module.
+    //!
+    //! [`lookahead`]: super
+
     use super::{Lookahead1, Lookahead32};
     use crate::stream::storage::Store;
 
