@@ -295,6 +295,10 @@ impl Resettable<()> for Attributes {
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`mode`] module.
+    //!
+    //! [`mode`]: super
+
     use crate::reset::Resettable;
 
     use super::{Attributes, TextAttribute};

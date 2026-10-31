@@ -29,6 +29,10 @@ pub mod prelude {
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`aldebaran_ansi`] module.
+    //!
+    //! [`aldebaran_ansi`]: super
+
     use aldebaran_print::prelude::{Combine, Print};
 
     use crate::predicate::Should;

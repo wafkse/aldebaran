@@ -209,6 +209,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`style`] module.
+    //!
+    //! [`style`]: super
+
     use crate::{
         brush::{
             color::{Color, bits3::Ansi3Bit, rgb::AnsiRgb},
