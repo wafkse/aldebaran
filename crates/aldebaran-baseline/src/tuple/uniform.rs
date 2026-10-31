@@ -76,6 +76,10 @@ uniform!(1..16);
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`uniform`] module.
+    //!
+    //! [`uniform`]: super
+
     use super::Uniform;
 
     #[test]

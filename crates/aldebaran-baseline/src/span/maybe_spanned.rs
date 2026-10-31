@@ -72,6 +72,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`maybe_spanned`] module.
+    //!
+    //! [`maybe_spanned`]: super
+
     use super::{MaybeSpanned, Span, Spanned};
 
     #[test]

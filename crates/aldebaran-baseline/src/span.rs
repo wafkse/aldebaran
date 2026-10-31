@@ -254,6 +254,10 @@ impl fmt::Display for Span {
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`span`] module.
+    //!
+    //! [`span`]: super
+
     use core::num::NonZeroUsize;
 
     use super::Span;

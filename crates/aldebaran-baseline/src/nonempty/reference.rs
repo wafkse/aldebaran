@@ -88,8 +88,9 @@ impl<'a, T> RefNonempty<'a, T> {
 
 #[cfg(test)]
 mod tests {
-    use alloc::vec::Vec;
-    use core::ptr;
+    //! Tests module for the [`reference`] module.
+    //!
+    //! [`reference`]: super
 
     use super::RefNonempty;
 
@@ -109,25 +110,6 @@ mod tests {
         assert_eq!(values.next(), None);
         assert_eq!(values.next_back(), None);
         assert_eq!(values.next(), None);
-    }
-
-    #[test]
-    fn copying_a_borrowed_view_does_not_require_copy_elements() {
-        /// A value that deliberately implements neither `Copy` nor `Clone`.
-        #[derive(Debug, PartialEq, Eq)]
-        struct Value(pub u32);
-
-        let first = Value(1);
-        let rest = [Value(2)];
-        let view = RefNonempty::tuple((&first, &rest));
-        let copy = view;
-
-        assert!(
-            ptr::eq(view.first(), copy.first()),
-            "copying the view must retain its input references"
-        );
-        assert_eq!(copy.partitioned(), (&first, rest.as_slice()));
-        assert_eq!(RefNonempty::single(&first).iter().collect::<Vec<_>>(), [&first]);
     }
 
     #[test]

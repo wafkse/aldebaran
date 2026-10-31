@@ -140,6 +140,10 @@ impl<T> Nonempty<T> {
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`owned`] module.
+    //!
+    //! [`owned`]: super
+
     use alloc::{string::String, vec, vec::Vec};
     use core::{num::NonZero, ptr};
 
