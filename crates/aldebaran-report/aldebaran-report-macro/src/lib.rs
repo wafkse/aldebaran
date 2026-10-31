@@ -147,6 +147,10 @@ pub fn report_derive(input: TokenStream) -> TokenStream {
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`aldebaran_report_macro`] module.
+    //!
+    //! [`aldebaran_report_macro`]: super
+
     use super::report::Report;
 
     fn parse(input: &str) -> syn::Result<Report> {
