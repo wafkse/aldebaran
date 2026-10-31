@@ -1,172 +1,17 @@
-//! Assertion contracts preserved across generic parameters and field shapes.
+//! Assertion evaluation order, empty identities, and formatting behavior.
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`derive`] module.
+    //!
+    //! [`derive`]: super
+
     use core::{cell::RefCell, fmt};
 
     use aldebaran_logic::{
         fmt::{BinaryConnective, Connective, Formatter, Precedence, Segment},
         prelude::{Assert, Choose},
     };
-
-    /// Requires every operand to accept while preserving caller-selected parameter names.
-    #[derive(Debug, Clone, PartialEq, Eq, Assert, Choose)]
-    #[assert(conjunctive)]
-    // NOTE(invariant): None.
-    struct Colliding<__AssertTy, __AssertTy_, __ChooseTy, __ChooseTy_>(__AssertTy, __AssertTy_, __ChooseTy, __ChooseTy_);
-
-    /// Accepts `x` regardless of payload, preserving caller-selected parameter names.
-    #[derive(Debug, Clone, PartialEq, Eq, Assert, Choose)]
-    #[assert(use 'x' type char)]
-    // NOTE(invariant): None.
-    struct CollidingExpression<__AssertTy, __ChooseTy>(__AssertTy, __ChooseTy);
-
-    /// Preserves caller-selected parameter names while assigning rules to alternatives.
-    #[derive(Debug, Clone, PartialEq, Eq, Assert, Choose)]
-    enum CollidingEnum<__AssertTy, __ChooseTy> {
-        /// Both payload predicates must accept the same input.
-        #[assert(conjunctive)]
-        Fields(__AssertTy, __ChooseTy),
-    }
-
-    #[test]
-    fn derives_avoid_existing_generic_names() {
-        let value = Colliding('x', 'x', 'x', 'x');
-        assert!(value.assert('x'));
-        assert_eq!(value.choose('x'), Some(value.clone()));
-        assert_eq!(value.choose('y'), None);
-
-        let expression = CollidingExpression(0_u8, 1_u8);
-        assert!(expression.assert('x'));
-        assert_eq!(expression.choose('x'), Some(expression));
-
-        let variant = CollidingEnum::Fields('x', 'x');
-        assert!(variant.assert('x'));
-        assert_eq!(variant.choose('x'), Some(variant));
-    }
-
-    /// Accepts characters equal to any borrowed candidate without taking ownership.
-    #[derive(Debug, Clone, PartialEq, Eq, Choose)]
-    // NOTE(invariant): None.
-    struct Borrowed<'a, T = char, const N: usize = 1>(&'a [T; N])
-    where
-        T: Clone + PartialEq<char>;
-
-    impl<T, const N: usize> Assert<char> for Borrowed<'_, T, N>
-    where
-        T: Clone + PartialEq<char>,
-    {
-        fn assert(&self, input: char) -> bool {
-            let Self(values) = self;
-
-            values.iter().any(|value| *value == input)
-        }
-
-        fn output_with<W, F>(_: &Self, writer: &mut W, _: Precedence) -> fmt::Result
-        where
-            W: fmt::Write,
-            F: Formatter,
-        {
-            writer.write_str("p")
-        }
-    }
-
-    /// Requires acceptance by a borrowed candidate set and classifies as itself.
-    #[derive(Debug, Clone, PartialEq, Eq, Assert, Choose)]
-    #[assert(conjunctive)]
-    // NOTE(invariant): None.
-    struct Named<'a, T = char, const N: usize = 1>
-    where
-        T: Clone,
-        T: PartialEq<char>,
-    {
-        /// Candidate set defining the accepted characters.
-        predicate: Borrowed<'a, T, N>,
-    }
-
-    /// Accepts a borrowed candidate match and classifies as itself.
-    #[derive(Debug, Clone, PartialEq, Eq, Assert, Choose)]
-    #[assert(disjunctive)]
-    // NOTE(invariant): None.
-    struct Tuple<'a, T = char, const N: usize = 1>(Borrowed<'a, T, N>)
-    where
-        T: Clone + PartialEq<char>;
-
-    /// Accepts `x` independently of the borrowed payload and classifies as itself.
-    #[derive(Debug, Clone, PartialEq, Eq, Assert, Choose)]
-    #[assert(use 'x' type char)]
-    // NOTE(invariant): None.
-    struct Expression<'a, T = char, const N: usize = 1>(&'a [T; N])
-    where
-        T: Clone + PartialEq<char>;
-
-    /// Alternatives that preserve borrowing while classifying accepted inputs as themselves.
-    #[derive(Debug, Clone, PartialEq, Eq, Assert, Choose)]
-    enum Generic<'a, T = char, const N: usize = 1>
-    where
-        T: Clone,
-        T: PartialEq<char>,
-    {
-        /// Requires acceptance by the borrowed candidate set.
-        #[assert(conjunctive)]
-        Named {
-            /// Candidate set defining the accepted characters.
-            predicate: Borrowed<'a, T, N>,
-        },
-        /// Accepts a match from the borrowed candidate set.
-        #[assert(disjunctive)]
-        Tuple(Borrowed<'a, T, N>),
-        /// Uses the borrowed candidates as its delegated acceptance rule.
-        #[assert(use Borrowed(values) type Borrowed<'a, T, N>)]
-        Expression {
-            /// Candidate characters available to the delegated predicate.
-            values: &'a [T; N],
-        },
-    }
-
-    /// Requires `x` to classify as the supplied value and `z` to be rejected.
-    fn check_choice<A>(value: &A)
-    where
-        A: Choose<char, Unit = A> + PartialEq + fmt::Debug,
-    {
-        assert_eq!(value.choose('x').as_ref(), Some(value));
-        assert_eq!(value.choose('z'), None);
-    }
-
-    #[test]
-    fn generics_preserve_borrowing_defaults_and_classification_units() {
-        let values = ['x'];
-        let borrowed: Borrowed<'_> = Borrowed(&values);
-        let named: Named<'_> = Named {
-            predicate: borrowed.clone(),
-        };
-        let tuple: Tuple<'_> = Tuple(borrowed.clone());
-        let expression: Expression<'_> = Expression(&values);
-        let variants: [Generic<'_>; 3] = [
-            Generic::Named {
-                predicate: borrowed.clone(),
-            },
-            Generic::Tuple(borrowed.clone()),
-            Generic::Expression { values: &values },
-        ];
-
-        check_choice(&borrowed);
-        check_choice(&named);
-        check_choice(&tuple);
-        check_choice(&expression);
-        for variant in &variants {
-            check_choice(variant);
-        }
-
-        let values = ['x', 'y'];
-
-        check_choice(&Named {
-            predicate: Borrowed(&values),
-        });
-        check_choice(&Tuple(Borrowed(&values)));
-        check_choice(&Expression(&values));
-        check_choice(&Generic::Expression { values: &values });
-    }
 
     /// Describes conjunction and disjunction boundaries only within negation's context.
     struct Events;

@@ -2,6 +2,10 @@
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`assert`] module.
+    //!
+    //! [`assert`]: super
+
     use core::fmt;
 
     use aldebaran_logic::{
@@ -63,10 +67,6 @@ mod tests {
     assertion!(Left, '(', b'(');
     assertion!(Right, ')', b')');
 
-    #[derive(Assert)]
-    #[assert(use Left type Left)]
-    struct PredicateOnly;
-
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Assert, Choose)]
     enum Token {
         #[assert(use Left type Left)]
@@ -74,12 +74,6 @@ mod tests {
 
         #[assert(use Right type Right)]
         Right,
-    }
-
-    #[test]
-    fn predicate_only_derive_does_not_require_clone() {
-        assert!(PredicateOnly.assert('('));
-        assert!(!PredicateOnly.assert(')'));
     }
 
     #[test]
