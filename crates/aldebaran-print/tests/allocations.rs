@@ -3,6 +3,10 @@
 #[cfg(test)]
 #[cfg(feature = "alloc")]
 mod tests {
+    //! Tests module for the [`allocations`] module.
+    //!
+    //! [`allocations`]: super
+
     use core::{
         alloc::{GlobalAlloc, Layout},
         cell::Cell,

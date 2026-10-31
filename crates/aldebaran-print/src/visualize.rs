@@ -125,6 +125,10 @@ impl Visualize for u8 {
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`visualize`] module.
+    //!
+    //! [`visualize`]: super
+
     extern crate alloc;
 
     use alloc::{format, string::String};
