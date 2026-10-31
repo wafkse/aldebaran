@@ -286,6 +286,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`map`] module.
+    //!
+    //! [`map`]: super
+
     use super::*;
 
     use crate::Id;

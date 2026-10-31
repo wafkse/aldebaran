@@ -248,6 +248,9 @@ impl<K, V> Extend<(K, V)> for ReverseMap<K, V> {
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`reverse`] module.
+    //!
+    //! [`reverse`]: super
 
     use alloc::vec;
 

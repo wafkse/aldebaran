@@ -315,6 +315,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`ident`] module.
+    //!
+    //! [`ident`]: super
+
     use core::mem::size_of;
 
     use super::{Id as IdTrait, TaggedId};

@@ -169,6 +169,10 @@ Accessors!(0..32 for IdArray);
 
 #[cfg(test)]
 mod tests {
+    //! Tests module for the [`array`] module.
+    //!
+    //! [`array`]: super
+
     use alloc::vec::Vec;
 
     use super::IdArray;
