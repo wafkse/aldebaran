@@ -13,7 +13,11 @@ pub use self::{indicate::Indicator, shape::Delimit};
 
 use crate::render::textual::offload::fancy::setting::Fancyness;
 
-/// Framing and annotation glyphs used by the source excerpt.
+/// Glyph collection used by the fancy textual renderer.
+///
+/// The value carries all characters required by source guides, connection lines,
+/// and annotation markers. Rendering code reads the collection as policy and does
+/// not embed terminal glyph choices in layout decisions.
 ///
 /// ASCII and Unicode presets share the same marker sequence, so changing the
 /// preset changes framing and directional cues without changing span markers.
@@ -21,9 +25,14 @@ use crate::render::textual::offload::fancy::setting::Fancyness;
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 // NOTE(invariant): None.
 pub struct Charset {
-    /// Edges and corners that delimit the excerpt and separate its gutter from source text.
+    /// The subset of characters to be used as spatial delimiters.
+    ///
+    /// In other words, this set is primarily used to shape the error report.
     delimit: Delimit,
-    /// Marker sequence for annotation spans together with optional directional and diagnostic cues.
+    /// The subset of characters to be used as spatial indicators.
+    ///
+    /// This includes the characters used to emphasize the importance of a
+    /// particular part of the error report.
     indicator: Indicator,
 }
 
@@ -34,7 +43,9 @@ impl Charset {
     /// Unicode framing and cues with the same ASCII markers as [`Self::ASCII`].
     pub const UNICODE: Self = Self::tuple((Delimit::UNICODE, Indicator::UNICODE));
 
-    /// Use ASCII framing and indicators, as [`Default`] does.
+    /// Create a new [`Charset`] with the standard set of characters.
+    ///
+    /// Currently, this is the [`ASCII`](Self::ASCII) charset.
     #[inline]
     pub const fn standard() -> Self {
         Self::ASCII
@@ -50,7 +61,7 @@ impl Charset {
 }
 
 impl Charset {
-    /// Pair frame glyphs with indicators in that order, allowing mixed presets.
+    /// Create a new [`Charset`] from a 2-element tuple.
     #[inline]
     pub const fn tuple((delimit, indicator): (Delimit, Indicator)) -> Self {
         Self { delimit, indicator }
@@ -62,7 +73,9 @@ impl Charset {
         Self { delimit, indicator }
     }
 
-    /// Framing used at the excerpt heading, gutter separator, and closing edge.
+    /// Retrieve the subset of characters to be used as [`spatial
+    /// delimiters`](shape::Delimit), i.e the characters used to outline the
+    /// shape of the error report.
     #[inline]
     pub const fn delimit(&self) -> Delimit {
         let &Self { delimit, .. } = self;
@@ -78,7 +91,11 @@ impl Charset {
         delimit
     }
 
-    /// Customize excerpt framing without changing annotation markers.
+    /// Retrieve a *(mutable reference)* to the subset of characters to be
+    /// used as [`spatial delimiters`](shape::Delimit), i.e the characters used
+    /// to outline the shape of the error report.
+    ///
+    /// Useful when in-place mutation is required.
     #[inline]
     pub const fn delimit_mut(&mut self) -> &mut Delimit {
         let &mut Self { ref mut delimit, .. } = self;
@@ -86,7 +103,9 @@ impl Charset {
         delimit
     }
 
-    /// Indicators whose marker sequence is copied for each source excerpt.
+    /// Retrieve the subset of characters to be used as [`spatial
+    /// indicators`](indicate::Indicator), i.e the characters used to emphasize
+    /// the importance of a particular part of the error report.
     #[inline]
     pub const fn indicator(&self) -> Indicator {
         let &Self { indicator, .. } = self;
@@ -102,7 +121,12 @@ impl Charset {
         indicator
     }
 
-    /// Customize annotation markers and cues while retaining the frame glyphs.
+    /// Retrieve a *(a mutable reference)* to the subset of characters to be
+    /// used as [`spatial indicators`](indicate::Indicator), i.e the characters
+    /// used to emphasize the importance of a particular part of the error
+    /// report.
+    ///
+    /// Useful when in-place mutation is required.
     #[inline]
     pub const fn indicator_mut(&mut self) -> &mut Indicator {
         let &mut Self { ref mut indicator, .. } = self;

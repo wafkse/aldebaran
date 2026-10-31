@@ -41,10 +41,21 @@ use crate::terminate::Terminator;
 
 use aldebaran_baseline::prelude::{Span, Spanned};
 
-/// The line-extent type produced for a source and terminator.
+/// Determine the [`extents`] type of a source.
+///
+/// This is a very simple type alias that refers to the [`extents`] associated
+/// type of the [`SourceLines`] trait.
+///
+/// If this is not used, the result will be inmmensely verbose.
+///
+/// [`extents`]: SourceLines::Extents
 pub type ExtentsOf<'a, S, T> = <S as SourceLines<'a>>::Extents<T>;
 
-/// The line-extent type produced with a source's default terminator.
+/// Determine the default [`extents`] of a source.
+///
+/// This is exactly the same as [`DefaultTerminator`], but for extents.
+///
+/// [`extents`]: SourceLines::Extents
 pub type DefaultExtents<'a, S> = ExtentsOf<'a, S, DefaultTerminator<'a, S>>;
 
 /// Source-line selection under a configurable termination policy.
@@ -54,10 +65,11 @@ pub type DefaultExtents<'a, S> = ExtentsOf<'a, S, DefaultTerminator<'a, S>>;
 /// traversal yields no lines for empty input and adds no empty line after a
 /// trailing terminator.
 pub trait SourceLines<'a>: Source<'a> + SourceDissect<'a> + Terminated<'a, Self> {
-    /// Content or terminator representation used by this source's line views.
+    /// A potentially-borrowed line in the source.
     type Line: LineSegmented<'a, Self>;
 
-    /// Traversal and aggregate metadata for a nonempty contiguous line selection.
+    /// An associated type that represents the extents of one or more lines in
+    /// the source.
     type Extents<T>: LineExtent<'a, Self>
     where
         T: Terminator<'a, Self>;

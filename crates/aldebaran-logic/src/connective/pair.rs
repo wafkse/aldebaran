@@ -16,7 +16,7 @@ use crate::{
 pub struct Pair<A1, A2>(A1, A2);
 
 impl<A1, A2> Pair<A1, A2> {
-    /// Assign `first` and `second` to the corresponding tuple positions.
+    /// Construct one product assertion.
     #[inline]
     pub const fn new(first: A1, second: A2) -> Self {
         Self(first, second)

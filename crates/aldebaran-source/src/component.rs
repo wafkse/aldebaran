@@ -8,7 +8,13 @@ use core::{mem, num::NonZero};
 
 use aldebaran_print::visualize::Visualize;
 
-/// A source value with a nonzero extent in its source's coordinate units.
+/// A sequence component.
+///
+/// This trait exposes common functionality to all types that can be used as a
+/// component in a sequence.
+///
+/// Albeit defined generically, this trait is part of a larger scheme: see
+/// [`Source`](crate::source::Source).
 pub trait Component: Copy + PartialEq + Eq + PartialOrd + Ord + Visualize + 'static {
     /// Return this component's width in source-coordinate units.
     ///
@@ -35,7 +41,7 @@ impl AsciiByte {
         if value.is_ascii() { Some(Self(value)) } else { None }
     }
 
-    /// ASCII code in `0x00..=0x7f`, suitable for byte-oriented classification.
+    /// Retrieve the underlying ASCII byte.
     #[inline]
     #[must_use]
     pub const fn get(self) -> u8 {
@@ -44,7 +50,7 @@ impl AsciiByte {
         value
     }
 
-    /// Unicode scalar with the same ASCII code, including control characters.
+    /// Retrieve the corresponding Unicode scalar value.
     #[inline]
     #[must_use]
     pub const fn as_char(self) -> char {

@@ -26,10 +26,10 @@ where
     S: SourceLines<'source> + SourceMetadata<'source> + ?Sized,
     'source: 'borrow,
 {
-    /// Source whose coordinates interpret all annotation targets.
+    /// The source of this error.
     source: &'source S,
 
-    /// Heading displayed independently of annotation messages.
+    /// The title for this error.
     title: T,
 
     /// Borrowed primary annotation followed by caller-ordered related context.
@@ -49,7 +49,7 @@ where
         Self { source, title, annotation }
     }
 
-    /// Source against which the primary and related targets are interpreted.
+    /// Retrieve the source of this error.
     #[inline]
     pub const fn source(&self) -> &'source S {
         let &Self { source, .. } = self;

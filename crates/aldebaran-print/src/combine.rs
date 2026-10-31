@@ -12,7 +12,7 @@ use crate::print::Print;
 /// Deferred output composition for values that retain their own context requirements.
 /// Builders preserve the subjects until rendering and add no separators.
 pub trait Combine: Print {
-    /// Concatenate two subjects that resolve against the same printing context.
+    /// Print `self` followed by `other` using one shared context.
     #[inline]
     fn aggregate<T>(self, other: T) -> impl Print<Context = Self::Context>
     where
@@ -22,7 +22,8 @@ pub trait Combine: Print {
         Aggregate { left: self, right: other }
     }
 
-    /// Concatenate subjects with independently supplied printing contexts.
+    /// Print `self` followed by `other` using independent contexts.
+    ///
     /// The composed context pairs the left subject's context with the right's.
     #[inline]
     fn sequence<T>(self, other: T) -> impl Print<Context = (Self::Context, T::Context)>
@@ -33,7 +34,8 @@ pub trait Combine: Print {
         Sequence { left: self, right: other }
     }
 
-    /// Repeat rendering with shared context and no separators.
+    /// Print `self` exactly `count` times using the same context each time.
+    ///
     /// A zero count writes nothing, and a formatting error stops further output.
     #[inline]
     fn times(self, count: u32) -> impl Print<Context = Self::Context>
@@ -46,7 +48,7 @@ pub trait Combine: Print {
 
 impl<T> Combine for T where T: Print + ?Sized {}
 
-/// Adjacent output from two subjects resolved against a shared context.
+/// Two printable values that share one context.
 // NOTE(invariant): None.
 struct Aggregate<T, U>
 where
@@ -79,7 +81,7 @@ where
     }
 }
 
-/// Adjacent output whose paired contexts resolve the left and right subjects independently.
+/// Two printable values with independent contexts.
 // NOTE(invariant): None.
 struct Sequence<T, U>
 where

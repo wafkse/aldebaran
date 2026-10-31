@@ -18,19 +18,55 @@ use aldebaran_print::prelude::{Combine, Print};
 
 use crate::{prelude::AnsiSequence, reset::Resettable};
 
-/// Selects whether a color sequence affects the foreground or background.
+/// A color surface.
 ///
-/// The default surface is [`Foreground`](Self::Foreground).
+/// This is used to represent the actual subject to paint.
+///
+/// # Remarks
+///
+/// This *enum* implements [`Default`]. The default [`Surface`] is
+/// [`Surface::Foreground`]. Albeit the rationale behind this may seem
+/// arbitrary, it is based on the notion of the question "what color is that
+/// `that`", where the answer is usually the `foreground` color of the text,
+/// which, in most cases, is refered to implicitly, whereas the `background`
+/// color would be refered to in a more explicit manner.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub enum Surface {
-    /// Color of the displayed glyphs.
+    /// The foreground color.
     #[default]
     Foreground,
-    /// Color behind the displayed glyphs.
+    /// The background color.
     Background,
 }
 
-/// A color value independent of foreground or background selection.
+/// An enumeration that encompasses the various color models found in common
+/// terminal emulators.
+///
+/// Albeit this is not an exhaustive list, it should cover the most common color
+/// models.
+///
+/// ## ANSI Color Palette
+///
+/// This enumeration is independent and thus completely separate from the
+/// semantics of the ANSI color palette. However, it does provide a way to
+/// represent the colors in the ANSI color palette.
+///
+/// In other words, this makes no discernment between the foreground and
+/// background colors, as the ANSI color palette does, but is rather a
+/// representation of the colors themselves.
+///
+/// ## Exhaustiveness
+///
+/// This enumeration is not exhaustive, and may be extended in the future.
+///
+/// So, in the case of a match statement, it is recommended to use the `_` and
+/// fall back to using the [`Default`] implementation of this `enum`.
+///
+/// ## Color Presets
+///
+/// This enum also provides a set of color presets as a set of associated
+/// constants. These presets are based on the ANSI color palette with the
+/// most widespread implementations in mind.
 ///
 /// Emission preserves the variant's palette or RGB representation and uses a
 /// [`Surface`] to select foreground or background output. Resetting any color
@@ -51,52 +87,100 @@ pub enum Color {
 }
 
 impl Color {
-    /// Base red from [`bits3::Ansi3Bit::Red`].
+    /// The color red.
+    ///
+    /// This is a preset for the color red. Same as
+    /// `Color::Bits3(Ansi3Bit::Red)`.
     pub const RED: Self = Self::Bits3(Ansi3Bit::Red);
 
-    /// Base green from [`bits3::Ansi3Bit::Green`].
+    /// The color green.
+    ///
+    /// This is a preset for the color green. Same as
+    /// `Color::Bits3(Ansi3Bit::Green)`.
     pub const GREEN: Self = Self::Bits3(Ansi3Bit::Green);
 
-    /// Base yellow from [`bits3::Ansi3Bit::Yellow`].
+    /// The color yellow.
+    ///
+    /// This is a preset for the color yellow. Same as
+    /// `Color::Bits3(Ansi3Bit::Yellow)`.
     pub const YELLOW: Self = Self::Bits3(Ansi3Bit::Yellow);
 
-    /// Base blue from [`bits3::Ansi3Bit::Blue`].
+    /// The color blue.
+    ///
+    /// This is a preset for the color blue. Same as
+    /// `Color::Bits3(Ansi3Bit::Blue)`.
     pub const BLUE: Self = Self::Bits3(Ansi3Bit::Blue);
 
-    /// Base magenta from [`bits3::Ansi3Bit::Magenta`].
+    /// The color magenta.
+    ///
+    /// This is a preset for the color magenta. Same as
+    /// `Color::Bits3(Ansi3Bit::Magenta)`.
     pub const MAGENTA: Self = Self::Bits3(Ansi3Bit::Magenta);
 
-    /// Base cyan from [`bits3::Ansi3Bit::Cyan`].
+    /// The color cyan.
+    ///
+    /// This is a preset for the color cyan. Same as
+    /// `Color::Bits3(Ansi3Bit::Cyan)`.
     pub const CYAN: Self = Self::Bits3(Ansi3Bit::Cyan);
 
-    /// Base white from [`bits3::Ansi3Bit::White`].
+    /// The color white.
+    ///
+    /// This is a preset for the color white. Same as
+    /// `Color::Bits3(Ansi3Bit::White)`.
     pub const WHITE: Self = Self::Bits3(Ansi3Bit::White);
 
-    /// Base black from [`bits3::Ansi3Bit::Black`].
+    /// The color black.
+    ///
+    /// This is a preset for the color black. Same as
+    /// `Color::Bits3(Ansi3Bit::Black)`.
     pub const BLACK: Self = Self::Bits3(Ansi3Bit::Black);
 
-    /// Bright red from [`bits3::Ansi3Bit::BrightRed`].
+    /// The bright color red.
+    ///
+    /// This is a preset for the bright color red. Same as
+    /// `Color::Bits3(Ansi3Bit::BrightRed)`.
     pub const BRIGHT_RED: Self = Self::Bits3(Ansi3Bit::BrightRed);
 
-    /// Bright green from [`bits3::Ansi3Bit::BrightGreen`].
+    /// The bright color green.
+    ///
+    /// This is a preset for the bright color green. Same as
+    /// `Color::Bits3(Ansi3Bit::BrightGreen)`.
     pub const BRIGHT_GREEN: Self = Self::Bits3(Ansi3Bit::BrightGreen);
 
-    /// Bright yellow from [`bits3::Ansi3Bit::BrightYellow`].
+    /// The bright color yellow.
+    ///
+    /// This is a preset for the bright color yellow. Same as
+    /// `Color::Bits3(Ansi3Bit::BrightYellow)`.
     pub const BRIGHT_YELLOW: Self = Self::Bits3(Ansi3Bit::BrightYellow);
 
-    /// Bright blue from [`bits3::Ansi3Bit::BrightBlue`].
+    /// The bright color blue.
+    ///
+    /// This is a preset for the bright color blue. Same as
+    /// `Color::Bits3(Ansi3Bit::BrightBlue)`.
     pub const BRIGHT_BLUE: Self = Self::Bits3(Ansi3Bit::BrightBlue);
 
-    /// Bright magenta from [`bits3::Ansi3Bit::BrightMagenta`].
+    /// The bright color magenta.
+    ///
+    /// This is a preset for the bright color magenta. Same as
+    /// `Color::Bits3(Ansi3Bit::BrightMagenta)`.
     pub const BRIGHT_MAGENTA: Self = Self::Bits3(Ansi3Bit::BrightMagenta);
 
-    /// Bright cyan from [`bits3::Ansi3Bit::BrightCyan`].
+    /// The bright color cyan.
+    ///
+    /// This is a preset for the bright color cyan. Same as
+    /// `Color::Bits3(Ansi3Bit::BrightCyan)`.
     pub const BRIGHT_CYAN: Self = Self::Bits3(Ansi3Bit::BrightCyan);
 
-    /// Bright white from [`bits3::Ansi3Bit::BrightWhite`].
+    /// The bright color white.
+    ///
+    /// This is a preset for the bright color white. Same as
+    /// `Color::Bits3(Ansi3Bit::BrightWhite)`.
     pub const BRIGHT_WHITE: Self = Self::Bits3(Ansi3Bit::BrightWhite);
 
-    /// Bright black from [`bits3::Ansi3Bit::BrightBlack`].
+    /// The bright color black.
+    ///
+    /// This is a preset for the bright color black. Same as
+    /// `Color::Bits3(Ansi3Bit::BrightBlack)`.
     pub const BRIGHT_BLACK: Self = Self::Bits3(Ansi3Bit::BrightBlack);
 }
 

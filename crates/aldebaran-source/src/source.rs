@@ -9,14 +9,41 @@ use aldebaran_baseline::prelude::Span;
 
 use crate::{component::Component, terminate::Terminated};
 
-/// The default line-terminator type associated with a source.
+/// Determine the default terminator for a source.
+///
+/// This is a very simple type alias that refers to the [`TerminatedBy`]
+/// associated type of the [`Terminated`] trait.
+///
+/// If this is not used, the result will be inmmensely verbose.
+///
+/// [`TerminatedBy`]: Terminated::TerminatedBy
 pub type DefaultTerminator<'a, S> = <S as Terminated<'a, S>>::TerminatedBy;
 
-/// Coordinates shared by a source sequence and its component traversal.
+/// A trait for source sequences that are borrowed over a lifetime `'a`.
 ///
-/// Component widths and spans use the same unit so traversal can remain aligned
-/// with source locations. Built-in strings therefore report UTF-8 byte coordinates
-/// even though iteration yields [`char`] values, whose widths may differ.
+/// # What is a source?
+///
+/// In this case, a source is a one-dimensional plane of potentially
+/// variable-sized [`components`](Self::Component).
+///
+/// This trait serves as an unified interface for all types that can be used as
+/// an error source.
+///
+/// Component widths and spans use the same unit. Built-in strings use UTF-8 byte
+/// offsets even though iteration yields [`char`] values, whose widths may differ.
+///
+/// ## Augmentative traits
+///
+/// This trait is a base trait for a wide range of other traits that are used to
+/// represent diverse requirements for error sources.
+///
+/// Currently, the following traits are augmentative to this trait
+/// (non-exhaustive):
+///
+/// - [`crate::line::SourceLines`]: adds a line-based interface to the source.
+/// - [`crate::dissect::SourceDissect`]: adds a way to dissect the source into smaller parts.
+/// - [`crate::iter::SourceIter`]: adds an iterator-based interface to the source.
+/// - [`crate::metadata::SourceMetadata`]: incorporates metadata about the source.
 pub trait Source<'a>
 where
     Self: 'a,

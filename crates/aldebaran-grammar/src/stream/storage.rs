@@ -16,7 +16,7 @@ pub struct Store<T>
 where
     T: Copy + 'static,
 {
-    /// Immutable token table shared by copies and rewound streams.
+    /// Backing token storage.
     storage: &'static [T],
 
     /// Zero-based offset of the next unread token, or the table length at exhaustion.
@@ -27,7 +27,7 @@ impl<T> Store<T>
 where
     T: Copy + 'static,
 {
-    /// Create a stream at the start of `storage`.
+    /// Construct a stream over static storage.
     #[inline]
     #[must_use]
     pub const fn new(storage: &'static [T]) -> Self {
@@ -45,8 +45,7 @@ where
         Self::new(storage)
     }
 
-    /// The original token sequence, including tokens already consumed.
-    /// Its lifetime is independent of the cursor used to access it.
+    /// Retrieve the backing storage.
     #[inline]
     #[must_use]
     pub const fn storage(&self) -> &'static [T] {

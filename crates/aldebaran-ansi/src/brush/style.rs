@@ -19,7 +19,7 @@ use crate::{
 
 pub use mode::{Attributes, TextAttribute};
 
-/// Optional [`Color`] overrides and active [`Attributes`] for formatted output.
+/// A style that can be applied to a painted type.
 ///
 /// The [`Stylus`] implementation applies the configured SGR state around a
 /// closure's output, leaving a surface unchanged during setup when its color is
@@ -43,7 +43,10 @@ pub struct Style {
 }
 
 impl Style {
-    /// No activation settings. Used as a [`Stylus`], this still emits a global reset after output.
+    /// Create a new, empty, [`Style`].
+    ///
+    /// This style has no foreground, background, or text attributes. When used as a
+    /// [`Stylus`], it still emits a global reset after output.
     #[inline]
     pub const fn empty() -> Self {
         Self {

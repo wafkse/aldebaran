@@ -13,21 +13,24 @@ use alloc::boxed::Box;
 use aldebaran_baseline::prelude::RefNonempty;
 use aldebaran_baseline::span::Span;
 
-/// A message paired with a source-coordinate target.
+/// A trait that represents an annotated structure.
+///
+/// This is the core component of a report, and is used to provide meaningful comments about the source text.
 ///
 /// The span must use the coordinates of the source later paired with the report.
 /// `str` sources use UTF-8 byte offsets, while other sources define their own
 /// units. The trait does not associate a span with a source or validate bounds.
 pub trait Annotated {
-    /// Formatting contract for the message at this location.
+    /// The title of the annotation.
     type Title: title::Title + ?Sized;
 
     /// Text attached to the target, independently of the report's heading.
     fn message(&self) -> &Self::Title;
 
-    /// Nonempty location in the paired source's coordinate system.
+    /// Retrieve the nonempty diagnostic span associated with the annotation.
     ///
-    /// A unit span at the source length can represent missing input after EOF.
+    /// A unit span beginning at the source length denotes a boundary-focused
+    /// diagnostic such as missing input at end of source.
     fn target(&self) -> Span;
 }
 
@@ -80,7 +83,7 @@ pub trait Annotations {
 
 /// Access to a primary annotation without handling an absent collection.
 pub trait PrimaryAnnotations: Annotations {
-    /// Location that identifies the diagnostic's primary concern.
+    /// Borrow the primary annotation.
     fn primary(&self) -> &Self::Annotation;
 }
 
@@ -112,9 +115,9 @@ where
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 // NOTE(invariant): None.
 pub struct InlineAnnotations<A, const N: usize>(
-    /// Annotation identifying the diagnostic's primary concern.
+    /// The primary annotation.
     A,
-    /// Related locations in the caller's presentation order.
+    /// Related annotations stored inline in declaration order.
     [A; N],
 );
 
@@ -126,7 +129,7 @@ impl<A, const N: usize> InlineAnnotations<A, N> {
         Self(primary, related)
     }
 
-    /// Location identifying the diagnostic's primary concern.
+    /// Borrow the primary annotation.
     #[inline]
     #[must_use]
     pub const fn primary(&self) -> &A {
@@ -135,7 +138,7 @@ impl<A, const N: usize> InlineAnnotations<A, N> {
         target_primary
     }
 
-    /// Context following the primary annotation, in the caller's order.
+    /// Borrow the related annotation array.
     #[inline]
     #[must_use]
     pub const fn related(&self) -> &[A; N] {

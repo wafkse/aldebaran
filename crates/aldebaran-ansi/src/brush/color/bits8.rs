@@ -13,8 +13,23 @@ use crate::prelude::AnsiSequence;
 
 use super::Surface;
 
-/// A terminal palette slot covering all indices from 0 through 255.
-/// Emission preserves the index rather than approximating it with another color model.
+/// A newtype wrapper around `u8` that represents an 8-bit ANSI color code.
+///
+/// This is equivalent to the 256-color palette.
+///
+/// Due to no discernable difference between the `foreground` and `background`
+/// color for this palette, no accessor methods are provided alongside this
+/// type.
+///
+/// ## Technical Details
+///
+/// The sequence for setting an 8-bit color as the foreground color is:
+/// `ESC[38;5;{ID}m` where `{ID}` is the color code.
+///
+/// The sequence for setting an 8-bit color as the background color is:
+/// `ESC[48;5;{ID}m` where `{ID}` is the color code.
+///
+/// Emission preserves the palette index rather than converting it to another color model.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 #[repr(transparent)]
 // NOTE(invariant): None.

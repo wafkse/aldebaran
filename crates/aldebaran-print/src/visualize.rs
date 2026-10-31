@@ -6,8 +6,9 @@
 
 use core::{fmt, slice};
 
-/// Source content suitable for direct visualization without contextual name lookup.
-/// Built-in byte views preserve byte boundaries, replacing each non-ASCII byte independently.
+/// A value with a human-readable, potentially lossy textual visualization.
+///
+/// Built-in byte views replace each non-ASCII byte independently.
 pub trait Visualize {
     /// Render the source view without requiring an intermediate string.
     ///

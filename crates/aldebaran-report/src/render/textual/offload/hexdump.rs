@@ -15,7 +15,7 @@ use crate::{
     report::SourceReport,
 };
 
-/// Row width, hexadecimal case, and marker glyphs for a byte dump.
+/// Presentation settings for byte-oriented diagnostic dumps.
 ///
 /// The default uses 16 bytes per row, uppercase digits, and `.`/`^` markers.
 /// Custom glyphs are emitted as supplied, so choose visible single-cell glyphs
@@ -71,7 +71,9 @@ impl HexdumpSettings {
         }
     }
 
-    /// Source-byte budget per row, independently of the rendered terminal width.
+    /// Retrieve the number of bytes rendered per row.
+    ///
+    /// This counts source bytes, rather than terminal cells.
     #[inline]
     #[must_use]
     pub const fn bytes_per_row(&self) -> NonZero<usize> {
@@ -80,7 +82,9 @@ impl HexdumpSettings {
         bytes_per_row
     }
 
-    /// Letter case shared by byte values and row offsets.
+    /// Retrieve the hexadecimal letter case.
+    ///
+    /// The same case is used for byte values and row offsets.
     #[inline]
     #[must_use]
     pub const fn case(&self) -> HexCase {
@@ -98,7 +102,9 @@ impl HexdumpSettings {
         replacement
     }
 
-    /// Marker repeated beneath hexadecimal byte values covered by an annotation.
+    /// Retrieve the annotation span glyph.
+    ///
+    /// This glyph is repeated beneath annotated hexadecimal byte values.
     #[inline]
     #[must_use]
     pub const fn span(&self) -> char {

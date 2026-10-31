@@ -32,13 +32,13 @@ where
     A: Annotated,
     S: SourceLines<'source> + SourceMetadata<'source> + ?Sized,
 {
-    /// Heading displayed independently of the annotation message.
+    /// The title of this error.
     title: T,
 
-    /// Source whose coordinates interpret the annotation target.
+    /// The source of this error.
     source: &'source S,
 
-    /// Message and target identifying the diagnostic location.
+    /// The singular annotation of this error.
     annotation: A,
 }
 
@@ -54,7 +54,7 @@ where
         Self { title, source, annotation }
     }
 
-    /// Heading displayed independently of the primary annotation message.
+    /// Retrieve the title of this error.
     #[inline]
     pub const fn title(&self) -> &T {
         let &Self { ref title, .. } = self;
@@ -62,7 +62,7 @@ where
         title
     }
 
-    /// Source against which the primary annotation target is interpreted.
+    /// Retrieve the source of this error.
     #[inline]
     pub const fn source(&self) -> &'source S {
         let &Self { source, .. } = self;
@@ -70,7 +70,7 @@ where
         source
     }
 
-    /// Location and message displayed beneath the separate report heading.
+    /// Retrieve the annotation of this error.
     #[inline]
     pub const fn annotation(&self) -> &A {
         let &Self { ref annotation, .. } = self;

@@ -11,7 +11,7 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
-/// Limits generic nonzero support to built-in integer representations.
+/// Seals the primitive and nonzero operations to supported integer types.
 mod private {
     /// Eligibility for the primitive-to-nonzero correspondence used by this module.
     pub trait Sealed {}

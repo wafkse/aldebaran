@@ -18,7 +18,14 @@ use crate::report::SourceReport;
 
 use crate::render::textual::Present;
 
-/// A formatting policy selected independently of the destination sink.
+/// A trait for offloading the rendering of a textual report to a different
+/// renderer.
+///
+/// This trait is identical to both [`Render`] and [`RenderMut`], but has no
+/// dispatcher type for its primary method.
+///
+/// [`Render`]: crate::render::Render
+/// [`RenderMut`]: crate::render::RenderMut
 ///
 /// Implementations define the required input and partial-output behavior, while
 /// [`OffloadContext`] provides the destination sink and viewport.
@@ -26,25 +33,30 @@ pub trait Offload<'source, E>
 where
     E: SourceReport<'source>,
 {
-    /// Settings or borrowed resources needed for this backend's presentation policy.
+    /// The input type for the offload function.
     type Input<'input>
     where
         'source: 'input;
 
-    /// Completion value, often `()` when the sink receives the rendered text.
+    /// The output type for the offload function.
     type Output;
 
-    /// Backend-defined failures, including any formatting errors it propagates.
+    /// The error type for the offload function.
     type Error;
 
-    /// Write the diagnostic under the context's presentation policy.
+    /// Offload the rendering of a textual report to this offload renderer.
     fn offload<'input, W>(error: &'source E, ctx: &mut OffloadContext<'source, 'input, W, Self, E>) -> Result<Self::Output, Self::Error>
     where
         'source: 'input,
         W: fmt::Write;
 }
 
-/// The output destination and presentation passed to an [`Offload`] backend.
+/// An offload context for subordinates to render a textual report.
+///
+/// This structure contains the sink to write the report to and the
+/// presentational settings.
+///
+/// See [`Offload`] for more information.
 ///
 /// Child backends can reuse the destination with the current input through
 /// [`Self::referenced`], or with a projected input through
@@ -189,7 +201,9 @@ where
         Self { sink, present }
     }
 
-    /// Destination shared by this backend and any child backends.
+    /// Retrieve the [`fmt::Write`] sink for this offload context.
+    ///
+    /// This sink is used to write the report to.
     #[inline]
     pub const fn sink(&mut self) -> &mut W {
         let &mut Self { ref mut sink, .. } = self;
@@ -197,7 +211,9 @@ where
         sink
     }
 
-    /// Backend settings and viewport selected for the current diagnostic.
+    /// Retrieve the presentational settings for this offload context.
+    ///
+    /// See [`Present`] for more information.
     #[inline]
     pub const fn present(&self) -> &Present<'source, 'input, O, E> {
         let &Self { ref present, .. } = self;

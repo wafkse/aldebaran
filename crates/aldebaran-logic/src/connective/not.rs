@@ -19,7 +19,7 @@ use crate::{
 pub struct Not<A>(A);
 
 impl<A> Not<A> {
-    /// Use rejection by `one` as the acceptance rule.
+    /// Negate the target assertion.
     #[inline]
     pub const fn that(one: A) -> Self {
         Self(one)

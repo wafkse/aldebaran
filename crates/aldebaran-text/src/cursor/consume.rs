@@ -41,7 +41,7 @@ where
     /// Caller-owned state shared across constructions, such as an interner.
     type Context: ?Sized;
 
-    /// Failure shared by syntax recognition and semantic construction.
+    /// The type of the error associated with this lexing operation.
     type Error;
 
     /// Establish the input needed for construction without access to construction

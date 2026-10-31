@@ -16,10 +16,10 @@ pub struct Report {
     /// Diagnostic type receiving the annotation and report contracts.
     ident: Ident,
 
-    /// Caller-declared parameters and bounds preserved by the report implementations.
+    /// Generic parameters of the diagnostic type.
     generics: syn::Generics,
 
-    /// Report policy compatible with this diagnostic's field shape and metadata.
+    /// Validated diagnostic shape.
     body: Body,
 }
 
@@ -139,7 +139,7 @@ impl Body {
 #[derive(Debug)]
 // NOTE(invariant): Policy In CompatibleReportPolicies(ResolvedMembers)
 struct Structure {
-    /// Contract for diagnostic wording, source location, and annotation collection selection.
+    /// Validated report generation policy.
     policy: StructurePolicy,
 }
 
@@ -152,7 +152,7 @@ impl Structure {
         Ok(Self { policy })
     }
 
-    /// Declared field identities and types, preserving named selectors or tuple positions.
+    /// Normalize structure fields into members and types.
     fn members(fields: Fields) -> Vec<(Member, Type)> {
         match fields {
             Fields::Named(fields) => fields
@@ -253,7 +253,7 @@ enum StructurePolicy {
         /// Optional wording for the enclosing annotation view, leaving the stored collection unchanged.
         message: Option<Message>,
 
-        /// Collection whose `PrimaryAnnotations` contract establishes a primary location and message.
+        /// Member storing the annotation collection.
         annotations: TargetMember,
     },
 }
@@ -523,7 +523,7 @@ struct Declarations {
     /// Borrowed annotation wording projected from the report value or variant payload.
     message_with: Option<Path>,
 
-    /// Explicit collection selector that replaces inferred primary targeting for structs.
+    /// Optional stored annotation member.
     annotations: Option<Member>,
 }
 
@@ -689,8 +689,7 @@ impl TargetMember {
         }
     }
 
-    /// The selected field remains borrowed from the enclosing report for forwarding
-    /// or stored annotation access.
+    /// Generate a borrow of the selected member.
     fn reference(&self) -> TokenStream {
         let member = match self {
             Self::Span(member, _) | Self::Annotated(member, _) => member,
@@ -699,7 +698,7 @@ impl TargetMember {
         quote!(&self.#member)
     }
 
-    /// Declared field type governing the associated types of forwarded or stored diagnostics.
+    /// Retrieve the selected member type.
     const fn ty(&self) -> &Type {
         match self {
             Self::Span(_, ty) | Self::Annotated(_, ty) => ty,
@@ -777,7 +776,7 @@ struct Variant {
     /// Explicit or forwarded wording within the enum's shared annotation and error kind.
     policy: Policy,
 
-    /// Conditions under which this alternative participates in the enum's report contracts.
+    /// Configuration attributes copied to generated match arms.
     cfg: Vec<Attribute>,
 }
 

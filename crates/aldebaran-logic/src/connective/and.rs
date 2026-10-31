@@ -16,7 +16,7 @@ use crate::{
 pub struct And<A1, A2>(A1, A2);
 
 impl<A1, A2> And<A1, A2> {
-    /// Require both `lhs` and `rhs` to accept the same input.
+    /// Conjunct two distinct assertions.
     #[inline]
     pub const fn them(lhs: A1, rhs: A2) -> Self {
         Self(lhs, rhs)

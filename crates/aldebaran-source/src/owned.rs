@@ -1,4 +1,6 @@
-//! Owned conversion for sources retained by storage.
+//! Module providing the correspondence between a source and its owned form.
+//!
+//! See [`SourceOwned`] for more information.
 //!
 //! [`SourceOwned`] connects a borrowed source representation with [`ToOwned`],
 //! allowing storage consumers to select its associated owned form.

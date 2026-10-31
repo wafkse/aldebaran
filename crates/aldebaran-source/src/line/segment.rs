@@ -62,7 +62,9 @@ where
     }
 }
 
-/// A line window retaining the annotation that selected it.
+/// A single relevant line segment.
+///
+/// This encapsulates a view into the source line with some data `D`.
 ///
 /// The view may be clipped to line content while the data keeps its original
 /// source span. Consequently [`Spanned::span`] reports the annotation's extent,
@@ -73,7 +75,7 @@ where
     S: SourceLines<'a> + ?Sized,
     D: Spanned,
 {
-    /// Renderable window within the associated data's source extent.
+    /// The view into the source line.
     line_view: <S::Line as LineSegmented<'a, S>>::View,
 
     /// Original annotation data, retaining its unclipped source span.
@@ -85,7 +87,7 @@ where
     S: SourceLines<'a> + ?Sized,
     D: Spanned,
 {
-    /// Window available for rendering, which may cover only part of the annotation.
+    /// Retrieve the view into the source line.
     #[inline]
     pub const fn view(&self) -> &<S::Line as LineSegmented<'a, S>>::View {
         let &Self { ref line_view, .. } = self;
@@ -93,7 +95,9 @@ where
         line_view
     }
 
-    /// Original annotation with its source span preserved across clipping.
+    /// Retrieve a reference to the internally-stored data.
+    ///
+    /// The data keeps its original source span even when the line view is clipped.
     #[inline]
     pub const fn data(&self) -> &D {
         let &Self { ref data, .. } = self;

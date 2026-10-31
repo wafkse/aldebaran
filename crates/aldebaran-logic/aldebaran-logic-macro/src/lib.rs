@@ -228,13 +228,13 @@ pub fn derive_assert(input: TokenStream) -> TokenStream {
     }
 }
 
-/// An assertion declaration whose rule belongs to a struct or its enum variants.
+/// A sum-type that represents either a struct or an enum.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Target {
-    /// A declaration with a shared rule for its fields.
+    /// The target struct.
     Struct(Box<Struct>),
 
-    /// A declaration whose active variant determines its rule.
+    /// The target enum.
     Enum(Enum),
 }
 
@@ -252,7 +252,7 @@ impl Target {
 /// A struct's predicate rule and the declaration it applies to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Struct {
-    /// Rule applied to the struct's fields.
+    /// The assertion parameter for this struct.
     pub param: Param,
 
     /// Parameters and bounds required wherever this declaration is used.
@@ -514,7 +514,7 @@ struct Enum {
     /// Identity of the type receiving the assertion contract.
     pub name_ident: Ident,
 
-    /// Variants and their assertion rules.
+    /// The variants of the enum.
     pub variant_list: Vec<Variant>,
 }
 
@@ -812,7 +812,7 @@ impl Enum {
 #[derive(Debug, Clone, PartialEq, Eq)]
 // NOTE(invariant): None.
 struct Variant {
-    /// Rule applied to this variant's fields.
+    /// The assertion parameter for this variant.
     param: Param,
 
     /// Non-assertion metadata supplied with this alternative.
@@ -825,7 +825,7 @@ struct Variant {
     pub field_list: Fields,
 }
 
-/// Rule selected by an `assert` attribute.
+/// An assertion parameter.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Param {
     /// Delegate to an assertion expression.
@@ -946,13 +946,13 @@ struct AssertionMetadata {
     disjunctive: Option<bool>,
 }
 
-/// A delegated assertion expression and type.
+/// A parameter that indicates an assertion expression.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ParamExpr {
-    /// Predicate expression shared by acceptance and diagnostic descriptions.
+    /// The expression itself.
     pub expr_value: Expr,
 
-    /// Declared expression type carrying the required input-specific assertion contract.
+    /// The type of the expression.
     pub expr_ty: Type,
 }
 

@@ -10,7 +10,7 @@ use aldebaran_baseline::span::Span;
 
 use aldebaran_source::prelude::Source;
 
-/// A message located by a nonempty span in the renderer's source coordinates.
+/// A minimal inline annotation with a message and a nonempty diagnostic span.
 ///
 /// The span carries no source identity or bounds validation. Callers supply a
 /// compatible source when the enclosing report is rendered.

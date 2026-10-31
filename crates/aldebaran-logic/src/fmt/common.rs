@@ -12,7 +12,7 @@ use super::{
     UnaryConnective,
 };
 
-/// Word-based notation used when an adapter's formatter is unspecified.
+/// The default [`Formatter`] to be used.
 pub type DefaultFormatter = Human;
 
 /// Word-based assertion notation using `and`, `or`, `xor`, and `not`.

@@ -20,10 +20,10 @@ pub struct LineBreak<'a, S>
 where
     S: SourceLines<'a> + ?Sized,
 {
-    /// The source-specific view of the terminator.
+    /// The line break itself. Does not contain the rest of the line.
     line_break: S::Line,
 
-    /// The source-coordinate span associated with the terminator view.
+    /// The span of the line break.
     span: Span,
 }
 
@@ -179,9 +179,9 @@ impl<'a, S> LineBreak<'a, S>
 where
     S: SourceLines<'a> + ?Sized,
 {
-    /// Pair a terminator view with its source-coordinate span.
+    /// Construct a new [`LineBreak`] from a specific line terminator.
     ///
-    /// The caller must ensure the view corresponds to that span.
+    /// The line terminator view must correspond to the supplied span.
     #[inline]
     pub fn tuple((line, span): (S::Line, Span)) -> Self {
         Self { line_break: line, span }
@@ -192,7 +192,7 @@ impl<'a, S> LineBreak<'a, S>
 where
     S: SourceLines<'a> + ?Sized,
 {
-    /// Break components excluded from the line's renderable content.
+    /// Retrieve the terminator responsible for this line break.
     #[inline]
     pub const fn line_break(&self) -> &S::Line {
         let &Self { line_break: ref line, .. } = self;
@@ -200,7 +200,7 @@ where
         line
     }
 
-    /// Absolute break extent with an exclusive end, measured in source units.
+    /// Retrieve the [`Span`] that arches over this line break.
     #[inline]
     pub const fn span(&self) -> Span {
         let &Self { span, .. } = self;

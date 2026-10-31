@@ -8,8 +8,9 @@ use core::hash::Hash;
 
 use crate::source::Source;
 
-/// Source keys whose hash can select a storage bucket.
-/// Content equality used by a storage consumer must imply equal hashes.
+/// A trait for those [`Source`] types that can be hashed.
+///
+/// Sources that compare equal for storage must also have equal hashes.
 pub trait SourceHash<'a>: Source<'a>
 where
     Self: Hash,

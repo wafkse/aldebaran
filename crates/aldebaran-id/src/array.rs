@@ -12,14 +12,17 @@ use aldebaran_baseline::tuple::Uniform;
 
 use crate::prelude::Id;
 
-/// A positional group of IDs whose length is part of its type.
-/// Slots remain independently replaceable and need not contain distinct IDs.
+/// An array of [`trait@Id`]'s of length `N`.
+///
+/// This exposes methods for accessing each individual [`trait@Id`] in the array,
+/// named `id1`, `id2`, and so on. Slots can be replaced independently and may
+/// contain repeated IDs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 // NOTE(invariant): None.
 pub struct IdArray<I: Id, const N: usize>([I; N]);
 
 impl<I: Id, const N: usize> IdArray<I, N> {
-    /// Preserve the supplied slot assignments, including repeated IDs.
+    /// Create a new [`IdArray`] from the given storage array.
     #[inline]
     pub const fn of(storage: [I; N]) -> Self {
         Self(storage)
@@ -78,7 +81,7 @@ impl<I: Id, const N: usize> DerefMut for IdArray<I, N> {
     }
 }
 
-/// Named slots available only for array lengths that contain them.
+/// A macro that generates accessors for the [`IdArray`] type.
 macro_rules! Accessors {
     (
         $target_start:literal .. $target_end:literal for $target_ty:ident

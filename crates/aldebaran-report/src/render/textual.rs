@@ -17,7 +17,10 @@ use viewport::Viewport;
 
 use crate::{render::RenderMut, report::SourceReport};
 
-/// A backend's per-call input paired with a terminal-cell viewport.
+/// Presentational settings for the textual renderer.
+///
+/// This structure contains the settings that are used to render the error
+/// report
 ///
 /// Child backends can share the viewport and borrow
 /// selected input through [`Self::referenced_with`].
@@ -28,7 +31,7 @@ where
     O: Offload<'source, E> + ?Sized,
     E: SourceReport<'source>,
 {
-    /// Settings or resources interpreted by the selected backend.
+    /// Renderer-specific presentation input.
     input: O::Input<'input>,
 
     /// Terminal viewport used to shape textual output.
@@ -157,7 +160,8 @@ where
         Self { input, viewport }
     }
 
-    /// Settings or resources supplied to this backend for the render call.
+    /// Retrieve a reference the [`offload renderer input`](Offload::Input)
+    /// associated with these presentational settings.
     #[inline]
     pub const fn input(&self) -> &O::Input<'input> {
         let &Self { ref input, .. } = self;
@@ -165,7 +169,8 @@ where
         input
     }
 
-    /// Terminal-cell budget and shape policy available to layout-aware backends.
+    /// Retrieve a reference to the [`Viewport`] associated with these
+    /// presentational settings.
     #[inline]
     pub const fn viewport(&self) -> &Viewport {
         let &Self { ref viewport, .. } = self;
@@ -204,7 +209,11 @@ where
     }
 }
 
-/// A mutable text renderer backed by [`Offload`].
+/// A textual renderer that can be used to create human-readable error reports.
+///
+/// See [`Render`] and [`RenderMut`] for more information.
+///
+/// [`Render`]: super::Render
 ///
 /// Rendering appends to the sink. If formatting fails, output already written
 /// remains and the backend error is returned.
@@ -219,7 +228,8 @@ where
     /// The destination to write the report to.
     write_sink: W,
 
-    /// Backend, diagnostic type, and source lifetime associated with this sink.
+    /// A marker to indicate the offload renderer and error type on an
+    /// implementation basis.
     _marker: (marker::PhantomData<O>, marker::PhantomData<E>, marker::PhantomData<&'source ()>),
 }
 

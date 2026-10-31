@@ -112,21 +112,23 @@ macro_rules! Id {
     };
 }
 
-/// An identity backed by a nonzero integer.
+/// A trait for types that identify arbitrary structures.
 ///
 /// This trait does not guarantee uniqueness or that the referenced object remains
 /// in storage.
 pub trait Id: Hash + PartialEq + Eq + Copy + 'static {
-    /// Numeric domain used for lossless construction and extraction of this identity.
+    /// The primitive type that this identifier is based on.
+    ///
+    /// This is usually a small-sized integer, such as [`u16`], or [`u32`].
     type BackingPrimitive: NonZeroable;
 
-    /// Identity at the upper bound of the backing numeric domain.
+    /// The maximum value that is possible for this [`trait@Id`].
     const MAX: Self;
 
-    /// Identity at the least nonzero value of the backing numeric domain.
+    /// The minimum value that is possible for this [`trait@Id`].
     const MIN: Self;
 
-    /// Number of bits in the backing integer type.
+    /// The number of bits in the underlying storage type.
     const BITS: u8 = Self::BackingPrimitive::BITS;
 
     /// Construct an identifier from its nonzero backing value.
@@ -146,18 +148,22 @@ pub trait Id: Hash + PartialEq + Eq + Copy + 'static {
     fn as_nonzeroed(&self) -> NonZeroed<Self::BackingPrimitive>;
 }
 
-/// Distinguish IDs for different value types without changing their representation.
-/// The tag carries no value of `T` and proves neither storage ownership nor membership.
+/// A tagged [`trait@Id`] that is associated with a specific type.
+///
+/// This type serves as a hint to the reader regarding which type the [`trait@Id`]
+/// is associated with.
+///
+/// The tag stores no value of `T` and does not prove that an ID belongs to any particular storage.
 #[repr(transparent)]
 // NOTE(invariant): None.
 pub struct TaggedId<T: ?Sized, I>
 where
     I: Id,
 {
-    /// Identity used for comparison, hashing, and primitive conversion independently of `T`.
+    /// The target [`trait@Id`] that is tagged with a specific type.
     target_id: I,
 
-    /// Type distinction that requires no stored or owned value of `T`.
+    /// A marker to indicate the type of the target [`trait@Id`].
     _marker: PhantomData<fn() -> T>,
 }
 

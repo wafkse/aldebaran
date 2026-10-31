@@ -9,13 +9,14 @@ use crate::{
     input::Input,
 };
 
-/// An acceptance rule with a description suitable for an expectation message.
-/// The description belongs to the rule and does not require an input value.
+/// A trait for types that test whether an arbitrary input `I` satisfies a property.
+///
+/// The assertion can describe its rule without an input value, so it can also be used in an expectation message.
 pub trait Assert<I>
 where
     I: Input,
 {
-    /// Establish whether the input belongs to the set described by this rule.
+    /// Determine whether the input satisfies this assertion.
     fn assert(&self, input: I) -> bool;
 
     /// Format this predicate at top level, with no surrounding connective.
@@ -69,7 +70,7 @@ where
     I: Input,
     A: Assert<I>,
 {
-    /// Transfer ownership into the predicate form required by the receiving API.
+    /// Convert the type into an [`Assert`].
     fn into_assert(self) -> A;
 }
 
@@ -94,7 +95,7 @@ where
     I: Input,
     A: Assert<I>,
 {
-    /// Expose the predicate for inspection without transferring ownership.
+    /// Convert the input reference into a reference to an [`Assert`] type `A`.
     fn as_assert(&self) -> &A;
 }
 

@@ -10,7 +10,17 @@ use aldebaran_baseline::prelude::{Span, Spanned};
 
 use crate::line::{LineBreak, LineContent, SourceLines};
 
-/// A line's traversal number, content view, and optional terminator view.
+/// An identifier for a [`line`](SourceLines::Line) in a [`source`](crate::source::Source).
+///
+/// This struct encapsulates all the necessary information to uniquely identify
+/// a line in a source, as well as providing a way to access the line itself.
+///
+/// In other words, this struct is a *handle* that provides instant access to:
+///
+/// - The line number.
+/// - The line itself.
+/// - The [`Span`] that englobes the line.
+/// - The [`terminator`](crate::terminate::Terminator) of the line.
 ///
 /// The content and terminator together determine the line's span, allowing
 /// consumers to distinguish visible text from the break while retaining their
@@ -137,7 +147,8 @@ where
         Self { line_inner }
     }
 
-    /// Represent an unterminated line with nonempty content.
+    /// Create a new [`LineId`] from a standalone line, i.e, a line without a
+    /// line break.
     #[inline]
     pub const fn standalone(line_number: NonZero<usize>, line_content: LineContent<'a, S>) -> Self {
         let line_inner = LineIdInner::Standalone { line_number, line_content };
@@ -145,8 +156,10 @@ where
         Self { line_inner }
     }
 
-    /// Represent nonempty content followed by a recognized break.
-    /// The caller must provide adjacent spans from the same source.
+    /// Create a full-fledged [`LineId`] from a line with content and a line
+    /// break.
+    ///
+    /// The content and line-break spans must be adjacent and come from the same source.
     #[inline]
     pub const fn full(line_number: NonZero<usize>, line_content: LineContent<'a, S>, line_break: LineBreak<'a, S>) -> Self {
         let line_inner = LineIdInner::WithBreak {
@@ -158,7 +171,8 @@ where
         Self { line_inner }
     }
 
-    /// Represent a blank line whose nonempty extent consists of its break.
+    /// Create a [`LineId`] from a line with no content, but with solely a line
+    /// break.
     #[inline]
     pub const fn break_only(line_number: NonZero<usize>, line_break: LineBreak<'a, S>) -> Self {
         let line_inner = LineIdInner::BreakOnly { line_number, line_break };
@@ -171,7 +185,7 @@ impl<'a, S> LineId<'a, S>
 where
     S: SourceLines<'a> + ?Sized,
 {
-    /// One-based number used to label this line in its producing traversal.
+    /// Retrieve the line number of this line.
     #[inline]
     pub const fn number(&self) -> NonZero<usize> {
         let &Self { ref line_inner, .. } = self;
@@ -179,7 +193,7 @@ where
         line_inner.number()
     }
 
-    /// Renderable content, absent for a line consisting only of a break.
+    /// Retrieve the [`contents`](LineContent) of this line.
     #[inline]
     pub const fn content(&self) -> Option<&LineContent<'a, S>> {
         let &Self { ref line_inner, .. } = self;
@@ -187,7 +201,7 @@ where
         line_inner.content()
     }
 
-    /// Recognized break, absent for an unterminated content line.
+    /// Retrieve the [`line break`](LineBreak) of this line.
     #[inline]
     pub const fn content_break(&self) -> Option<&LineBreak<'a, S>> {
         let &Self { ref line_inner, .. } = self;
@@ -204,8 +218,9 @@ where
         self.map(|v| v)
     }
 
-    /// Adapt content and break representations without rebasing the line.
-    /// Mapped views must preserve their original regions and adjacency.
+    /// Map the contents of this line to another type.
+    ///
+    /// The mapped content and line break must still describe the same source regions and remain adjacent.
     #[inline]
     pub fn map<F, O>(self, map: F) -> LineId<'a, O>
     where
@@ -245,7 +260,7 @@ where
     }
 }
 
-/// Nonempty line shapes that distinguish absent content from an absent break.
+/// An inner enumeration for the [`LineId`] type.
 enum LineIdInner<'a, S>
 where
     S: SourceLines<'a> + ?Sized,
@@ -259,7 +274,7 @@ where
         line_content: LineContent<'a, S>,
     },
 
-    /// Nonempty content followed by a recognized line break.
+    /// A line with content and a line break.
     WithBreak {
         /// One-based position assigned by the producing traversal.
         line_number: NonZero<usize>,
@@ -285,7 +300,7 @@ impl<'a, S> LineIdInner<'a, S>
 where
     S: SourceLines<'a> + ?Sized,
 {
-    /// Traversal position shared by all line shapes.
+    /// Retrieve the line number of this line.
     #[inline]
     const fn number(&self) -> NonZero<usize> {
         match self {
@@ -295,7 +310,7 @@ where
         }
     }
 
-    /// Content extent, absent when the break occupies the entire line.
+    /// Retrieve the [`contents`](LineContent) of this line, if any.
     #[inline]
     const fn content(&self) -> Option<&LineContent<'a, S>> {
         match self {
@@ -304,7 +319,7 @@ where
         }
     }
 
-    /// Terminator extent, absent when the content reaches the source end.
+    /// Retrieve the [`line break`](LineBreak) of this line, if any.
     #[inline]
     const fn content_break(&self) -> Option<&LineBreak<'a, S>> {
         match self {

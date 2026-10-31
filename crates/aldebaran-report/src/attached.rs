@@ -7,7 +7,11 @@ use aldebaran_source::prelude::{SourceLines, SourceMetadata};
 
 use crate::report::{Report, SourceReport};
 
-/// A diagnostic and its source borrowed without copying annotation storage.
+/// A report borrowed together with the source used for rendering.
+///
+/// The wrapper adds only the source relationship required by rendering. All
+/// report semantics continue to delegate to the borrowed report, so attachment
+/// does not duplicate annotations, titles, or diagnostic kinds.
 ///
 /// Pairing checks neither source identity nor target bounds, so callers must
 /// supply a source whose coordinates match the report's targets.
@@ -18,10 +22,10 @@ where
     S: SourceLines<'source> + SourceMetadata<'source> + ?Sized,
     R: Report + ?Sized,
 {
-    /// Source whose coordinates interpret the report's annotation targets.
+    /// Concrete source used by renderers.
     source: &'source S,
 
-    /// Diagnostic content retained by its original owner.
+    /// Source-independent report value.
     report: &'report R,
 }
 
@@ -37,7 +41,9 @@ where
         Self { source, report }
     }
 
-    /// Rendering source with its original lifetime, independent of the report borrow.
+    /// Retrieve the rendering source.
+    ///
+    /// The returned reference keeps the source's original lifetime, independently of the report borrow.
     #[inline]
     #[must_use]
     pub const fn source(&self) -> &'source S {
@@ -46,7 +52,7 @@ where
         source
     }
 
-    /// Original diagnostic value, shared without copying its annotation storage.
+    /// Retrieve the source-independent report.
     #[inline]
     #[must_use]
     pub const fn report(&self) -> &'report R {

@@ -11,11 +11,12 @@ use crate::{iter::SourceIter, source::Source};
 
 use aldebaran_baseline::prelude::Span;
 
-/// Source windows selected without changing the component representation.
-/// Implementations can borrow the selected content for the dissection call's lifetime.
-/// The built-in string and byte views borrow directly from that source.
+/// A trait for sources that can be dissected into smaller parts.
+///
+/// This is an *extension trait*, and thus only builds functionality on top of
+/// [`Source`].
 pub trait SourceDissect<'source>: Source<'source> {
-    /// Iterable view preserving component identity for the selected region.
+    /// Narrow source view produced for one borrow.
     type View<'borrow>: Source<'borrow, Component = Self::Component> + SourceIter<'borrow>
     where
         Self: 'borrow;

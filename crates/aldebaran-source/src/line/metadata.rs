@@ -29,7 +29,8 @@ pub trait Record: PrimInt + private::Sealed + Copy + PartialOrd + Ord {}
 
 impl<R> Record for R where R: PrimInt + private::Sealed + Copy + PartialOrd + Ord {}
 
-/// Bounds that can accumulate extrema across integer observations.
+/// A pair of historical minimum and maximum values for a target,
+/// [`recordable`](Record) primitive.
 ///
 /// [`record`](Self::record) expands the bounds to include each observation.
 /// Raw construction and mutable access do not enforce ordering, so callers
@@ -73,16 +74,17 @@ where
         Self { min, max }
     }
 
-    /// Store bounds without reordering them.
+    /// Create a new [`MinMax`] pair from a target 2-element tuple.
     ///
-    /// [`MinMax::range`] is empty when `min > max`.
+    /// The bounds are stored without reordering them. [`MinMax::range`] is empty when `min > max`.
     #[inline]
     pub const fn pair((min, max): (T, T)) -> Self {
         Self { min, max }
     }
 
-    /// Lower endpoint in the same units as the recorded observations.
-    /// In line metadata this is the shortest span length including its terminator.
+    /// Retrieve the minimum value recorded.
+    ///
+    /// In line metadata, this is the shortest span length, including its terminator.
     #[inline]
     pub const fn min(&self) -> T {
         let &Self { min, .. } = self;
@@ -90,8 +92,9 @@ where
         min
     }
 
-    /// Upper endpoint in the same units as the recorded observations.
-    /// In line metadata this is the longest span length including its terminator.
+    /// Retrieve the maximum value recorded.
+    ///
+    /// In line metadata, this is the longest span length, including its terminator.
     #[inline]
     pub const fn max(&self) -> T {
         let &Self { max, .. } = self;
@@ -99,7 +102,7 @@ where
         max
     }
 
-    /// Lower endpoint of the inclusive interval exposed by [`Self::range`].
+    /// Retrieve an immutable reference to the minimum value recorded.
     #[inline]
     pub const fn min_ref(&self) -> &T {
         let &Self { ref min, .. } = self;
@@ -107,7 +110,7 @@ where
         min
     }
 
-    /// Upper endpoint of the inclusive interval exposed by [`Self::range`].
+    /// Retrieve an immutable reference to the maximum value recorded.
     #[inline]
     pub const fn max_ref(&self) -> &T {
         let &Self { ref max, .. } = self;
@@ -152,7 +155,9 @@ where
     }
 }
 
-/// Inclusive line-number bounds.
+/// A range of lines in a source.
+///
+/// This is an inclusive range specialized for [`NonZero`] line indices.
 ///
 /// A reversed range is empty when viewed through [`LineRange::range`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Copy)]
@@ -172,7 +177,7 @@ impl LineRange {
         Self { start, end }
     }
 
-    /// Original line number at the selection's inclusive lower boundary.
+    /// Determine the start of this [`LineRange`].
     #[inline]
     pub const fn start(&self) -> NonZero<usize> {
         let &Self { start, .. } = self;
@@ -180,7 +185,7 @@ impl LineRange {
         start
     }
 
-    /// Original line number at the selection's inclusive upper boundary.
+    /// Determine the end of this [`LineRange`].
     #[inline]
     pub const fn end(&self) -> NonZero<usize> {
         let &Self { end, .. } = self;
@@ -188,7 +193,9 @@ impl LineRange {
         end
     }
 
-    /// Line labels covered by the selection, with both endpoints included.
+    /// Reinterpret this [`LineRange`] as a [`RangeInclusive`] of [`usize`]
+    /// values.
+    ///
     /// Reversed bounds describe an empty range.
     #[inline]
     pub const fn range(&self) -> RangeInclusive<usize> {
@@ -244,7 +251,16 @@ impl Iterator for LineRangeIter {
     }
 }
 
-/// Source span, line numbers, and length extrema for a source line selection.
+/// Associated source metadata.
+///
+/// This piece of information is used to query the general information over a
+/// source.
+///
+/// Precisely, this includes:
+///
+/// - The [`Span`] that englobes all the relevant lines in the source plane.
+/// - An inclusive range of the relevant line indices.
+/// - Historical minimum and maximum line lengths for the source.
 ///
 /// Line spans and lengths include their terminators and use source-coordinate
 /// units.
@@ -284,7 +300,7 @@ impl Metadata {
         line_byte_bounds
     }
 
-    /// Original first and last line numbers, both included in the selection.
+    /// Retrieve the inclusive range of relevant line indices.
     #[inline]
     pub const fn lines(&self) -> LineRange {
         let &Self { line_range, .. } = self;

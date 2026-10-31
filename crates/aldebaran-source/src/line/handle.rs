@@ -16,7 +16,10 @@ use crate::{
     terminate::Terminator,
 };
 
-/// A borrowed, nonempty line selection that can be traversed repeatedly.
+/// The known extents of a collection of lines.
+///
+/// Used to query for the general information over a collection of lines, as
+/// well as iterate over them.
 ///
 /// Each traversal starts with the saved terminator state and retains the
 /// original line numbers. The selection's metadata bounds that traversal, so
@@ -30,7 +33,7 @@ where
     /// The original source backing the absolute line spans.
     source: &'a S,
 
-    /// Aggregate bounds and line-length statistics computed for the selection.
+    /// Aggregate extents and length statistics for the selected lines.
     metadata: Metadata,
 
     /// First selected line, fixing the traversal's absolute offset and number.
@@ -100,7 +103,7 @@ where
     S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     T: Terminator<'a, S> + 'a,
 {
-    /// Original source against which all selected spans are interpreted.
+    /// Retrieve the [`source`](crate::source::Source) that this handle represents.
     #[inline]
     pub const fn source(&self) -> &'a S {
         let &Self { source, .. } = self;
@@ -108,7 +111,7 @@ where
         source
     }
 
-    /// Selection bounds and line-length extrema, including terminators.
+    /// Retrieve the associated metadata that this handle represents.
     #[inline]
     pub const fn metadata(&self) -> &Metadata {
         let &Self { ref metadata, .. } = self;
@@ -116,7 +119,7 @@ where
         metadata
     }
 
-    /// First selected line with its original source number and absolute extent.
+    /// Retrieve the starting line identifier this handle represents.
     #[inline]
     pub const fn start(&self) -> &LineId<'a, S> {
         let Self { start_id, .. } = self;

@@ -25,15 +25,17 @@ impl<T> Clone for Slice<'_, T> {
 impl<T> Copy for Slice<'_, T> {}
 
 impl<'a, T> Slice<'a, T> {
-    /// Create a stream at the start of `storage`.
+    /// Construct a token slice stream.
     #[inline]
     #[must_use]
     pub const fn new(storage: &'a [T]) -> Self {
         Self(storage, usize::MIN)
     }
 
-    /// Zero-based offset of the next unread token in the original slice.
-    /// The slice length marks exhaustion and remains unchanged on empty reads.
+    /// Return the zero-based position of the next token.
+    ///
+    /// The returned position is also the exclusive end position of every token
+    /// already consumed by this cursor.
     #[inline]
     #[must_use]
     pub const fn position(&self) -> usize {

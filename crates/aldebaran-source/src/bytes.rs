@@ -113,7 +113,7 @@ mod test {
 
     #[test]
     fn line_segment() {
-        /// Expected content and break views for concatenated source lines.
+        /// Macro to test the line iterator functions.
         macro_rules! lines {
             () => {};
             (

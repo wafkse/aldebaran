@@ -265,8 +265,11 @@ where
     S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     T: Terminator<'a, S>,
 {
-    /// Iterate from source coordinate zero using `T`'s
-    /// [`Default::default`](core::default::Default::default) value.
+    /// Create a new [`LineIter`] from a source, starting at the beginning.
+    ///
+    /// Uses the default terminator for the terminator type.
+    ///
+    /// This uses `T`'s default value.
     #[inline]
     pub fn new(target_source: &'a S) -> Self
     where
@@ -356,7 +359,7 @@ where
         target_offset
     }
 
-    /// Original source backing the remaining suffix and all yielded line views.
+    /// Determine the source of this iterator.
     #[inline]
     pub const fn source(&self) -> &'a S {
         let &Self { target_slice, .. } = self;

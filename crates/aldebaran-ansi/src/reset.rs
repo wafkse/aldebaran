@@ -1,4 +1,6 @@
-//! Deactivation of terminal settings through the sequence interface.
+//! A module for generic resettable ANSI sequences.
+//!
+//! See the [`Resettable`] trait for more information.
 //!
 //! [`Resettable`] defines the reset corresponding to a setting, and [`Reset`]
 //! exposes it as an [`AnsiSequence`]. Reset codes clear settings rather than
@@ -8,7 +10,8 @@ use core::{fmt, marker::PhantomData};
 
 use crate::prelude::AnsiSequence;
 
-/// An [`AnsiSequence`] that can write a corresponding reset sequence.
+/// A trait that indicates that a determined [`AnsiSequence`]'s effects
+/// can be reset.
 pub trait Resettable<I>: AnsiSequence<I> {
     /// Write a reset sequence for this value.
     ///
@@ -20,7 +23,7 @@ pub trait Resettable<I>: AnsiSequence<I> {
         W: fmt::Write;
 }
 
-/// Deactivation of a setting wherever an [`AnsiSequence`] is expected.
+/// A wrapper over a [`resettable`](Resettable) [`ANSI sequence`](AnsiSequence).
 ///
 /// Emission uses the wrapped value's reset and ignores per-emission input.
 /// It inherits that reset's scope, which can include other terminal settings.
@@ -35,7 +38,7 @@ impl<R, I> Reset<R, I>
 where
     R: Resettable<I>,
 {
-    /// Wrap a value whose [`Resettable::reset`] operation should be emitted.
+    /// Wrap a [`Reset`] over the target [`resettable`](Resettable) value.
     #[inline]
     pub const fn this(target_value: R) -> Self {
         Self(target_value, PhantomData)
@@ -49,7 +52,7 @@ where
         inner
     }
 
-    /// Setting whose deactivation determines the emitted sequence.
+    /// Retrieve a reference the resettable inner value `R` from this [`Reset`].
     #[inline]
     pub const fn resettable(&self) -> &R {
         let &Self(ref inner, ..) = self;
@@ -57,7 +60,7 @@ where
         inner
     }
 
-    /// Change the setting that determines subsequent reset emission.
+    /// Retrieve a mutable reference the resettable inner value `R` from this [`Reset`].
     #[inline]
     pub const fn resettable_mut(&mut self) -> &mut R {
         let &mut Self(ref mut inner, ..) = self;

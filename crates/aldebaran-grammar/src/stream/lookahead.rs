@@ -6,8 +6,7 @@
 
 use super::TokenStream;
 
-/// Inspect upcoming tokens without committing their consumption.
-/// Source failures remain distinct from unavailable positions, as in [`TokenStream`].
+/// A token stream that supports zero-based lookahead.
 pub trait Lookahead: TokenStream {
     /// Inspect the token `N` positions after the next token.
     ///

@@ -23,10 +23,11 @@ where
     I: Id,
     S: BuildHasher,
 {
-    /// Associates each stored ID with its position in the paired slice views.
+    /// The hash map that maps the [`trait@Id`]s to the indices of the values in
+    /// [`IdMap::storage`].
     map: HashMap<I, usize, S>,
 
-    /// Entry order shared by key and value slice views.
+    /// The value storage.
     storage: ReverseMap<I, V>,
 }
 
@@ -35,7 +36,42 @@ where
     I: Id,
     S: BuildHasher,
 {
-    /// Create an empty map using the default state for `S`.
+    /// Creates a new empty [`IdMap`].
+    ///
+    /// # Time Complexity
+    ///
+    /// The time complexity of this operation is `O(1)`.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use aldebaran_id::map::IdMap;
+    /// use aldebaran_id::Id;
+    /// use aldebaran_id::ident::Id as _;
+    ///
+    /// Id!(
+    ///     #[derive(Debug,  Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    ///     become TestId
+    /// );
+    ///
+    /// TestId!(8);
+    ///
+    /// let mut map: IdMap<TestId8, &str> = IdMap::new();
+    ///
+    /// assert_eq!(map.len(), 0);
+    ///
+    /// assert_eq!(map.capacity(), 0);
+    ///
+    /// assert!(map.is_empty());
+    ///
+    /// assert_eq!(map.keys().count(), 0);
+    ///
+    /// assert_eq!(map.values().count(), 0);
+    ///
+    /// eprintln!("but, is it truly brand-new?: {:?}", map);
+    ///
+    /// map.clear(); // meh, it's empty anyway
+    /// ```
     #[inline]
     pub fn new() -> Self
     where
@@ -47,7 +83,30 @@ where
         Self { map, storage }
     }
 
-    /// Create an empty map with the supplied hasher state.
+    /// Creates a new empty [`IdMap`] with the given hasher.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use aldebaran_id::map::IdMap;
+    /// # use aldebaran_id::Id;
+    /// # use aldebaran_id::ident::Id as _;
+    /// #
+    /// # use std::collections::hash_map::RandomState;
+    /// #
+    /// # Id!(
+    /// #   #[derive(Debug,  Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    /// #   become TestId
+    /// # );
+    /// #
+    /// TestId!(8);
+    ///
+    /// let map: IdMap<TestId8, &str, RandomState> = IdMap::with_hasher(RandomState::new());
+    ///
+    /// assert_eq!(map.len(), 0);
+    ///
+    /// assert_eq!(map.capacity(), 0);
+    /// ```
     #[inline]
     pub fn with_hasher(hasher: S) -> Self {
         let map = HashMap::with_hasher(hasher);
@@ -73,7 +132,37 @@ where
     I: Id,
     S: BuildHasher,
 {
-    /// Number of entries that fit before either backing store grows.
+    /// Query the capacity of this [`IdMap`], that is, the maximum number of
+    /// elements it can hold without reallocating.
+    ///
+    /// # Time Complexity
+    ///
+    /// The time complexity of this operation is `O(1)`.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use aldebaran_id::map::IdMap;
+    /// # use aldebaran_id::Id;
+    /// # use aldebaran_id::ident::Id as _;
+    /// #
+    /// # Id!(
+    /// #   #[derive(Debug,  Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    /// #   become TestId
+    /// # );
+    /// #
+    /// TestId!(8);
+    ///
+    /// let mut map: IdMap<TestId8, &str> = IdMap::new();
+    ///
+    /// assert_eq!(map.capacity(), 0);
+    ///
+    /// map.insert(TestId8::MIN, "hello");
+    ///
+    /// assert!(map.capacity() >= 1);
+    /// ```
+    ///
+    /// The reported capacity is limited by both the hash table and the value storage.
     #[inline]
     pub fn capacity(&self) -> usize {
         let &Self { ref storage, ref map, .. } = self;
@@ -81,7 +170,34 @@ where
         storage.capacity().min(map.capacity())
     }
 
-    /// Length shared by the paired key and value views.
+    /// Query the number of elements in this [`IdMap`].
+    ///
+    /// # Time Complexity
+    ///
+    /// The time complexity of this operation is `O(1)`.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use aldebaran_id::map::IdMap;
+    /// # use aldebaran_id::Id;
+    /// # use aldebaran_id::ident::Id as _;
+    /// #
+    /// # Id!(
+    /// #   #[derive(Debug,  Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+    /// #   become TestId
+    /// # );
+    /// #
+    /// TestId!(8);
+    ///
+    /// let mut map: IdMap<TestId8, &str> = IdMap::new();
+    ///
+    /// assert_eq!(map.len(), 0);
+    ///
+    /// map.insert(TestId8::MIN, "hello");
+    ///
+    /// assert_eq!(map.len(), 1);
+    /// ```
     #[inline]
     pub fn len(&self) -> usize {
         let &Self { ref storage, .. } = self;

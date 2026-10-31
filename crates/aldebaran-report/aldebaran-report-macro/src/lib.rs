@@ -17,7 +17,7 @@ use syn::{DeriveInput, parse_macro_input};
 #[derive(Debug)]
 // NOTE(invariant): Tokens = AccessibleRuntimeNamespace(DeclarationPolicy)
 struct RuntimePath(
-    /// Resolved namespace providing the generated implementation's runtime contracts.
+    /// Tokens naming the report runtime visible from generated code.
     TokenStream2,
 );
 

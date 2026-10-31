@@ -6,9 +6,11 @@
 
 /// Maps a value to the semantic subject that consumers use to interpret it.
 pub trait Connotate {
-    /// Semantic value returned by [`connotates`](Self::connotates).
+    /// The connotative subject.
+    ///
+    /// This is the meaning that is being connotated to the outsider.
     type Subject;
 
-    /// Return the semantic value associated with this instance.
+    /// Determine the [`meaning`](Connotate::Subject) that is being connotated.
     fn connotates(&self) -> Self::Subject;
 }

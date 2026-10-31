@@ -7,8 +7,13 @@ use aldebaran_source::prelude::{SourceDissect, SourceIter};
 
 use super::Cursor;
 
-/// Isolates cursor movement until [`Self::backport`] commits it to the immediate
-/// parent. Dropping a branch discards its movement, including committed inner progress.
+/// A speculative cursor derived from one parent [`Cursor`].
+///
+/// The branch dereferences to its independent [`Cursor`]. Consuming the
+/// branch has no effect on the parent unless [`Self::backport`] is called, which
+/// commits only the final source boundary.
+///
+/// Nested branches commit only to their immediate parent. Dropping an outer branch also discards any progress committed by its inner branches.
 #[derive(Debug)]
 // NOTE(invariant): None.
 pub struct Branch<'source, 'borrow, S>
@@ -19,7 +24,7 @@ where
     /// Parent offset updated by [`Self::backport`].
     source_index: &'borrow mut usize,
 
-    /// Speculative position whose movement is independent of the parent's offset.
+    /// The currently active branch.
     branch_text: Cursor<'source, S>,
 }
 
@@ -71,8 +76,9 @@ where
     'source: 'borrow,
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
-    /// Publish this branch's final offset to its immediate parent, which may
-    /// itself still be speculative.
+    /// Backport any changes done in this [`Branch`] to the [`Cursor`] we originally diverged from.
+    ///
+    /// The parent may itself be a speculative branch.
     #[inline]
     pub const fn backport(self) {
         let Self {

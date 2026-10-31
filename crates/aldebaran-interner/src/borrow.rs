@@ -7,9 +7,9 @@ use alloc::borrow::{Cow, ToOwned};
 
 use aldebaran_id::ident::{Id, TaggedId};
 
-/// Retain borrowed or owned values under keys that resolve to them in the same interner.
-/// Successful storage promises lookup of the stored value, while equal inputs
-/// need not share a key.
+/// An trait for interner storage that may borrow from an existing source.
+///
+/// Successful storage returns a key that resolves to the stored value in this interner. Equal inputs do not have to receive the same key.
 pub trait BorrowInterner<'a, B, K>
 where
     B: ToOwned + ?Sized + 'a,

@@ -8,7 +8,7 @@ use core::fmt;
 
 use crate::source::Source;
 
-/// Debug inspection of both a source representation and its traversal components.
+/// A trait for those [`Source`] types that can be debugged.
 pub trait SourceDebug<'a>: Source<'a>
 where
     Self: fmt::Debug,

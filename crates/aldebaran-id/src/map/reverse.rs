@@ -15,15 +15,15 @@ type IndexedKeyValue<'a, K, V, I> = (&'a <I as SliceIndex<[K]>>::Output, &'a <I 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 // NOTE(invariant): Keys.Length = Values.Length And ForAll(Index In 0..Keys.Length): Entry(Index) = (Keys[Index], Values[Index])
 pub struct ReverseMap<K, V> {
-    /// Key view aligned by index and length with the value view.
+    /// The keys of the map.
     keys: Vec<K>,
 
-    /// Value view aligned by index and length with the key view.
+    /// The values of the map.
     values: Vec<V>,
 }
 
 impl<K, V> ReverseMap<K, V> {
-    /// Create an empty pair sequence.
+    /// Create a new empty [`ReverseMap`].
     #[inline]
     pub fn new() -> Self {
         let keys = Vec::new();

@@ -161,7 +161,7 @@ where
     T: Title,
     K: ErrorKind,
 {
-    /// Source whose coordinates interpret the stored annotation targets.
+    /// Retrieve the [`Source`] `S` attached to this error.
     #[inline]
     pub const fn source(&self) -> &'a S {
         let &Self { source, .. } = self;
@@ -169,7 +169,7 @@ where
         source
     }
 
-    /// Heading displayed independently of the annotation messages.
+    /// Retrieve the [`Title`] `T` attached to this error.
     #[inline]
     pub const fn title(&self) -> &T {
         let &Self { ref title, .. } = self;
@@ -177,7 +177,9 @@ where
         title
     }
 
-    /// Classification supplying descriptor text and styling metadata.
+    /// Retrieve the error [`Kind`] `K` attached to this error.
+    ///
+    /// [`Kind`]: ErrorKind
     #[inline]
     pub const fn kind(&self) -> &K {
         let &Self { ref kind, .. } = self;

@@ -13,7 +13,7 @@ use super::{TokenStream, lookahead::Lookahead};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 // NOTE(invariant): None.
 pub struct Skipping<S, P> {
-    /// Source whose tokens are tested and consumed.
+    /// Underlying token stream.
     stream: S,
 
     /// Returns `true` for each token to consume without yielding.

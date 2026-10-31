@@ -26,7 +26,10 @@ use aldebaran_baseline::span::Span;
 
 use self::{branch::Branch, error::Expected};
 
-/// Traverses source components while preserving their diagnostic coordinates.
+/// A cursor over a [`Source`](aldebaran_source::source::Source) `S`.
+///
+/// This cursor keeps track of its position on the source and provides methods for reading, and matching against its individual components.
+///
 /// Offsets and spans use source units, which are bytes for `str` and byte slices,
 /// while lookahead counts components, which are Unicode scalars for `str`.
 // NOTE(invariant): None.
@@ -34,10 +37,10 @@ pub struct Cursor<'source, S>
 where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
-    /// Position of the next component in the source's coordinate units.
+    /// The position of the cursor on the source.
     source_index: usize,
 
-    /// Source whose coordinate system gives `source_index` its meaning.
+    /// The source code being traversed.
     source_code: &'source S,
 }
 
@@ -45,7 +48,7 @@ impl<'source, S> Cursor<'source, S>
 where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
-    /// Begin traversal at offset zero, including for an empty source.
+    /// Create a new [`Cursor`] at the beginning of the borrowed source.
     #[inline]
     pub const fn create(source_code: &'source S) -> Self {
         Self::at(source_code, 0)
@@ -66,8 +69,7 @@ impl<'source, S> Cursor<'source, S>
 where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
-    /// Position of the next component in source units, including the end boundary
-    /// after ordinary traversal exhausts the source.
+    /// Retrieve the index of this [`Cursor`] respective to the source code.
     #[inline]
     pub const fn index(&self) -> usize {
         let &Self { source_index, .. } = self;
@@ -75,8 +77,7 @@ where
         source_index
     }
 
-    /// Source against which cursor offsets and diagnostic spans are interpreted,
-    /// available for the original source lifetime.
+    /// Retrieve the source code of this [`Cursor`].
     #[inline]
     pub const fn source(&self) -> &'source S {
         let &Self { source_code, .. } = self;
@@ -109,9 +110,12 @@ where
         Cursor { source_index, source_code }
     }
 
-    /// Start speculative traversal at the current offset.
+    /// Mutably borrow this [`Cursor`], creating a new [`Branch`] from it.
     ///
-    /// Dropping the branch discards its movement. [`Branch::backport`] commits it.
+    /// Branching allows for arbitrary speculative operations to be performed on
+    /// a [`Cursor`], and commiting the changes if necessary.
+    ///
+    /// Dropping the branch discards its movement. [`Branch::backport`] commits it to its immediate parent.
     #[inline]
     pub fn branch<'borrow>(&'borrow mut self) -> Branch<'source, 'borrow, S>
     where
@@ -125,21 +129,23 @@ impl<'source, S> Cursor<'source, S>
 where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
-    /// Whether traversal has no next component at the current source offset.
+    /// Determine if the end of the source text has been reached.
     #[inline]
     pub fn is_eof(&self) -> bool {
         self.peek().is_none()
     }
 
-    /// Inspect the current component without changing its diagnostic position.
+    /// Peek at the immediate [`Component`] from the source text.
     #[inline]
     pub fn peek(&self) -> Option<S::Component> {
         self.peek_at::<0>()
     }
 
-    /// Inspect the component `N` positions after the next component.
+    /// Peek at the `n`th immediate [`Component`] from the source text.
     ///
-    /// `N` counts components. `N = 0` is equivalent to [`Self::peek`].
+    /// `n` is zero-indexed, so `peek_at::<0>()` is equivalent to [`Self::peek`].
+    ///
+    /// `N` counts components rather than source units.
     #[inline]
     pub fn peek_at<const N: usize>(&self) -> Option<S::Component> {
         let &Self { source_index, source_code } = self;
@@ -147,8 +153,9 @@ where
         source_code.offset(source_index)?.iter().nth(N)
     }
 
-    /// Advance past the next component by its source width, leaving the offset
-    /// unchanged when input is exhausted.
+    /// Take the next [`Component`] from the source text, irrevocably.
+    ///
+    /// The cursor advances by the component's size and stays in place if the source is exhausted.
     #[inline]
     pub fn any(&mut self) -> Option<S::Component> {
         let &mut Self {
@@ -163,8 +170,9 @@ where
         Some(target_input)
     }
 
-    /// Associate the consumed component with its original source extent.
-    /// Exhaustion leaves the offset unchanged.
+    /// Take the next [`Component`] from the source text. Includes its associated [`Span`].
+    ///
+    /// The cursor stays in place if the source is exhausted.
     #[inline]
     pub fn any_spanned(&mut self) -> Option<(S::Component, Span)> {
         let &mut Self {
@@ -181,7 +189,7 @@ where
         Some((target_input, span))
     }
 
-    /// Advance past a component without retaining it, leaving exhaustion unchanged.
+    /// Skip the next [`Component`] from the source text.
     #[inline]
     pub fn skip(&mut self) {
         let _: Option<S::Component> = self.any();
@@ -192,7 +200,8 @@ impl<'source, S> Cursor<'source, S>
 where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
-    /// Consume the next component and check it against an [`Assert`].
+    /// Irrevocably consumes the next component, determining if it is subject
+    /// to the specified [`Assert`], bailing with an [`Expected`] otherwise.
     ///
     /// A mismatching component remains consumed, while exhaustion is reported at
     /// a unit span at the current offset.
@@ -219,7 +228,8 @@ where
         self.expected_is_next_spanned(target_assert).map(|(unit, _)| unit)
     }
 
-    /// Check the next component without consuming it.
+    /// Alike to [`Self::is_next`], but reports an [`Expected`] instead of a
+    /// boolean.
     ///
     /// A mismatch or exhaustion is reported at a unit span at the current offset.
     #[inline]
@@ -252,7 +262,9 @@ where
         }
     }
 
-    /// Check the next component, accepting either a match or exhaustion.
+    /// Validates that the next component is subject to the specified
+    /// [`Assert`] or that `eof` has been reached, failing with an [`Expected`]
+    /// otherwise.
     ///
     /// A mismatch is reported at a unit span at the current offset. The cursor is
     /// not advanced.
@@ -285,7 +297,8 @@ where
         }
     }
 
-    /// Consume the next component only when it satisfies the assertion.
+    /// Optionally consumes the next component if subject to the specified
+    /// [`Assert`], returning the value if it is.
     ///
     /// A mismatch or exhaustion leaves the cursor unchanged.
     #[inline]
@@ -303,7 +316,7 @@ impl<'source, S> Cursor<'source, S>
 where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
-    /// Require the next component to satisfy the assertion and preserve its source extent.
+    /// Expect the next [`Component`] to be subject to `T`. Includes its associated [`Span`].
     ///
     /// A mismatch is consumed and reported at that component's span, while exhaustion
     /// is reported at a unit span at the current offset.
@@ -323,7 +336,7 @@ where
         }
     }
 
-    /// Classify the consumed component while preserving its original source extent.
+    /// Consume the next component and return its classification with the source extent.
     ///
     /// A mismatch is consumed and reported at that component's span, while exhaustion
     /// is reported at a unit span at the current offset.
@@ -342,7 +355,7 @@ where
         }
     }
 
-    /// Consume a matching component and return its source [`Span`].
+    /// Take the next [`Component`] if it is subject to `T`. Includes its associated [`Span`].
     ///
     /// A mismatch or exhaustion returns `None` without advancing.
     #[inline]
@@ -359,8 +372,9 @@ where
         }
     }
 
-    /// Consume a maximal matching run and identify its source extent, leaving the
-    /// first mismatch unconsumed and producing no span for an empty run.
+    /// Repeatedly ignores any components that satisfy the target [`Assert`]. Returns the [`Span`] of all ignored components.
+    ///
+    /// The first nonmatching component is left unconsumed. An empty run produces no span.
     #[inline]
     pub fn ignore_while_spanned<A, T>(&mut self, target_assert: T) -> Option<Span>
     where
@@ -385,7 +399,8 @@ impl<'source, S> Cursor<'source, S>
 where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
-    /// Acceptance at exhaustion is the caller-selected policy `D`.
+    /// Determine if the next component is subject to the specified [`Assert`], falling back to the default value if the end of the source
+    /// has been reached.
     #[inline]
     fn is_next_or_default<const D: bool, A, T>(&self, target_assert: T) -> bool
     where
@@ -398,9 +413,12 @@ where
         self.peek().map_or(D, |target_input| target_assert.assert(target_input))
     }
 
-    /// Test the component `N` positions after the next component.
+    /// Determine whether the component at lookahead `N` satisfies the specified [`Assert`].
     ///
-    /// `N` counts components. Missing input returns `false`.
+    /// Lookahead is zero-indexed, so `is_at::<0>(assertion)` examines the same
+    /// component as [`Self::is_next`].
+    ///
+    /// Exhaustion returns `false`.
     #[inline]
     pub fn is_at<const N: usize, A, T>(&self, target_assert: T) -> bool
     where
@@ -415,8 +433,9 @@ where
             .unwrap_or(false)
     }
 
-    /// Whether the next component satisfies the assertion, with exhaustion treated
-    /// as rejection and the cursor position preserved.
+    /// Determines if the next component is subject to the specified [`Assert`].
+    ///
+    /// Exhaustion returns `false`.
     #[inline]
     pub fn is_next<A, T>(&self, target_assert: T) -> bool
     where
@@ -438,7 +457,9 @@ where
         self.is_next_or_default::<true, A, T>(target_assert)
     }
 
-    /// Discard a maximal matching run, leaving the first mismatch unconsumed.
+    /// Repeatedly ignores any components that satisfy the target [`Assert`].
+    ///
+    /// The first nonmatching component is left unconsumed.
     #[inline]
     pub fn ignore_while<A, T>(&mut self, target_assert: T)
     where
@@ -449,8 +470,9 @@ where
         while self.optional(&target_assert).is_some() {}
     }
 
-    /// Count consumed matches in components rather than source units, leaving the
-    /// first mismatch unconsumed and yielding zero for an empty run.
+    /// Counts the number of components that satisfy the target [`Assert`].
+    ///
+    /// The count is measured in components, rather than source units. The first nonmatching component is left unconsumed.
     #[inline]
     pub fn count<A, T>(&mut self, target_assert: T) -> usize
     where

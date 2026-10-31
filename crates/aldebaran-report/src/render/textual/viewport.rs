@@ -9,7 +9,9 @@
 
 use core::num::NonZero;
 
-/// Available terminal dimensions with an independent layout preference.
+/// A terminal viewport.
+///
+/// Represents the area of the terminal that is suitable for rendering text.
 ///
 /// [`Self::new`] derives the preference from the dimensions.
 /// [`Self::wide`] and [`Self::tall`] override it without changing the wrapping
@@ -68,7 +70,7 @@ impl Viewport {
         }
     }
 
-    /// Available columns and rows, independent of any shape override.
+    /// Retrieve the physical extents of this [`Viewport`].
     #[inline]
     pub const fn extents(&self) -> Extents {
         let &Self {
@@ -167,7 +169,9 @@ pub enum Trend {
     Downwards,
 }
 
-/// Available terminal columns and rows, each at least one cell.
+/// A width and height pair.
+///
+/// Represents the extents of a terminal window.
 ///
 /// These dimensions describe display space rather than source bytes or character
 /// counts. [`Self::shape`] compares the counts directly to derive a layout axis.
@@ -182,13 +186,13 @@ pub struct Extents {
 }
 
 impl Extents {
-    /// Interpret the pair as terminal columns followed by rows.
+    /// Create a new [`Extents`] with a determined width and height tuple pair.
     #[inline]
     pub const fn tuple((width, height): (NonZero<u16>, NonZero<u16>)) -> Self {
         Self { width, height }
     }
 
-    /// Interpret the entries as terminal columns followed by rows.
+    /// Create a new [`Extents`] from a 2-element array.
     #[inline]
     pub const fn array([width, height]: [NonZero<u16>; 2]) -> Self {
         Self { width, height }
@@ -210,7 +214,7 @@ impl Extents {
         }
     }
 
-    /// Terminal columns available for each source row before wrapping.
+    /// Retrieve the width component of these [`Extents`].
     #[inline]
     pub const fn width(&self) -> u16 {
         let &Self { width, .. } = self;
@@ -218,7 +222,7 @@ impl Extents {
         width.get()
     }
 
-    /// Available terminal rows, used for shape classification rather than clipping.
+    /// Retrieve the height component of these [`Extents`].
     #[inline]
     pub const fn height(&self) -> u16 {
         let &Self { height, .. } = self;
@@ -226,7 +230,9 @@ impl Extents {
         height.get()
     }
 
-    /// Column budget with its guarantee of at least one terminal cell.
+    /// Retrieve the width component of these [`Extents`].
+    ///
+    /// This is the raw width value, as per is it stored internally.
     #[inline]
     pub const fn width_raw(&self) -> NonZero<u16> {
         let &Self { width, .. } = self;
@@ -234,7 +240,9 @@ impl Extents {
         width
     }
 
-    /// Row count with its guarantee of at least one terminal cell.
+    /// Retrieve the height component of these [`Extents`].
+    ///
+    /// This is the raw height value, as per is it stored internally.
     #[inline]
     pub const fn height_raw(&self) -> NonZero<u16> {
         let &Self { height, .. } = self;

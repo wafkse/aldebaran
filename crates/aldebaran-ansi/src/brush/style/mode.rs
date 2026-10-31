@@ -10,8 +10,9 @@ use aldebaran_print::prelude::{Combine, Print};
 
 use crate::{prelude::AnsiSequence, reset::Resettable};
 
-/// A supported text-presentation setting with activation and selective reset codes.
-/// Resetting an attribute clears it without reconstructing earlier terminal state.
+/// The stylistic settings that can be applied to text.
+///
+/// Resetting an attribute clears it without restoring the previous terminal state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
 pub enum TextAttribute {
@@ -44,13 +45,13 @@ impl TextAttribute {
     /// The SGR code for resetting active text and color settings.
     pub const RESET_ALL_CODE: u8 = 0;
 
-    /// SGR parameter that activates this setting, without escape-sequence framing.
+    /// Retrieve the ANSI code to activate the current attribute.
     #[inline]
     pub const fn active_code(&self) -> u8 {
         *self as u8
     }
 
-    /// SGR parameter that clears this setting, without restoring previous state.
+    /// Retrieve the ANSI code to reset the current attribute.
     ///
     /// Bold and dim share SGR 22, which resets both intensity attributes.
     #[inline]
@@ -84,7 +85,8 @@ impl TextAttribute {
     }
 }
 
-/// A set of active [`TextAttribute`] values.
+/// A bitfield that consists of the text attributes that can be applied to text,
+/// as seen in [`TextAttribute`].
 ///
 /// Iteration consumes the set in descending SGR code order. Sequence emission
 /// uses a copy, so emitting or resetting the set preserves its stored activations.
@@ -93,7 +95,9 @@ impl TextAttribute {
 pub struct Attributes(u16);
 
 impl Attributes {
-    /// No attribute activations. Emitting or resetting this set writes nothing.
+    /// Create a new empty set of attributes.
+    ///
+    /// Emitting or resetting an empty set writes nothing.
     #[inline]
     pub const fn empty() -> Self {
         Self(0)

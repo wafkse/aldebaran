@@ -8,10 +8,12 @@ use crate::report::SourceReport;
 
 pub mod textual;
 
-/// A renderer that produces output through shared access to its state.
+/// A trait for types that can be used as a renderer for errors.
 ///
-/// Use [`RenderMut`] when rendering needs to update the renderer, such as when
-/// it retains a writable sink.
+/// A renderer is a type that can take an input and produce an output, possibly
+/// failing in the process.
+///
+/// See [`RenderMut`] if you also need to mutate the renderer itself.
 pub trait Render<'source, E>
 where
     E: SourceReport<'source>,
@@ -29,7 +31,8 @@ where
     /// Renderer-defined failures, including any output errors it propagates.
     type Error;
 
-    /// Produce diagnostic output under the supplied presentation policy.
+    /// Render the target [`SourceReport`] into the target output, using the provided
+    /// [`Self::Input`].
     fn render_with_input<'input>(
         &'input self,
         input: <Self as Render<'source, E>>::Input<'input>,
@@ -38,7 +41,8 @@ where
     where
         'source: 'input;
 
-    /// Use the input type's default presentation policy.
+    /// Render the target [`SourceReport`] into the target output, using the
+    /// [`default`](Default::default) value of [`Self::Input`].
     #[inline]
     fn render<'input>(&'input self, error: &'source E) -> Result<<Self as Render<'source, E>>::Output, <Self as Render<'source, E>>::Error>
     where
@@ -80,7 +84,10 @@ where
     }
 }
 
-/// A renderer that can retain writable state between diagnostics.
+/// A trait for types that can be used as a renderer for errors.
+///
+/// A renderer is a type that can take an input and produce an output, possibly
+/// failing in the process.
 ///
 /// Implementations define whether errors leave partial output or retained state changes.
 pub trait RenderMut<'source, E>
@@ -100,12 +107,14 @@ where
     /// Renderer-defined failures, including any output errors it propagates.
     type Error;
 
-    /// Produce diagnostic output using the renderer's writable state.
+    /// Render the target [`SourceReport`] into the target output, using the provided
+    /// [`Self::Input`].
     fn render_mut_with_input<'input>(&'input mut self, input: Self::Input<'input>, error: &'source E) -> Result<Self::Output, Self::Error>
     where
         'source: 'input;
 
-    /// Use the input type's default presentation policy.
+    /// Render the target [`SourceReport`] into the target output, using the
+    /// [`default`](Default::default) value of [`Self::Input`].
     #[inline]
     fn render_mut<'input>(&'input mut self, error: &'source E) -> Result<Self::Output, Self::Error>
     where

@@ -21,10 +21,10 @@ where
     A: Annotated,
     S: SourceLines<'source> + SourceMetadata<'source> + ?Sized,
 {
-    /// Source whose coordinates interpret the annotation target.
+    /// The source of this error.
     source: &'source S,
 
-    /// Message and target reused as the report heading and primary location.
+    /// The singular annotation of this error.
     annotation: A,
 }
 
@@ -39,7 +39,7 @@ where
         Self { source, annotation }
     }
 
-    /// Source against which the primary annotation target is interpreted.
+    /// Retrieve the source of this error.
     #[inline]
     pub const fn source(&self) -> &'source S {
         let &Self { source, .. } = self;
@@ -47,7 +47,7 @@ where
         source
     }
 
-    /// Annotation supplying the report heading as well as its primary location.
+    /// Retrieve the annotation of this error.
     #[inline]
     pub const fn annotation(&self) -> &A {
         let &Self { ref annotation, .. } = self;

@@ -108,7 +108,10 @@ where
     }
 }
 
-/// Normalize builder declarations for use in a trait.
+/// A macro that normalizes the given items to be trait-definition-compatible.
+///
+/// For example, for a function item, it will strip visibility and constness
+/// modifiers. Other modifiers such as unsafeness are kept intact.
 macro_rules! Normalize {
     () => {};
     (@attribute [$($target_kept:tt)*] [] [$($target_item:tt)*]) => {
@@ -225,7 +228,18 @@ macro_rules! Normalize {
     };
 }
 
-/// Generate a trait facade for the painting operations on a concrete wrapper.
+/// Serves as a macro to automatically relay the methods of a type to a trait.
+///
+/// This works in a way that the output types of the methods of the trait are
+/// parametrized over the bridged type. An example of this is a method in the
+/// concrete type `Concrete` returns `Foo`, but in the trait `Concretized` it
+/// returns `<Concrete as Bridged>::Parametrized<Foo>`.
+/// Note that the `Bridged` trait is nonexistent, and is only used to convey
+/// the idea. Instead, an anonymous trait is created for each type that is
+/// bridged due to the, as of writing, unstable status of inherent associated
+/// types.
+///
+/// See [`Paintable`] for further information.
 macro_rules! Bridge {
     () => {};
     (
@@ -311,7 +325,8 @@ macro_rules! Bridge {
         }
 
         tokel::stream!(
-            /// Relates generated builder return types to the concrete painting wrapper.
+            /// An automatically generated trait that serves as a bridge between a
+            /// concrete type and a trait.
             #[doc(hidden)]
             $target_trait_vis trait [< $target_trait Bridge >]:concatenate {
                 /// Wrapper preserving the printable subject type across builder operations.
@@ -325,7 +340,7 @@ macro_rules! Bridge {
                 $(where $($target_parametrize_where)*)?;
             }
 
-            /// Marker for the generated bridge implementation.
+            /// A dummy, uninhabited type that serves as an implementation detail.
             #[doc(hidden)]
             #[derive(Debug)]
             $target_trait_vis enum [< Ty $target_trait Bridge >]:concatenate {}
@@ -558,7 +573,9 @@ Bridge!(
             self
         }
 
-        /// Set the foreground color to [`Color::RED`].
+        /// Paint the subject with a `red` color.
+        ///
+        /// Results in the same effect as using the [`Color::RED`] constant.
         #[inline]
         pub const fn red(self) -> Self {
             let mut target_value = self;
@@ -573,7 +590,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the foreground color to [`Color::BRIGHT_RED`].
+        /// Paint the subject with a `bright red` color.
+        ///
+        /// Results in the same effect as using the [`Color::BRIGHT_RED`] constant.
         #[inline]
         pub const fn bright_red(self) -> Self {
             let mut target_value = self;
@@ -588,7 +607,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the foreground color to [`Color::GREEN`].
+        /// Paint the subject with a `green` color.
+        ///
+        /// Results in the same effect as using the [`Color::GREEN`] constant.
         #[inline]
         pub const fn green(self) -> Self {
             let mut target_value = self;
@@ -603,7 +624,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the foreground color to [`Color::BRIGHT_GREEN`].
+        /// Paint the subject with a `bright green` color.
+        ///
+        /// Results in the same effect as using the [`Color::BRIGHT_GREEN`] constant.
         #[inline]
         pub const fn bright_green(self) -> Self {
             let mut target_value = self;
@@ -618,7 +641,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the foreground color to [`Color::BLUE`].
+        /// Paint the subject with a `blue` color.
+        ///
+        /// Results in the same effect as using the [`Color::BLUE`] constant.
         pub const fn blue(self) -> Self {
             let mut target_value = self;
 
@@ -632,7 +657,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the foreground color to [`Color::BRIGHT_BLUE`].
+        /// Paint the subject with a `bright blue` color.
+        ///
+        /// Results in the same effect as using the [`Color::BRIGHT_BLUE`] constant.
         pub const fn bright_blue(self) -> Self {
             let mut target_value = self;
 
@@ -646,7 +673,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the foreground color to [`Color::YELLOW`].
+        /// Paint the subject with a `yellow` color.
+        ///
+        /// Results in the same effect as using the [`Color::YELLOW`] constant.
         #[inline]
         pub const fn yellow(self) -> Self {
             let mut target_value = self;
@@ -661,7 +690,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the foreground color to [`Color::BRIGHT_YELLOW`].
+        /// Paint the subject with a `bright yellow` color.
+        ///
+        /// Results in the same effect as using the [`Color::BRIGHT_YELLOW`] constant.
         #[inline]
         pub const fn bright_yellow(self) -> Self {
             let mut target_value = self;
@@ -676,7 +707,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the foreground color to [`Color::MAGENTA`].
+        /// Paint the subject with a `magenta` color.
+        ///
+        /// Results in the same effect as using the [`Color::MAGENTA`] constant.
         #[inline]
         pub const fn magenta(self) -> Self {
             let mut target_value = self;
@@ -691,7 +724,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the foreground color to [`Color::BRIGHT_MAGENTA`].
+        /// Paint the subject with a `bright magenta` color.
+        ///
+        /// Results in the same effect as using the [`Color::BRIGHT_MAGENTA`] constant.
         #[inline]
         pub const fn bright_magenta(self) -> Self {
             let mut target_value = self;
@@ -706,7 +741,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the foreground color to [`Color::CYAN`].
+        /// Paint the subject with a `cyan` color.
+        ///
+        /// Results in the same effect as using the [`Color::CYAN`] constant.
         #[inline]
         pub const fn cyan(self) -> Self {
             let mut target_value = self;
@@ -721,7 +758,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the foreground color to [`Color::BRIGHT_CYAN`].
+        /// Paint the subject with a `bright cyan` color.
+        ///
+        /// Results in the same effect as using the [`Color::BRIGHT_CYAN`] constant.
         #[inline]
         pub const fn bright_cyan(self) -> Self {
             let mut target_value = self;
@@ -736,7 +775,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the foreground color to [`Color::WHITE`].
+        /// Paint the subject with a `white` color.
+        ///
+        /// Results in the same effect as using the [`Color::WHITE`] constant.
         #[inline]
         pub const fn white(self) -> Self {
             let mut target_value = self;
@@ -751,7 +792,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the foreground color to [`Color::BRIGHT_WHITE`].
+        /// Paint the subject with a `bright white` color.
+        ///
+        /// Results in the same effect as using the [`Color::BRIGHT_WHITE`] constant.
         #[inline]
         pub const fn bright_white(self) -> Self {
             let mut target_value = self;
@@ -766,7 +809,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the foreground color to [`Color::BLACK`].
+        /// Paint the subject with a `black` color.
+        ///
+        /// Results in the same effect as using the [`Color::BLACK`] constant.
         #[inline]
         pub const fn black(self) -> Self {
             let mut target_value = self;
@@ -781,7 +826,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the foreground color to [`Color::BRIGHT_BLACK`].
+        /// Paint the subject with a `bright black` color.
+        ///
+        /// Results in the same effect as using the [`Color::BRIGHT_BLACK`] constant.
         #[inline]
         pub const fn bright_black(self) -> Self {
             let mut target_value = self;
@@ -796,7 +843,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the background color to [`Color::RED`].
+        /// Paint the subject with a `red` background.
+        ///
+        /// Results in the same effect as using the [`Color::RED`] constant.
         #[inline]
         pub const fn on_red(self) -> Self {
             let mut target_value = self;
@@ -811,7 +860,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the background color to [`Color::BRIGHT_RED`].
+        /// Paint the subject with a `bright red` background.
+        ///
+        /// Results in the same effect as using the [`Color::BRIGHT_RED`] constant.
         #[inline]
         pub const fn on_bright_red(self) -> Self {
             let mut target_value = self;
@@ -826,7 +877,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the background color to [`Color::GREEN`].
+        /// Paint the subject with a `green` background.
+        ///
+        /// Results in the same effect as using the [`Color::GREEN`] constant.
         #[inline]
         pub const fn on_green(self) -> Self {
             let mut target_value = self;
@@ -841,7 +894,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the background color to [`Color::BRIGHT_GREEN`].
+        /// Paint the subject with a `bright green` background.
+        ///
+        /// Results in the same effect as using the [`Color::BRIGHT_GREEN`] constant.
         #[inline]
         pub const fn on_bright_green(self) -> Self {
             let mut target_value = self;
@@ -856,7 +911,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the background color to [`Color::BLUE`].
+        /// Paint the subject with a `blue` background.
+        ///
+        /// Results in the same effect as using the [`Color::BLUE`] constant.
         #[inline]
         pub const fn on_blue(self) -> Self {
             let mut target_value = self;
@@ -871,7 +928,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the background color to [`Color::BRIGHT_BLUE`].
+        /// Paint the subject with a `bright blue` background.
+        ///
+        /// Results in the same effect as using the [`Color::BRIGHT_BLUE`] constant.
         #[inline]
         pub const fn on_bright_blue(self) -> Self {
             let mut target_value = self;
@@ -886,7 +945,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the background color to [`Color::YELLOW`].
+        /// Paint the subject with a `yellow` background.
+        ///
+        /// Results in the same effect as using the [`Color::YELLOW`] constant.
         #[inline]
         pub const fn on_yellow(self) -> Self {
             let mut target_value = self;
@@ -901,7 +962,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the background color to [`Color::BRIGHT_YELLOW`].
+        /// Paint the subject with a `bright yellow` background.
+        ///
+        /// Results in the same effect as using the [`Color::BRIGHT_YELLOW`] constant.
         #[inline]
         pub const fn on_bright_yellow(self) -> Self {
             let mut target_value = self;
@@ -916,7 +979,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the background color to [`Color::MAGENTA`].
+        /// Paint the subject with a `magenta` background.
+        ///
+        /// Results in the same effect as using the [`Color::MAGENTA`] constant.
         #[inline]
         pub const fn on_magenta(self) -> Self {
             let mut target_value = self;
@@ -931,7 +996,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the background color to [`Color::BRIGHT_MAGENTA`].
+        /// Paint the subject with a `bright magenta` background.
+        ///
+        /// Results in the same effect as using the [`Color::BRIGHT_MAGENTA`] constant.
         #[inline]
         pub const fn on_bright_magenta(self) -> Self {
             let mut target_value = self;
@@ -946,7 +1013,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the background color to [`Color::CYAN`].
+        /// Paint the subject with a `cyan` background.
+        ///
+        /// Results in the same effect as using the [`Color::CYAN`] constant.
         #[inline]
         pub const fn on_cyan(self) -> Self {
             let mut target_value = self;
@@ -961,7 +1030,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the background color to [`Color::BRIGHT_CYAN`].
+        /// Paint the subject with a `bright cyan` background.
+        ///
+        /// Results in the same effect as using the [`Color::BRIGHT_CYAN`] constant.
         #[inline]
         pub const fn on_bright_cyan(self) -> Self {
             let mut target_value = self;
@@ -976,7 +1047,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the background color to [`Color::WHITE`].
+        /// Paint the subject with a `white` background.
+        ///
+        /// Results in the same effect as using the [`Color::WHITE`] constant.
         #[inline]
         pub const fn on_white(self) -> Self {
             let mut target_value = self;
@@ -991,7 +1064,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the background color to [`Color::BRIGHT_WHITE`].
+        /// Paint the subject with a `bright white` background.
+        ///
+        /// Results in the same effect as using the [`Color::BRIGHT_WHITE`] constant.
         #[inline]
         pub const fn on_bright_white(self) -> Self {
             let mut target_value = self;
@@ -1006,7 +1081,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the background color to [`Color::BLACK`].
+        /// Paint the subject with a `black` background.
+        ///
+        /// Results in the same effect as using the [`Color::BLACK`] constant.
         #[inline]
         pub const fn on_black(self) -> Self {
             let mut target_value = self;
@@ -1021,7 +1098,9 @@ Bridge!(
             target_value
         }
 
-        /// Set the background color to [`Color::BRIGHT_BLACK`].
+        /// Paint the subject with a `bright black` background.
+        ///
+        /// Results in the same effect as using the [`Color::BRIGHT_BLACK`] constant.
         #[inline]
         pub const fn on_bright_black(self) -> Self {
             let mut target_value = self;
@@ -1036,7 +1115,9 @@ Bridge!(
             target_value
         }
 
-        /// Add [`TextAttribute::Bold`] to the attribute set.
+        /// Paint the subject with a `bold` style.
+        ///
+        /// This is equivalent to using the [`TextAttribute::Bold`] variant.
         #[inline]
         pub const fn bold(self) -> Self {
             let mut target_value = self;
@@ -1051,7 +1132,9 @@ Bridge!(
             target_value
         }
 
-        /// Add [`TextAttribute::Dim`] to the attribute set.
+        /// Paint the subject with a `dim` style.
+        ///
+        /// This is equivalent to using the [`TextAttribute::Dim`] variant.
         #[inline]
         pub const fn dim(self) -> Self {
             let mut target_value = self;
@@ -1066,7 +1149,9 @@ Bridge!(
             target_value
         }
 
-        /// Add [`TextAttribute::Italic`] to the attribute set.
+        /// Paint the subject with an `italic` style.
+        ///
+        /// This is equivalent to using the [`TextAttribute::Italic`] variant.
         #[inline]
         pub const fn italic(self) -> Self {
             let mut target_value = self;
@@ -1081,7 +1166,9 @@ Bridge!(
             target_value
         }
 
-        /// Add [`TextAttribute::Underline`] to the attribute set.
+        /// Paint the subject with an `underline` style.
+        ///
+        /// This is equivalent to using the [`TextAttribute::Underline`] variant.
         #[inline]
         pub const fn underline(self) -> Self {
             let mut target_value = self;
@@ -1096,7 +1183,9 @@ Bridge!(
             target_value
         }
 
-        /// Add [`TextAttribute::Blink`] to the attribute set.
+        /// Paint the subject with a `blink` style.
+        ///
+        /// This is equivalent to using the [`TextAttribute::Blink`] variant.
         #[inline]
         pub const fn blink(self) -> Self {
             let mut target_value = self;
@@ -1111,7 +1200,9 @@ Bridge!(
             target_value
         }
 
-        /// Add [`TextAttribute::Inverse`] to the attribute set.
+        /// Paint the subject with a `inverse` style.
+        ///
+        /// This is equivalent to using the [`TextAttribute::Inverse`] variant.
         #[inline]
         pub const fn inverse(self) -> Self {
             let mut target_value = self;

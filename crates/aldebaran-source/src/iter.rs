@@ -8,18 +8,21 @@
 use crate::component::Component;
 use crate::source::Source;
 
-/// A source that can yield its components in source order.
+/// A trait for sources that can be arbitrarily iterated over.
+///
+/// This is an **extension trait**, and thus only builds functionality on top of
+/// [`Source`].
 ///
 /// Iteration must visit every source component exactly once, with the sum of
 /// its [`Component::size`] values equal to the source footprint length. This
 /// keeps traversal consistent with the coordinate extent used by source spans.
 pub trait SourceIter<'source>: Source<'source> {
-    /// Traversal preserving component identity and source order.
+    /// Iterator produced for one borrow of this source.
     type Iterator<'borrow>: Iterator<Item = Self::Component>
     where
         Self: 'borrow;
 
-    /// Traverse source components without substituting coordinate units for values.
+    /// Retrieve an iterator over the source components.
     fn iter(&self) -> Self::Iterator<'_>;
 
     /// Pair components with offsets in source units, starting at zero.
@@ -71,8 +74,9 @@ where
     I: Iterator<Item = C>,
     C: Component,
 {
-    /// Assign zero-based source offsets to the supplied component sequence.
-    /// The sum of component widths must fit in `usize`.
+    /// Create a new [`EnumeratedComponent`] from an iterator of components.
+    ///
+    /// The offsets start at zero, and the sum of component widths must fit in `usize`.
     #[inline]
     pub const fn enumerate(iter: I) -> Self {
         Self { iter, target_index: 0 }

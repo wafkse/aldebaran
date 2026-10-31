@@ -5,7 +5,19 @@
 
 use core::fmt;
 
-/// Presentation surrounding a closure's output to a [`fmt::Write`] sink.
+/// A stylus for a generic [`writer`](fmt::Write) `W`.
+///
+/// The rationale behind being generic over a writer is to allow for the case
+/// where stylistic settings require interacting with the writer in another
+/// manner, this extraneous interaction can be expressed by additional trait
+/// bounds, or a concrete type.
+///
+/// A motivating example of such occurence is the difference between a writer
+/// that incorporates style in the flow of data itself compared to a stream that
+/// handles style through flags but is indifferent to the stream itself.
+///
+/// This architecture allows for both cases to coexist, and for a single type to
+/// handle different types of writers.
 ///
 /// Styles may write control sequences or change writer-owned state. The
 /// associated error describes presentation failures independently of errors

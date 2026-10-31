@@ -38,8 +38,19 @@ StorageId!(16);
 StorageId!(32 become);
 StorageId!(64);
 
-/// Retain source values as borrows lasting for `'a` or as owned representations.
-/// Assigned IDs belong to this storage and remain valid across insertions.
+/// A storage for source-based data.
+///
+/// This is the central storage type for interned data that is either:
+///
+/// - A chunk of the source itself.
+///
+/// - A value that was partially/totally derived from the source.
+///
+/// Therefore, to allow for this to be possible, owned values must be able to
+/// convert to the same kind of source reference for storage to be able to
+/// have a consistent outwards interface.
+///
+/// Borrowed values remain valid for `'a`. Assigned IDs belong to this storage and remain valid across insertions.
 #[derive(Debug, Clone)]
 // NOTE(invariant): ForAll(Id In IndexedIds): 1 <= Id <= StorageList.Length
 // And IndexedHash(Id) = SourceHash(StorageList[Id - 1])
@@ -57,7 +68,7 @@ where
     /// IDs grouped by source hash for content-based identity reuse.
     id_existence: HashMap<I, (), ()>,
 
-    /// Retained source representations in ID assignment order.
+    /// The storage vector that stores the interned values.
     storage_list: Vec<Cow<'a, S>>,
 }
 
@@ -254,7 +265,7 @@ where
     /// IDs grouped by source hash for content-based identity reuse.
     id_existence: HashMap<I, (), ()>,
 
-    /// Owned source representations retained in ID assignment order.
+    /// The storage vector that stores the interned values.
     storage_list: Vec<S::Owned>,
 }
 

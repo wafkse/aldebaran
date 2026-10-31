@@ -18,15 +18,17 @@ use crate::report::severity::{Importance, Metadata, Severity};
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 // NOTE(invariant): None.
 pub struct HeaderTheme {
-    /// Style of the diagnostic kind descriptor before the heading separator.
+    /// The style to use for the error kind.
     kind: Style,
 
-    /// Style of the report title following the kind descriptor.
+    /// The style to use for the error title.
     title: Style,
 }
 
 impl HeaderTheme {
-    /// Heading emphasis for the kind descriptor, which [`DefaultTheme`] bases on severity.
+    /// Retrieve the style to use for the error kind.
+    ///
+    /// [`DefaultTheme`] chooses this style based on severity.
     #[inline]
     pub const fn kind(&self) -> Style {
         let &Self { kind, .. } = self;
@@ -34,7 +36,9 @@ impl HeaderTheme {
         kind
     }
 
-    /// Heading emphasis for the report title, which [`DefaultTheme`] bases on importance.
+    /// Retrieve the style to use for the error title.
+    ///
+    /// [`DefaultTheme`] chooses this style based on importance.
     #[inline]
     pub const fn title(&self) -> Style {
         let &Self { title, .. } = self;
@@ -43,14 +47,20 @@ impl HeaderTheme {
     }
 }
 
-/// Assigns styles to the heading and annotated source excerpt.
+/// A trait that represents a theme for the fancy textual renderer.
 ///
 /// Heading styles depend on report [`Metadata`]. Marker styles distinguish source
 /// spans, while line-number styling is shared by the gutter and source-range
 /// heading. [`Fancy`](super::Fancy) applies these styles only when its color
 /// setting permits ANSI styling, but can still query the theme when it is disabled.
 pub trait Theme: Copy + 'static {
-    /// Choose separate kind and title styles from the report's severity and importance.
+    /// Determine the header theme to use for the given [`Metadata`].
+    ///
+    /// This will apply the stylistic settings specified depending on the
+    /// error metadata, which is composed of an importance and severity
+    /// level pair.
+    ///
+    /// See [`HeaderTheme`] and [`Metadata`] for more information.
     fn metadata(&self, metadata: &Metadata) -> HeaderTheme;
 
     /// Styles for distinguishing annotated source spans, with a fallback for missing styles.
@@ -64,7 +74,10 @@ pub trait Theme: Copy + 'static {
         (Style::default(), iter::empty())
     }
 
-    /// Shared style for gutter line numbers and the source heading's line range.
+    /// Determine the style to use for the line number indicators
+    /// inside the source code snippet.
+    ///
+    /// This style also applies to the line range in the source heading.
     #[inline]
     fn lines(&self) -> Style {
         Style::default()
@@ -79,7 +92,9 @@ pub trait Theme: Copy + 'static {
     }
 }
 
-/// Built-in emphasis for report severity, title importance, and annotation spans.
+/// The default theme for text-based rendering.
+///
+/// This holds a simple, readable color scheme that is easy on the eyes.
 ///
 /// Severity selects the kind's color and attribute, while importance selects the
 /// title's. Six marker colors distinguish the first encountered spans, after

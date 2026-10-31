@@ -12,7 +12,7 @@ use aldebaran_baseline::prelude::{Span, Spanned};
 
 use crate::line::SourceLines;
 
-/// Nonempty line content with its position in the original source.
+/// Content of a line in a source.
 ///
 /// Printing uses the content view alone. The span remains available to align
 /// annotations with that output and excludes the terminating line break.
@@ -24,7 +24,7 @@ where
     /// The content of the line, excluding the line break.
     line_content: S::Line,
 
-    /// The source-coordinate span associated with the content view.
+    /// The span that arches over the line's content.
     span: Span,
 }
 
@@ -63,7 +63,7 @@ impl<'a, S> LineContent<'a, S>
 where
     S: SourceLines<'a> + ?Sized,
 {
-    /// Content available for rendering and line-local windows, excluding the break.
+    /// Retrieve the content of the line.
     #[inline]
     pub const fn value(&self) -> &S::Line {
         let &Self { ref line_content, .. } = self;
@@ -71,7 +71,7 @@ where
         line_content
     }
 
-    /// Absolute content extent with an exclusive end, measured in source units.
+    /// Retrieve the span that arches over the line's content.
     #[inline]
     pub const fn span(&self) -> Span {
         let &Self { span, .. } = self;

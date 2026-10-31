@@ -45,7 +45,7 @@ impl<'a, T> RefNonempty<'a, T> {
         Self(parts)
     }
 
-    /// The value that keeps the view nonempty even when the tail is empty.
+    /// Retrieve the first value.
     #[inline]
     pub const fn first(&self) -> &'a T {
         let Self((first, ..)) = *self;
@@ -53,7 +53,8 @@ impl<'a, T> RefNonempty<'a, T> {
         first
     }
 
-    /// Elements following the required value, in iteration order.
+    /// Retrieve the rest of the values, that is, all values except the first
+    /// one.
     #[inline]
     pub const fn rest(&self) -> &'a [T] {
         let Self((.., rest)) = *self;

@@ -41,10 +41,10 @@ pub enum Importance {
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 #[non_exhaustive]
 pub struct Metadata {
-    /// Severity used to classify the diagnostic's impact.
+    /// The associated severity of the error.
     pub severity: Severity,
 
-    /// Relative importance used to prioritize the diagnostic.
+    /// The intrinsic importance of the error.
     pub importance: Importance,
 }
 
@@ -76,7 +76,7 @@ impl Metadata {
         Self { severity, importance }
     }
 
-    /// Impact classification used independently of relative priority.
+    /// Retrieve the associated severity of this error metadata.
     #[inline]
     pub const fn severity(&self) -> Severity {
         let &Self { severity, .. } = self;
@@ -84,7 +84,7 @@ impl Metadata {
         severity
     }
 
-    /// Relative priority within the consumer's diagnostic policy.
+    /// Retrieve the intrinsic importance of this error metadata.
     #[inline]
     pub const fn importance(&self) -> Importance {
         let &Self { importance, .. } = self;
@@ -92,7 +92,8 @@ impl Metadata {
         importance
     }
 
-    /// Shared impact classification for metadata-aware consumers.
+    /// Retrieve *(an immutable reference)* to the associated severity of this
+    /// metadata.
     #[inline]
     pub const fn severity_ref(&self) -> &Severity {
         let &Self { ref severity, .. } = self;
@@ -100,7 +101,8 @@ impl Metadata {
         severity
     }
 
-    /// Shared priority classification, independently of impact.
+    /// Retrieve *(an immutable reference)* to the intrinsic importance of this
+    /// metadata.
     #[inline]
     pub const fn importance_ref(&self) -> &Importance {
         let &Self { ref importance, .. } = self;
@@ -108,7 +110,8 @@ impl Metadata {
         importance
     }
 
-    /// Change the impact classification without changing relative priority.
+    /// Retrieve *(a mutable reference)* to the associated severity of this
+    /// metadata.
     #[inline]
     pub const fn severity_mut(&mut self) -> &mut Severity {
         let &mut Self { ref mut severity, .. } = self;
@@ -116,7 +119,8 @@ impl Metadata {
         severity
     }
 
-    /// Change relative priority without changing the impact classification.
+    /// Retrieve *(a mutable reference)* to the intrinsic importance of this
+    /// metadata.
     #[inline]
     pub const fn importance_mut(&mut self) -> &mut Importance {
         let &mut Self { ref mut importance, .. } = self;

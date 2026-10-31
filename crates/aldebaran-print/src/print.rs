@@ -15,7 +15,7 @@ use core::{
     ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo},
 };
 
-/// Text rendering with externally supplied data such as an interner or arena.
+/// A value that can write its textual representation into a formatting sink.
 ///
 /// The context belongs to the caller, allowing stored values to remain separate
 /// from the data needed to display them. Output errors can leave a written
@@ -92,10 +92,10 @@ struct DisplayWith<'a, P>
 where
     P: Print + ?Sized,
 {
-    /// Borrowed subject whose textual form is resolved at formatting time.
+    /// Value rendered using the borrowed context.
     target_value: &'a P,
 
-    /// Caller-owned data retained alongside the subject for subsequent formatting.
+    /// Context used to customize the rendered value.
     context: &'a P::Context,
 }
 

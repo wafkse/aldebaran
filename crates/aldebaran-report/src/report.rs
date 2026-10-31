@@ -32,22 +32,22 @@ use crate::{
 /// The heading is separate from annotation messages, and classification supplies
 /// printable wording and semantic metadata.
 pub trait Report {
-    /// Formatting contract for the diagnostic heading.
+    /// Diagnostic title type.
     type Title: Title + ?Sized;
 
-    /// Classification supplying the heading descriptor and semantic metadata.
+    /// Diagnostic kind type.
     type Kind: kind::ErrorKind;
 
     /// Storage or adapter exposing the diagnostic's primary and related locations.
     type Annotations: Annotations;
 
-    /// Classification used for the heading descriptor and metadata-based styling.
+    /// Retrieve the diagnostic kind.
     fn kind(&self) -> &Self::Kind;
 
-    /// Heading text, independently of individual annotation messages.
+    /// Retrieve the diagnostic title.
     fn title(&self) -> &Self::Title;
 
-    /// Locations and messages that relate this diagnostic to source content.
+    /// Borrow the diagnostic annotation storage.
     fn annotations(&self) -> &Self::Annotations;
 
     /// Return the smallest source span covering every annotation.
@@ -85,10 +85,10 @@ pub trait Report {
 /// Implementers must supply coordinates compatible with every target because
 /// the trait does not check source identity or target bounds.
 pub trait SourceReport<'source>: Report {
-    /// Source whose coordinate system is used by every annotation target.
+    /// Source used to render this report.
     type Source: SourceLines<'source> + SourceMetadata<'source> + ?Sized;
 
-    /// Rendering input against which the report's targets are interpreted.
+    /// Retrieve the rendering source.
     fn source(&self) -> &Self::Source;
 }
 

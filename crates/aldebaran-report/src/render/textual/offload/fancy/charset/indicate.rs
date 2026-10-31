@@ -7,7 +7,11 @@
 //! without width checks, so marker alignment requires glyphs that occupy one
 //! terminal cell.
 
-/// Annotation marker sequence with separate directional and diagnostic cue sets.
+/// A set of indicator characters.
+///
+/// An indicator character is used to emphasize the importance of a particular
+/// part of the error report, or to indicate a particular relationship between
+/// different parts of the error report.
 ///
 /// Fancy copies the stored marker sequence for each excerpt, preserving its
 /// starting position across renders. Configuring arrows, points, or diagnostic
@@ -15,16 +19,19 @@
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 // NOTE(invariant): None.
 pub struct Indicator {
-    /// Arrows for directional cues, separate from span marker glyphs.
+    /// The subset of arrow characters to be used as spatial indicators.
     arrow: Arrow,
 
-    /// Arrowhead-style tips for directional cues without a shaft.
+    /// The subset of point characters to be used as spatial indicators.
     point: Point,
 
-    /// Symbols identifying warning, error, note, and help meanings.
+    /// The subset of characters to be used as connotative indicators.
     connote: Connote,
 
-    /// Repeating symbols that associate highlighted spans with annotation messages.
+    /// The subset of characters to be used as distictive markers.
+    ///
+    /// This is used to mark a particular region of the source code, as
+    /// part of the rendered error report.
     marker: Marker<'static>,
 }
 

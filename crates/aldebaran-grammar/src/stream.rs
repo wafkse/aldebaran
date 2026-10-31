@@ -10,14 +10,12 @@ pub mod skipping;
 pub mod slice;
 pub mod storage;
 
-/// Pull tokens while distinguishing source failures from unavailable input.
-/// `Ok(None)` does not establish permanent exhaustion, and implementations define
-/// whether a failing read advances the stream.
+/// A stream that consumes parser tokens in source order.
 pub trait TokenStream {
-    /// Unit of input consumed by parsers using this stream.
+    /// Token type yielded by the stream.
     type Token;
 
-    /// Token-production failure, distinct from the absence of available input.
+    /// Failure produced while obtaining the next token.
     type Error;
 
     /// Consume the next available token, preserving source failures as `Err`.

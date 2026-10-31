@@ -73,7 +73,11 @@ impl Span {
         Self { start, length }
     }
 
-    /// Inclusive lower bound in the caller's coordinate system.
+    /// Retrieve the position of the start of the span.
+    ///
+    /// # Time Complexity
+    ///
+    /// This operation is `O(1)`.
     #[inline]
     #[must_use]
     pub const fn start(&self) -> usize {
@@ -91,9 +95,13 @@ impl Span {
         start.saturating_add(length.get())
     }
 
-    /// Stored extent in the caller's coordinate unit.
+    /// Retrieve the length of the span.
     ///
-    /// When the endpoint saturates, this can exceed `end() - start()`.
+    /// # Time Complexity
+    ///
+    /// This operation is `O(1)`.
+    ///
+    /// When the endpoint saturates, the stored length can exceed `end() - start()`.
     #[inline]
     #[must_use]
     #[doc(alias = "size")]
@@ -103,7 +111,11 @@ impl Span {
         length
     }
 
-    /// Test whether a coordinate lies in the half-open range.
+    /// Determine if the span contains the target index.
+    ///
+    /// # Time Complexity
+    ///
+    /// This operation is `O(1)`.
     #[inline]
     #[must_use]
     #[doc(alias = "has")]
@@ -113,7 +125,12 @@ impl Span {
         target_index >= start && target_index < self.end()
     }
 
-    /// Test whether this range is fully contained within `target_span`.
+    /// Determine if the current [`Span`] is fully contained within the target
+    /// [`Span`].
+    ///
+    /// # Time Complexity
+    ///
+    /// This operation is `O(1)`.
     #[inline]
     #[must_use]
     #[doc(alias = "inside_of")]
@@ -125,7 +142,12 @@ impl Span {
         start >= target_span.start && end <= target_span.end()
     }
 
-    /// Test whether the ranges share at least one coordinate.
+    /// Determine if the current [`Span`] intersects with the target [`Span`].
+    /// That is, if the two spans have at least one element in common.
+    ///
+    /// # Time Complexity
+    ///
+    /// This operation is `O(1)`.
     #[inline]
     #[must_use]
     pub const fn overlaps(&self, target_span: Self) -> bool {
@@ -167,7 +189,9 @@ impl Span {
         Self { start, length }
     }
 
-    /// Shared coordinates of both ranges, or `None` when they do not overlap.
+    /// Determine the *intersection* between the two spans.
+    ///
+    /// If the two spans do not intersect, the result is [`None`].
     #[inline]
     #[must_use]
     pub const fn intersect(&self, other: Self) -> Option<Self> {
@@ -219,7 +243,9 @@ impl Span {
         start..self.end()
     }
 
-    /// Move the start coordinate to zero while preserving the length.
+    /// Normalize the current to start from `0`.
+    ///
+    /// This is indeed useful in cases where relative spans are required.
     #[inline]
     pub const fn normal(&self) -> Self {
         let &Self { length, .. } = self;

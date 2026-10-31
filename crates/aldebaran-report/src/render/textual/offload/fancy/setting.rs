@@ -209,7 +209,7 @@ where
         }
     }
 
-    /// Whether ANSI colors and attributes are enabled.
+    /// Retrieve the colored settings of these settings.
     #[inline]
     pub const fn colored(&self) -> Colored {
         let &Self { colored, .. } = self;
@@ -225,7 +225,7 @@ where
         layout
     }
 
-    /// Glyphs used for source framing and annotation markers.
+    /// Retrieve the charset settings of these settings.
     #[inline]
     pub const fn charset(&self) -> Charset {
         let &Self { charset, .. } = self;
@@ -242,7 +242,7 @@ where
         tab_width
     }
 
-    /// Styles for the heading, line numbers, and annotation markers.
+    /// Retrieve the theme settings of these settings.
     #[inline]
     pub const fn theme(&self) -> &T {
         let &Self { ref theme, .. } = self;
@@ -250,7 +250,8 @@ where
         theme
     }
 
-    /// Borrow the ANSI styling choice.
+    /// Retrieve *(an immutable reference)* to the colored settings of these
+    /// settings.
     #[inline]
     pub const fn colored_ref(&self) -> &Colored {
         let &Self { ref colored, .. } = self;
@@ -266,7 +267,8 @@ where
         layout.as_ref()
     }
 
-    /// Borrow the framing and marker glyphs.
+    /// Retrieve *(an immutable reference)* to the charset settings of these
+    /// settings.
     #[inline]
     pub const fn charset_ref(&self) -> &Charset {
         let &Self { ref charset, .. } = self;
@@ -274,7 +276,8 @@ where
         charset
     }
 
-    /// Borrow the styles for diagnostic content.
+    /// Retrieve *(an immutable reference)* to the theme settings of these
+    /// settings.
     #[inline]
     pub const fn theme_ref(&self) -> &T {
         let &Self { ref theme, .. } = self;
@@ -282,7 +285,8 @@ where
         theme
     }
 
-    /// Change ANSI styling independently of glyph selection.
+    /// Retrieve *(a mutable reference)* to the colored settings of these
+    /// settings.
     #[inline]
     pub const fn colored_mut(&mut self) -> &mut Colored {
         let &mut Self { ref mut colored, .. } = self;
@@ -298,7 +302,8 @@ where
         layout.as_mut()
     }
 
-    /// Change glyphs independently of ANSI styling.
+    /// Retrieve *(a mutable reference)* to the charset settings of these
+    /// settings.
     #[inline]
     pub const fn charset_mut(&mut self) -> &mut Charset {
         let &mut Self { ref mut charset, .. } = self;

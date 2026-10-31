@@ -11,10 +11,10 @@ use aldebaran_print::prelude::Print;
 /// Values implementing [`Print`] already satisfy this contract. A custom title
 /// can instead supply a printable view that uses its own external context.
 pub trait Title {
-    /// Data the caller must supply when formatting the printable content.
+    /// External data required while printing this title.
     type Context;
 
-    /// Printable view that interprets the context defined by this title.
+    /// Determine the printable content of the title.
     fn content(&self) -> impl Print<Context = Self::Context>;
 }
 

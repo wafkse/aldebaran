@@ -12,7 +12,7 @@ use crate::prelude::AnsiSequence;
 
 use crate::prelude::Surface;
 
-/// An ANSI true-color value containing red, green, and blue channel bytes.
+/// A RBG ANSI color determined by a RGB triplet.
 ///
 /// Channels range from zero intensity to 255 and are emitted without palette
 /// conversion. The default value is [`AnsiRgb::WHITE`].
@@ -73,25 +73,28 @@ impl AnsiRgb {
     /// A white [`AnsiRgb`] color.
     pub const WHITE: Self = Self::array([255, 255, 255]);
 
-    /// Construct a color from channel bytes in red, green, blue order.
+    /// Instantiate a new [`AnsiRgb`] color from a 3-element array, in the [r,
+    /// g, b] order.
     #[inline]
     pub const fn array([red, green, blue]: [u8; 3]) -> Self {
         Self([red, green, blue])
     }
 
-    /// Construct a color from a tuple in red, green, blue order.
+    /// Instantiate a new [`AnsiRgb`] color from a 3-element tuple, in the (r,
+    /// g, b) order.
     #[inline]
     pub const fn tuple((red, green, blue): (u8, u8, u8)) -> Self {
         Self::array([red, green, blue])
     }
 
-    /// Read the first three channel bytes from `slice`.
+    /// Attempt to instantiate a new [`AnsiRgb`] color from a slice of an
+    /// arbitrary length.
     ///
-    /// Fewer than three bytes yield `None`. The bytes are interpreted in red,
-    /// green, blue order and any remaining bytes are ignored.
+    /// Will return `None` if the slice is not at least of length `3`.
+    ///
+    /// The bytes are read in red, green, blue order. Any bytes after the first three are ignored.
     #[inline]
     pub const fn try_from_slice(slice: &[u8]) -> Option<Self> {
-        // Const evaluation requires explicit option propagation here.
         macro_rules! try_const {
             ($target_value:expr) => {
                 match $target_value {
@@ -110,7 +113,7 @@ impl AnsiRgb {
         Some(Self::tuple((r, g, b)))
     }
 
-    /// Red intensity from 0 through 255 in the emitted true-color value.
+    /// Retrieve the red component of this [`AnsiRgb`] color.
     #[inline]
     pub const fn red(&self) -> u8 {
         let &Self([red, ..]) = self;
@@ -118,7 +121,7 @@ impl AnsiRgb {
         red
     }
 
-    /// Green intensity from 0 through 255 in the emitted true-color value.
+    /// Retrieve the green component of this [`AnsiRgb`] color.
     #[inline]
     pub const fn green(&self) -> u8 {
         let &Self([_, green, ..]) = self;
@@ -126,7 +129,7 @@ impl AnsiRgb {
         green
     }
 
-    /// Blue intensity from 0 through 255 in the emitted true-color value.
+    /// Retrieve the blue component of this [`AnsiRgb`] color.
     #[inline]
     pub const fn blue(&self) -> u8 {
         let &Self([_, _, blue]) = self;

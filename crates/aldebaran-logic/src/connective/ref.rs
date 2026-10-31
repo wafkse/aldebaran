@@ -23,7 +23,7 @@ impl<'a, A> Ref<'a, A> {
         Self(target_ref)
     }
 
-    /// The composed predicate with its original lifetime, independent of this adapter's borrow.
+    /// Retrieve the target reference that is borrowed for `'a`.
     #[inline]
     pub const fn reference(&self) -> &'a A {
         let &Self(target_ref) = self;

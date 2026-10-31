@@ -6,7 +6,14 @@
 
 use crate::line::{LineId, Metadata, SourceLines};
 
-/// A source-order line selection with matching aggregate bounds.
+/// A trait for types that can be used as a handle over one or more lines in a
+/// specific [`source`](crate::source::Source).
+///
+/// # Remarks
+///
+/// Implementors of this trait are expected to provide a cheap way to iterate
+/// over the lines in the source. In other words, this must serve as a cheap
+/// handle to be used for iteration, not for random access.
 ///
 /// Implementations must keep the yielded line identities consistent with
 /// their metadata, including original line numbers and terminator extents.
@@ -14,12 +21,14 @@ pub trait LineExtent<'a, S>
 where
     S: SourceLines<'a> + ?Sized,
 {
-    /// Source-order traversal of the selected line identities.
+    /// The associated [`Iterator`] type for this handle.
+    ///
+    /// See [`LineId`] for more information.
     type Iterator: Iterator<Item = LineId<'a, S>>;
 
-    /// Selected lines with their original numbers and absolute source spans.
+    /// Provide an iterator over the lines relevant to this handle.
     fn lines(&self) -> Self::Iterator;
 
-    /// Bounds and line-length extrema covering exactly the yielded selection.
+    /// Determine the associated [`metadata`](Metadata) for this handle.
     fn metadata(&self) -> &Metadata;
 }

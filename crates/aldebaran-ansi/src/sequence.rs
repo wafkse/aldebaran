@@ -6,8 +6,9 @@
 
 use core::fmt;
 
-/// Terminal settings that can be emitted with caller-selected input.
-/// Implementations do not require a terminal connection and may emit to any formatting sink.
+/// A trait that represents a type that is capable of emitting ANSI sequences.
+///
+/// Implementations can write to any formatting sink and do not require a terminal connection.
 pub trait AnsiSequence<Input> {
     /// Emit settings with per-use input, such as the target color surface.
     /// A formatting error may leave a prefix of the sequence in the sink.

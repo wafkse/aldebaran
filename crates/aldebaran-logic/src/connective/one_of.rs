@@ -23,7 +23,7 @@ impl<A, const N: usize> OneOf<A, N> {
         Self(target_value)
     }
 
-    /// Candidate order defining priority when several predicates classify an input.
+    /// Determine the underlying storage of the target assertions.
     #[inline]
     pub const fn storage(&self) -> &[A; N] {
         let Self(storage) = self;
@@ -105,7 +105,7 @@ impl<'a, A> Sliced<'a, A> {
         Self(target_value)
     }
 
-    /// Candidate order defining priority when several predicates classify an input.
+    /// Determine the underlying storage of the target assertions.
     #[inline]
     pub const fn storage(&self) -> &[A] {
         let Self(storage) = self;

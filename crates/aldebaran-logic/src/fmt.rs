@@ -50,7 +50,7 @@ pub trait Formatter {
 /// A description that needs no surrounding operator context. For inputs implementing
 /// [`Print`] with a default context, it also describes exact-equality assertions.
 pub trait Format {
-    /// Describe the value independently of any connective notation or precedence.
+    /// Pretty-print this type to the specified [`fmt::Write`] `W`
     fn output<W>(&self, writer: &mut W) -> fmt::Result
     where
         W: fmt::Write;
@@ -76,7 +76,7 @@ pub trait FormatWith<F>
 where
     F: Formatter,
 {
-    /// Describe the value under `F`'s notation policy.
+    /// Pretty-print this type to the specified [`fmt::Write`] `W`
     fn output_with<W>(&self, writer: &mut W) -> fmt::Result
     where
         W: fmt::Write;
@@ -98,7 +98,7 @@ pub enum Segment {
 }
 
 impl Segment {
-    /// Binding strength shared by every segment belonging to this operator.
+    /// Determine the precedence of the segment.
     #[inline]
     pub const fn precedence(target_segment: Self) -> Precedence {
         match target_segment {
