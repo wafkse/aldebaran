@@ -1,8 +1,6 @@
 //! Clone-based decomposition of composite report values.
 //!
-//! [`DecomposeByClone`] adapts a borrowed decomposable report by cloning the
-//! components it yields. The adaptor is intended as temporary traversal state when
-//! consumers require owned decomposition output but the source report is borrowed.
+//! See [`DecomposeByClone`] for further information.
 
 use core::marker::PhantomData;
 

@@ -1,9 +1,6 @@
-//! Styles assigned to diagnostic roles in Fancy output.
+//! Styles used for headings, line numbers, and annotation markers in Fancy output.
 //!
-//! [`Theme`] separates heading styles chosen from report metadata from line-number
-//! and annotation-marker styles. [`HeaderTheme`] keeps the kind and title styles
-//! together, while [`DefaultTheme`] provides the built-in palette. Rendering
-//! settings control whether these styles are emitted, independently of glyphs.
+//! See [`Theme`], [`HeaderTheme`], and [`DefaultTheme`] for further information.
 
 use core::iter;
 
@@ -47,20 +44,16 @@ impl HeaderTheme {
     }
 }
 
-/// A trait that represents a theme for the fancy textual renderer.
+/// Supplies styles for report headings, annotated spans, and line numbers.
 ///
-/// Heading styles depend on report [`Metadata`]. Marker styles distinguish source
-/// spans, while line-number styling is shared by the gutter and source-range
-/// heading. [`Fancy`](super::Fancy) applies these styles only when its color
-/// setting permits ANSI styling, but can still query the theme when it is disabled.
+/// Heading styles depend on report [`Metadata`]. [`Fancy`](super::Fancy) applies
+/// the returned styles only when ANSI color output is enabled, though it can
+/// still query the theme when color is disabled.
 pub trait Theme: Copy + 'static {
-    /// Determine the header theme to use for the given [`Metadata`].
+    /// Choose heading styles from the report's [`Metadata`].
     ///
-    /// This will apply the stylistic settings specified depending on the
-    /// error metadata, which is composed of an importance and severity
-    /// level pair.
-    ///
-    /// See [`HeaderTheme`] and [`Metadata`] for more information.
+    /// The metadata combines severity and importance, which select the kind and
+    /// title styles in [`HeaderTheme`].
     fn metadata(&self, metadata: &Metadata) -> HeaderTheme;
 
     /// Styles for distinguishing annotated source spans, with a fallback for missing styles.

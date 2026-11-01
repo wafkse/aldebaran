@@ -1,16 +1,16 @@
-//! Infallible access to a borrowed token sequence.
+//! Token streams over borrowed immutable slices.
 //!
-//! [`Slice`] keeps a position within that sequence, allowing copied streams to
-//! advance independently while borrowing the same tokens.
+//! See [`Slice`] for further information.
 
 use core::convert::Infallible;
 
 use super::{TokenStream, lookahead::Lookahead};
 
-/// Infallible stream over a borrowed slice of copyable tokens.
+/// Infallible token stream over one borrowed slice.
 ///
-/// Reads return tokens by value. Repeated reads after exhaustion leave the
-/// position at the slice length.
+/// The stream never owns or copies the backing collection. Copyable tokens are
+/// returned by value, and the internal index advances only after successful
+/// lookup so exhaustion is repeatable.
 #[derive(Debug, PartialEq, Eq, Hash)]
 // NOTE(invariant): Position <= Tokens.Length
 pub struct Slice<'a, T>(&'a [T], usize);

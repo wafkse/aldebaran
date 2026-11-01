@@ -1,8 +1,6 @@
 //! Text output composed from a writable sink and an [`Offload`] backend.
 //!
-//! [`Textual`] retains the sink between diagnostics. Each render receives a
-//! [`Present`] value that combines backend input with a [`Viewport`], so callers
-//! can change presentation policy without rebuilding the renderer.
+//! See [`Textual`] and [`Present`] for further information.
 
 pub mod offload;
 pub mod viewport;
@@ -17,13 +15,10 @@ use viewport::Viewport;
 
 use crate::{render::RenderMut, report::SourceReport};
 
-/// Presentational settings for the textual renderer.
+/// Backend input and viewport supplied for a textual render.
 ///
-/// This structure contains the settings that are used to render the error
-/// report
-///
-/// Child backends can share the viewport and borrow
-/// selected input through [`Self::referenced_with`].
+/// A child backend can borrow the input through [`Self::referenced`] or project
+/// it with [`Self::referenced_with`], while keeping the same viewport.
 // NOTE(invariant): None.
 pub struct Present<'source, 'input, O, E>
 where
@@ -134,7 +129,8 @@ where
     O: Offload<'source, E> + ?Sized,
     E: SourceReport<'source>,
 {
-    /// Use this backend input with the standard [`Viewport`].
+    /// Create presentation settings from the backend input and standard
+    /// [`Viewport`].
     #[inline]
     pub const fn with_input(input: O::Input<'input>) -> Self {
         Self {
@@ -143,7 +139,8 @@ where
         }
     }
 
-    /// Use this [`Viewport`] with the backend's default input.
+    /// Create presentation settings from this [`Viewport`] and the backend's
+    /// default input.
     #[inline]
     pub fn with_viewport(viewport: Viewport) -> Self
     where
@@ -154,14 +151,14 @@ where
         Self { input, viewport }
     }
 
-    /// Combine explicit backend input and viewport without applying defaults.
+    /// Create presentation settings from explicit input and viewport without
+    /// applying defaults.
     #[inline]
     pub const fn raw(input: O::Input<'input>, viewport: Viewport) -> Self {
         Self { input, viewport }
     }
 
-    /// Retrieve a reference the [`offload renderer input`](Offload::Input)
-    /// associated with these presentational settings.
+    /// Retrieve a reference to the [`Offload`] input associated with these settings.
     #[inline]
     pub const fn input(&self) -> &O::Input<'input> {
         let &Self { ref input, .. } = self;
@@ -209,14 +206,11 @@ where
     }
 }
 
-/// A textual renderer that can be used to create human-readable error reports.
+/// A [`RenderMut`] adapter that sends report formatting to an [`Offload`]
+/// backend.
 ///
-/// See [`Render`] and [`RenderMut`] for more information.
-///
-/// [`Render`]: super::Render
-///
-/// Rendering appends to the sink. If formatting fails, output already written
-/// remains and the backend error is returned.
+/// Each render appends to the retained sink. If formatting fails, output already
+/// written remains and the backend error is returned.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default)]
 // NOTE(invariant): None.
 pub struct Textual<'source, W, O, E>
@@ -228,8 +222,8 @@ where
     /// The destination to write the report to.
     write_sink: W,
 
-    /// A marker to indicate the offload renderer and error type on an
-    /// implementation basis.
+    /// Keeps the backend, report type, and source lifetime in the renderer's
+    /// type.
     _marker: (marker::PhantomData<O>, marker::PhantomData<E>, marker::PhantomData<&'source ()>),
 }
 

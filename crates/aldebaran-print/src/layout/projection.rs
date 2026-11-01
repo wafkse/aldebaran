@@ -1,8 +1,6 @@
 //! Relates grapheme byte ranges to the original source units they represent.
 //!
-//! [`SourceProjection`] supports forward traversal through a [`SourceText`].
-//! Borrowed UTF-8 input has a direct offset relation, while component input can
-//! require fragment records whose source widths differ from visualization lengths.
+//! See [`SourceProjection`] for further information.
 
 use core::ops::Range;
 

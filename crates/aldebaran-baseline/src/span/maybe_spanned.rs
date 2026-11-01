@@ -1,24 +1,24 @@
-//! Optional extents for values that may not occupy source coordinates.
+//! A module that provides the [`MaybeSpanned`] trait.
 //!
-//! [`MaybeSpanned`] accommodates empty values, while [`Spanned`] supplies a span
-//! unconditionally. Built-in strings report UTF-8 byte coordinates and slices
-//! report element coordinates, both starting at zero.
+//! See [`MaybeSpanned`] for further information.
+//!
+//! Empty strings have no span, while nonempty strings use UTF-8 byte coordinates
+//! and slices use element coordinates, both starting at zero.
 
 use core::num::NonZero;
 
 use super::{Span, Spanned};
 
-/// A value whose nonempty coordinate extent may be available.
+/// Trait for types that may have a span.
 ///
-/// Implementations choose the coordinate system they report, while [`Span`]
-/// requires a nonzero length in that system. Empty built-in strings and slices
-/// therefore have no span.
+/// This is useful for types that may or may not have a span, and we want to
+/// retrieve it if it exists. Empty strings and slices are examples.
 pub trait MaybeSpanned {
-    /// Return this value's nonempty span, if available.
+    /// Retrieve the span of this type, if it exists.
     fn maybe_spanned(&self) -> Option<Span>;
 }
 
-/// A [`Spanned`] value always has an available span.
+/// If a type is [`Spanned`], it can also be [`MaybeSpanned`].
 impl<T> MaybeSpanned for T
 where
     T: Spanned,
@@ -29,7 +29,7 @@ where
     }
 }
 
-/// Nonempty strings use a zero-based span measured in UTF-8 bytes.
+/// A nonempty string has a span measured in UTF-8 bytes from zero.
 impl MaybeSpanned for str {
     #[inline]
     fn maybe_spanned(&self) -> Option<Span> {
@@ -37,7 +37,7 @@ impl MaybeSpanned for str {
     }
 }
 
-/// Nonempty slices use zero-based coordinates measured in elements.
+/// A nonempty slice has a span measured in elements from zero.
 impl<T> MaybeSpanned for [T] {
     #[inline]
     fn maybe_spanned(&self) -> Option<Span> {

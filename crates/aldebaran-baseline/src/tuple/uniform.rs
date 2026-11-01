@@ -2,18 +2,17 @@
 
 use super::Appendage;
 
-/// Conversion from a homogeneous tuple to an array of the same length.
-///
-/// Implementations are provided for tuple lengths one through sixteen.
+/// A trait for those tuples that are uniform in their type.
 pub trait Uniform<const K: usize, T>
 where
     Self: Appendage,
 {
-    /// Consume the tuple into an array, preserving element order.
+    /// Convert the homogeneous tuple into an array while preserving tuple order.
     fn array(self) -> [T; K];
 }
 
-/// Generate [`Uniform`] implementations for homogeneous tuple lengths.
+/// TT-Muncher that implements [`Uniform`] for tuple types of homogeneous
+/// types.
 macro_rules! uniform {
     () => {};
     (

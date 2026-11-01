@@ -1,7 +1,6 @@
 //! Incremental line discovery over iterable sources.
 //!
-//! [`LineIter`] recognizes line breaks while traversing source components and
-//! assigns absolute source-coordinate spans to yielded [`LineId`] values.
+//! See [`LineIter`] for further information.
 
 use crate::dissect::SourceDissect;
 
@@ -16,28 +15,31 @@ use crate::{
     terminate::{Outcome, Terminator, TerminatorContext},
 };
 
-/// Numbered line discovery with absolute spans under a [`Terminator`] policy.
+/// Stateful iterator that discovers lines with one terminator policy.
 ///
-/// Empty input has no lines, and a trailing break adds no empty final line.
-/// A blank terminated line has a break view without a content view. Numbering
-/// starts at one even when traversal begins at a nonzero source offset, unless
-/// a number is supplied through [`raw`](Self::raw).
+/// Each step begins at the current absolute source offset and feeds components
+/// through `T` until a line break or source exhaustion is reached. The next line
+/// number and offset advance only after a complete line identity is produced.
+/// Empty input has no lines, and a trailing break adds no empty final line. A
+/// blank terminated line has a break view without a content view. Numbering
+/// starts at one even at a nonzero offset unless [`raw`](Self::raw) supplies a
+/// different line number.
 // NOTE(invariant): Terminator = StateBefore(NextLine.TargetOffset)
 pub struct LineIter<'a, S, T>
 where
     S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     T: Terminator<'a, S>,
 {
-    /// Original source whose coordinate plane contains every yielded span.
+    /// The source sequence whose coordinate plane contains every yielded span.
     pub(in crate::line) target_slice: &'a S,
 
-    /// The source coordinate where the next line begins.
+    /// An offset in the source plane where the next line begins.
     pub(in crate::line) target_offset: usize,
 
-    /// The number assigned to the next yielded line.
+    /// The index of the next line to be yielded.
     pub(in crate::line) target_index: NonZero<usize>,
 
-    /// Recognition policy with state corresponding to the next line's start.
+    /// A terminator used to determine the end of each line, with state for the next line.
     pub(in crate::line) terminator: T,
 }
 
@@ -267,9 +269,7 @@ where
 {
     /// Create a new [`LineIter`] from a source, starting at the beginning.
     ///
-    /// Uses the default terminator for the terminator type.
-    ///
-    /// This uses `T`'s default value.
+    /// Uses the default terminator for the terminator type, `T::default()`.
     #[inline]
     pub fn new(target_source: &'a S) -> Self
     where
@@ -278,10 +278,12 @@ where
         Self::new_with(target_source, T::default())
     }
 
-    /// Treat the source suffix at `target_offset` as the start of line one.
+    /// Create a new [`LineIter`] from a source, starting at the specified
+    /// offset.
     ///
-    /// Uses `T`'s default recognition state. String offsets must be UTF-8
-    /// boundaries. A position at or beyond the source end yields no lines.
+    /// Uses the default terminator for the terminator type. String offsets must
+    /// be UTF-8 boundaries, and an offset at or beyond the source end yields no
+    /// lines.
     #[inline]
     pub fn new_at(target_source: &'a S, target_offset: usize) -> Self
     where
@@ -290,7 +292,10 @@ where
         Self::new_at_with(target_source, target_offset, T::default())
     }
 
-    /// Iterate from the source's first coordinate using `terminator`.
+    /// Create a new [`LineIter`] from a source, starting at the beginning with
+    /// the specified [`Terminator`].
+    ///
+    /// If you wish to start at a specific index, use [`LineIter::new_at`].
     #[inline]
     pub const fn new_with(target_source: &'a S, terminator: T) -> Self {
         let target_slice = target_source;
@@ -307,12 +312,19 @@ where
         }
     }
 
-    /// Treat a source suffix as line one while retaining absolute coordinates.
+    /// Create a new [`LineIter`] from a source, starting at a specific offset,
+    /// and with the specified [`Terminator`].
     ///
-    /// If `target_offset` falls inside a line, its preceding content is omitted.
-    /// String offsets must be UTF-8 boundaries, and `terminator` must carry
-    /// suitable recognition state for the chosen start. At or beyond the source
-    /// end, traversal yields no lines.
+    /// This will skip any lines that are before the target offset. If the offset
+    /// itself is contained within a line, that line will be truncated.
+    ///
+    /// For example:
+    /// - if the source is `abc\ndef\nghi` and the target offset is `4`, the first line will be `def`.
+    /// - if the source is `abc\ndef\nghi` and the target offset is `2`, the first line will be `c`, as offset 3 is part of the `abc\n` line.
+    ///
+    /// String offsets must be UTF-8 boundaries, the terminator must carry
+    /// suitable state for the chosen start, and an offset at or beyond the
+    /// source end yields no lines.
     #[inline]
     pub const fn new_at_with(target_source: &'a S, target_offset: usize, terminator: T) -> Self {
         let target_slice = target_source;
@@ -327,11 +339,16 @@ where
         }
     }
 
-    /// Resume at a caller-supplied source position and line number.
+    /// Construct a new [`LineIter`] from its individual components:
     ///
-    /// The offset must be a valid source boundary and the terminator state
-    /// must correspond to that position. The supplied number labels the first
-    /// yielded line rather than being derived from preceding source content.
+    /// - The target source.
+    /// - The target offset.
+    /// - The target line index.
+    /// - The terminator to use.
+    ///
+    /// The offset must be a valid source boundary and the terminator state must
+    /// correspond to that position. The supplied index labels the first yielded
+    /// line rather than being derived from preceding source content.
     #[inline]
     pub const fn raw(target_slice: &'a S, target_offset: usize, target_index: NonZero<usize>, terminator: T) -> Self {
         Self {
@@ -342,7 +359,10 @@ where
         }
     }
 
-    /// Label reserved for the next line, saturating at `usize::MAX`.
+    /// Determine the current index of this iterator.
+    ///
+    /// This is the index of the next line to be yielded. It saturates at
+    /// `usize::MAX` after the last representable line number.
     #[inline]
     pub const fn index(&self) -> NonZero<usize> {
         let &Self { target_index, .. } = self;
@@ -350,8 +370,10 @@ where
         target_index
     }
 
-    /// Absolute start of the remaining suffix in source units.
-    /// At exhaustion this is the source end for a traversal begun within bounds.
+    /// Determine the offset of this iterator relative to its source.
+    ///
+    /// This is an absolute source coordinate. At exhaustion it is the source end
+    /// for a traversal that began within bounds.
     #[inline]
     pub const fn offset(&self) -> usize {
         let &Self { target_offset, .. } = self;

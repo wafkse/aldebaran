@@ -1,8 +1,6 @@
 //! Contextual metadata associated with source representations.
 //!
-//! [`SourceMetadata`] keeps source contents separate from context such as a file
-//! or logical origin. [`Unknown`] supplies a printable placeholder when no such
-//! context is available.
+//! See [`SourceMetadata`] and [`Unknown`] for further information.
 
 use core::fmt;
 

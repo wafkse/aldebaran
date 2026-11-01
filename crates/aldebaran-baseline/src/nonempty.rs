@@ -1,9 +1,6 @@
-//! Collections with a required first value and an optional tail.
+//! Owned collections that guarantee at least one element.
 //!
-//! [`Nonempty`] owns its values, while [`RefNonempty`] shares a first
-//! value and a slice without allocating. Both traverse the first value before
-//! the tail, so diagnostic collections can retain a primary value separately
-//! from related values.
+//! See [`Nonempty`] and [`RefNonempty`] for further information.
 
 mod owned;
 mod reference;

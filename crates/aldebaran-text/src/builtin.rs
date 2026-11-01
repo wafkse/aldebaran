@@ -1,6 +1,6 @@
-//! Lexical assertions for byte and character sources. [`Byte`] and [`Char`]
-//! share ASCII equality across source kinds, [`Ascii`] names ASCII literals, and
-//! [`property`] and [`punct`] describe character classes and delimiter alternatives.
+//! Primitive assertion values used by text-processing algorithms.
+//!
+//! See [`Byte`], [`Char`], and [`Ascii`] for further information.
 
 pub mod ascii;
 pub mod byte;

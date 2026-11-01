@@ -1,6 +1,6 @@
 //! Named ASCII values usable as predicates over bytes and Unicode scalars.
-//! [`Literal`] fixes the predicate at compile time, while [`Ascii`] also supports
-//! recognition through [`Lex`].
+//!
+//! See [`Ascii`] and [`Literal`] for further information.
 
 use core::fmt;
 
@@ -18,8 +18,11 @@ use crate::{
     prelude::{Cursor, Expected, Lex},
 };
 
-/// An ASCII equality predicate whose expected character is fixed at compile time.
-/// Only ASCII values of `C` have assertion implementations, shared by byte and character inputs.
+/// A type that is guaranteed to be an [`Assert`] for some ASCII character.
+///
+/// The character is given by the constant `C`, so it is fixed at compile time.
+/// Only ASCII values have assertion implementations, which match that character
+/// in either byte or character inputs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Literal<const C: char>
 where
@@ -123,8 +126,11 @@ macro_rules! ascii {
 }
 
 ascii!(
-    /// Names all 128 ASCII characters, including controls, with identical byte and
-    /// character predicates. As a lexer it consumes a component even on a non-ASCII mismatch.
+    /// A singular ASCII character in a text source.
+    ///
+    /// Each variant can be used as an assertion over bytes or characters, including
+    /// ASCII control characters. When used as a lexer, this type consumes the next
+    /// component even if it is not ASCII and recognition therefore fails.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub enum Ascii {
         Null = '\x00',

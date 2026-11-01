@@ -1,4 +1,8 @@
-//! Borrowed assertion values for compositions.
+//! Borrowed assertion adaptation without changing assertion semantics.
+//!
+//! [`Ref`] lets a borrowed assertion participate anywhere an owned connective
+//! value is expected. Predicate evaluation, classification, and formatter output
+//! are forwarded directly to the referenced assertion.
 
 use core::{fmt, ops::Deref};
 
@@ -9,8 +13,7 @@ use crate::{
     input::Input,
 };
 
-/// Includes an existing predicate in a composition without moving or cloning it.
-/// Acceptance, classification, and formatting retain the referenced predicate's contracts.
+/// An adapter type for borrowed [`Assert`]s.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd)]
 #[repr(transparent)]
 // NOTE(invariant): None.

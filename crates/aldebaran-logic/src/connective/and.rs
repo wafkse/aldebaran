@@ -1,4 +1,6 @@
-//! Conjunction over a shared input, retaining both successful classifications.
+//! Logical conjunction over two assertion values.
+//!
+//! See [`And`] for further information.
 
 use core::fmt;
 
@@ -9,8 +11,11 @@ use crate::{
     input::Input,
 };
 
-/// Requires both operands to accept the same input. Successful classification
-/// retains the left and right results as an [`And`] in the same order.
+/// A logical conjunction between two distinct assertions.
+///
+/// Both assertions must accept the input for this assertion to succeed. When
+/// used with [`Choose`], it returns their results together in an [`And`], keeping
+/// the same left-to-right order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 // NOTE(invariant): None.
 pub struct And<A1, A2>(A1, A2);

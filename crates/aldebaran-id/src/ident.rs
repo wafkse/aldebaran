@@ -1,7 +1,6 @@
 //! Nonzero integer identities with optional compile-time type distinctions.
 //!
-//! [`Id!`](macro@crate::Id) declares fixed-width types implementing [`trait@Id`], and [`TaggedId`]
-//! associates an existing ID with a value type without proving storage membership.
+//! See [`Id!`](macro@crate::Id), [`trait@Id`], and [`TaggedId`] for further information.
 
 use core::{
     cmp, fmt,
@@ -11,8 +10,8 @@ use core::{
 
 use crate::zeroable::{NonZeroable, NonZeroed};
 
-/// Declare a macro for fixed-width nonzero IDs, applying caller metadata to each type.
-/// Optional display formatting uses the ID's primitive value.
+/// A helper macro that expands to a subordinated macro that aids in the
+/// generation of newtype identifiers.
 #[macro_export]
 macro_rules! Id {
     (
@@ -25,11 +24,11 @@ macro_rules! Id {
             as $target_fmt_str:literal
         )?
     ) => {
-        #[doc = concat!("Declare fixed-width IDs with the supplied metadata. The `become` form also exposes the type under this macro's name.")]
+        #[doc = concat!("Expands to a new `", stringify!($target_macro), "Id[N]` new-type using `N` bits as storage.")]
         macro_rules! $target_macro {
             ($target_bits:literal) => {
                 $crate::reexport::stream! {
-                    #[doc = concat!("A ", stringify!($target_bits), "-bit identity that excludes zero without proving uniqueness or storage membership.")]
+                    #[doc = concat!("A ", stringify!($target_bits), "-bit identifier new-type.")]
                     ///
                     #[must_use = "identifiers may not be lost"]
                     $(
@@ -133,7 +132,7 @@ pub trait Id: Hash + PartialEq + Eq + Copy + 'static {
 
     /// Construct an identifier from its nonzero backing value.
     ///
-    /// The result must expose the same value through [`as_nonzeroed`](Self::as_nonzeroed).
+    /// Implementations must expose the same value through [`Self::as_nonzeroed`].
     fn raw(value: NonZeroed<Self::BackingPrimitive>) -> Self;
 
     /// Numeric identity for interchange with callers using primitive integers.

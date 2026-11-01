@@ -1,8 +1,6 @@
 //! Traversal and metadata describing the same source-line selection.
 //!
-//! [`LineExtent`] connects a source-order sequence of [`LineId`] values with
-//! the bounds and length extrema in [`Metadata`]. Consumers can size output
-//! from the metadata before rendering the selected lines.
+//! See [`LineExtent`] for further information.
 
 use crate::line::{LineId, Metadata, SourceLines};
 

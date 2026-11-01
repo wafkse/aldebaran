@@ -1,6 +1,6 @@
 //! Compact reports for diagnostics that need a nondefault classification.
 //!
-//! The caller supplies the kind used by the report.
+//! See [`OneshotKinded`] for further information.
 
 use aldebaran_baseline::prelude::RefNonempty;
 use aldebaran_source::prelude::{SourceLines, SourceMetadata};
@@ -39,7 +39,8 @@ where
     S: SourceLines<'a> + SourceMetadata<'a> + ?Sized,
     K: ErrorKind,
 {
-    /// Reuse the annotation message as the heading under the supplied classification.
+    /// Create a new [`OneshotKinded`] error with the given source, annotation,
+    /// and kind.
     #[inline]
     pub const fn raw(source: &'a S, annotation: A, kind: K) -> Self {
         Self { source, annotation, kind }

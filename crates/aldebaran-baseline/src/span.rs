@@ -1,9 +1,6 @@
 //! Half-open ranges passed between source-processing components.
 //!
-//! [`Span`] records coordinates without identifying their source or unit. The
-//! producer and consumer must agree on those coordinates, such as UTF-8 bytes
-//! within the same source. Endpoints saturate on overflow, so a nonzero stored
-//! length can describe fewer addressable coordinates near `usize::MAX`.
+//! See [`Span`] for further information.
 
 mod maybe_spanned;
 mod spanned;
@@ -54,17 +51,17 @@ impl Span {
         length: NonZero::<usize>::MIN,
     };
 
-    /// Create a span in the caller's coordinate unit.
+    /// Create a new [`Span`] of the target length.
     ///
-    /// The constructor permits `start + length` to overflow. [`Self::end`]
-    /// then saturates at `usize::MAX`.
+    /// The exclusive endpoint saturates at `usize::MAX` if `start + length`
+    /// overflows.
     #[inline]
     #[must_use]
     pub const fn new(start: usize, length: NonZero<usize>) -> Self {
         Self { start, length }
     }
 
-    /// Create a span covering one coordinate at `start`.
+    /// Create a new [`Span`] of length `1`, that is, a unit span.
     #[inline]
     #[must_use]
     pub const fn unit(start: usize) -> Self {
@@ -86,7 +83,19 @@ impl Span {
         start
     }
 
-    /// Return the exclusive end coordinate, saturating at `usize::MAX` on overflow.
+    /// Retrieve the position of the end of the span.
+    ///
+    /// Note that this is the position where the span ends, that is, it is
+    /// exclusive.
+    ///
+    /// # Time Complexity
+    ///
+    /// This operation is `O(1)`.
+    ///
+    /// # Considerations
+    ///
+    /// If the combined value of `start` and `length` would overflow, this
+    /// function will saturate at the numeric limit.
     #[inline]
     #[must_use]
     pub const fn end(&self) -> usize {
@@ -148,6 +157,7 @@ impl Span {
     /// # Time Complexity
     ///
     /// This operation is `O(1)`.
+    ///
     #[inline]
     #[must_use]
     pub const fn overlaps(&self, target_span: Self) -> bool {
@@ -160,11 +170,13 @@ impl Span {
         start < target_end && end > target_span.start
     }
 
-    /// Return the smallest span containing both ranges.
+    /// Retrieve the superset, i.e, the smallest span that contains both the
+    /// current and target [`Span`]s.
     ///
     /// # Panics
     ///
-    /// Panics when both spans start at `usize::MAX`.
+    /// Panics when both spans start at `usize::MAX`, because their smallest
+    /// containing span would have zero length.
     #[inline]
     #[must_use]
     #[doc(alias = "join")]
@@ -221,7 +233,7 @@ impl Span {
         }
     }
 
-    /// Containment of `target_span`, permitting equal lower and upper boundaries.
+    /// Determine whether the current [`Span`] contains the target span.
     #[inline]
     pub const fn englobes(&self, target_span: Self) -> bool {
         let &Self { start, .. } = self;
@@ -233,9 +245,10 @@ impl Span {
         start <= target_span.start && end >= target_end
     }
 
-    /// Return the half-open range using the saturated endpoint from [`end`](Self::end).
+    /// Reinterpret the current [`Span`] as a [`half-open range`](Range).
     ///
-    /// A span starting at `usize::MAX` therefore produces an empty range.
+    /// The end is saturated at `usize::MAX`, so a span starting there gives an
+    /// empty range.
     #[inline]
     pub const fn range(&self) -> Range<usize> {
         let &Self { start, .. } = self;

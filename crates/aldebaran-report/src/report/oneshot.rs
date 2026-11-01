@@ -1,7 +1,7 @@
 //! Compact report forms for diagnostics assembled at the call site.
 //!
-//! Their title can be supplied separately or taken from an annotation, and the
-//! kind can use its default or a caller-selected value.
+//! See [`Oneshot`], [`OneshotConcise`], [`OneshotKinded`], and [`OneshotMany`] for further
+//! information.
 
 mod concise;
 mod kinded;
@@ -48,7 +48,8 @@ where
     A: Annotated,
     S: SourceLines<'source> + SourceMetadata<'source> + ?Sized,
 {
-    /// Use a separate heading and primary annotation under the error classification.
+    /// Create a new [`Oneshot`] error with the given title, source, and
+    /// annotation.
     #[inline]
     pub const fn new(title: T, source: &'source S, annotation: A) -> Self {
         Self { title, source, annotation }

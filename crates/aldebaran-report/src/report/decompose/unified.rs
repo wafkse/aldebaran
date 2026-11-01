@@ -1,8 +1,6 @@
 //! Unified borrowed title views for decomposed report values.
 //!
-//! [`UnifiedTitle`] represents either an ordinary report title or the title of an
-//! inline annotation. This allows decomposition code to expose a unified title surface
-//! without allocating or coercing distinct title types into strings.
+//! See [`UnifiedTitle`] for further information.
 
 use core::fmt;
 

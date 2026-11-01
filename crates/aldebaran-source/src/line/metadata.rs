@@ -1,15 +1,13 @@
-//! Bounds used to label and size a source-line selection.
+//! Aggregate metadata for source line extents.
 //!
-//! [`Metadata`] combines an absolute source extent, inclusive [`LineRange`],
-//! and [`MinMax`] line lengths. Lengths include terminators and use source
-//! coordinate units, so UTF-8 byte lengths are distinct from display widths.
+//! See [`Metadata`] for further information.
 
 use core::{num::NonZero, ops::RangeInclusive};
 
 use aldebaran_baseline::prelude::Span;
 use num_traits::PrimInt;
 
-/// Restricts records to supported built-in integer types.
+/// Seals supported integer record types to the built-in primitive set.
 mod private {
     /// Restricts source records to built-in integer representations.
     pub trait Sealed {}
@@ -24,7 +22,13 @@ macro_rules! recordable {
 
 recordable!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize);
 
-/// Built-in integer types supported by line statistics.
+/// Trait for recordable primitives.
+///
+/// A primitive is considered recordable if it can be used to record historical
+/// minimum and maximum values.
+///
+/// In other words, a recordable primitive must be copyable and comparable with
+/// a total order.
 pub trait Record: PrimInt + private::Sealed + Copy + PartialOrd + Ord {}
 
 impl<R> Record for R where R: PrimInt + private::Sealed + Copy + PartialOrd + Ord {}
@@ -41,10 +45,10 @@ pub struct MinMax<T = usize>
 where
     T: Record,
 {
-    /// Lower observation bound, or the lower value supplied by the caller.
+    /// The minimum value recorded.
     min: T,
 
-    /// Upper observation bound, or the upper value supplied by the caller.
+    /// The maximum value recorded.
     max: T,
 }
 
@@ -65,7 +69,10 @@ impl<T> MinMax<T>
 where
     T: Record,
 {
-    /// Seed an extrema accumulator with its first observation.
+    /// Construct a [`MinMax`] pair from a single target value.
+    ///
+    /// This is as effective as setting the minimum and maximum values to the
+    /// same value.
     #[inline]
     pub const fn initial(value: T) -> Self {
         let min = value;
@@ -134,7 +141,7 @@ where
         max
     }
 
-    /// Consume the bounds as `(minimum, maximum)`.
+    /// Decompose the accumulated values into a 2-element tuple.
     #[inline]
     pub const fn partitioned(self) -> (T, T) {
         let Self { min, max } = self;
@@ -142,7 +149,9 @@ where
         (min, max)
     }
 
-    /// Expand the interval to include another observation.
+    /// Record a single value, without delegating to a specific field.
+    ///
+    /// This expands the bounds to include the value.
     #[inline]
     pub fn record(&mut self, target_value: T) {
         let &mut Self {
@@ -171,7 +180,11 @@ pub struct LineRange {
 }
 
 impl LineRange {
-    /// Store the inclusive bounds without reordering them.
+    /// Create a new [`LineRange`] from its raw parts: the start and end
+    /// indices.
+    ///
+    /// The inclusive bounds are stored without reordering them. A reversed
+    /// range is empty when viewed through [`LineRange::range`].
     #[inline]
     pub const fn raw(start: NonZero<usize>, end: NonZero<usize>) -> Self {
         Self { start, end }
@@ -220,12 +233,15 @@ impl IntoIterator for LineRange {
     }
 }
 
-/// Traversal of inclusive line numbers, including a possible `usize::MAX` endpoint.
-/// Reversed bounds yield no values and exhaustion remains permanent.
+/// An iterator over a range of lines.
+///
+/// See [`LineRange`] for more information. The range can include `usize::MAX`,
+/// but yields no values if its bounds are reversed. Once exhausted, the iterator
+/// continues to return `None`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Copy)]
 // NOTE(invariant): None.
 pub struct LineRangeIter {
-    /// Next candidate line number, absent after exhaustion.
+    /// The line-number cursor advanced by iteration, absent after exhaustion.
     current: Option<NonZero<usize>>,
 
     /// The inclusive final line number.
@@ -267,19 +283,21 @@ impl Iterator for LineRangeIter {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 // NOTE(invariant): (ByteBounds, LineRange, LengthExtrema) = Describe(SameLineSelection)
 pub struct Metadata {
-    /// Absolute extent from the first line's start through the final line's break or content end.
+    /// The [`Span`] over the bytes of the relevant lines.
     line_byte_bounds: Span,
 
-    /// The inclusive line-number bounds associated with the selection.
+    /// A [`LineRange`] of the relevant line indices.
     line_range: LineRange,
 
-    /// Minimum and maximum line-span lengths, including terminators.
+    /// A [`MinMax`] pair of the historical line lengths for the source.
     line_length: MinMax<usize>,
 }
 
 impl Metadata {
-    /// Store the supplied bounds and statistics. The caller must ensure they
-    /// describe the same line selection.
+    /// Construct a [`Metadata`] piecewise from its individual components.
+    ///
+    /// The caller must ensure the bounds and statistics describe the same line
+    /// selection.
     #[inline]
     pub const fn raw(line_byte_bounds: Span, line_range: LineRange, line_length: MinMax<usize>) -> Self {
         Self {
@@ -291,8 +309,10 @@ impl Metadata {
 }
 
 impl Metadata {
-    /// Absolute extent of the selected lines, including their terminators.
-    /// Coordinates count UTF-8 bytes for strings and bytes for byte slices.
+    /// Retrieve the [`Span`] over the bytes of the relevant lines.
+    ///
+    /// Coordinates count UTF-8 bytes for strings and bytes for byte slices, and
+    /// the selected line spans include their terminators.
     #[inline]
     pub const fn bytes(&self) -> Span {
         let &Self { line_byte_bounds, .. } = self;
@@ -308,8 +328,10 @@ impl Metadata {
         line_range
     }
 
-    /// Shortest and longest selected line extents in source units, including breaks.
-    /// These lengths do not measure terminal display width.
+    /// Retrieve the historical line lengths for the source.
+    ///
+    /// These lengths include line terminators and are measured in source
+    /// coordinates rather than terminal display width.
     #[inline]
     pub const fn length(&self) -> MinMax<usize> {
         let &Self { line_length, .. } = self;

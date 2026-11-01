@@ -1,9 +1,7 @@
 //! Report forms for annotation collections assembled at runtime.
 //!
-//! [`DynamicError`] accommodates diagnostics whose annotation count is not known
-//! in advance. When the number of related annotations is fixed instead,
-//! [`InlineAnnotations`](crate::annotated::InlineAnnotations) provides inline
-//! storage for that collection.
+//! See [`DynamicError`] and [`InlineAnnotations`](crate::annotated::InlineAnnotations) for
+//! further information.
 
 use core::{
     clone::Clone,
@@ -214,7 +212,8 @@ where
     T: Title,
     K: ErrorKind,
 {
-    /// Start with a primary annotation and the kind type's default classification.
+    /// Create a new [`DynamicError`] with the given source, title, and primary
+    /// annotation, leaving its kind at the default value for its type.
     #[inline]
     pub fn new(source: &'a S, title: T, annotation: A) -> Self
     where
@@ -232,7 +231,8 @@ where
         }
     }
 
-    /// Start with a primary annotation and an explicit diagnostic classification.
+    /// Create a new [`DynamicError`] with the given source, title, primary
+    /// annotation, and kind.
     #[inline]
     pub const fn new_with_kind(source: &'a S, title: T, annotation: A, kind: K) -> Self {
         let annotations = Nonempty::single(annotation);
@@ -245,7 +245,8 @@ where
         }
     }
 
-    /// Retain an existing primary and related collection under the default kind.
+    /// Create a new [`DynamicError`] with the given source, title, and annotations,
+    /// leaving its kind at the default value for its type.
     #[inline]
     pub fn new_with_annotations(source: &'a S, title: T, annotations: Nonempty<A>) -> Self
     where
@@ -261,7 +262,8 @@ where
         }
     }
 
-    /// Retain the supplied collection order and diagnostic classification.
+    /// Create a new [`DynamicError`] from its individual components: source,
+    /// title, annotations, and kind.
     #[inline]
     pub const fn raw(source: &'a S, title: T, annotations: Nonempty<A>, kind: K) -> Self {
         Self {

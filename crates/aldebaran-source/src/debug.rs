@@ -1,8 +1,6 @@
 //! Debug formatting requirements for sources and their components.
 //!
-//! [`SourceDebug`] lets generic debug output inspect both the source value and
-//! individual traversal components without requiring these capabilities of every
-//! [`Source`].
+//! See [`SourceDebug`] for further information.
 
 use core::fmt;
 

@@ -1,9 +1,6 @@
 //! Builds wrapped rows while retaining output capacity between advances.
 //!
-//! [`RowBuffer`] owns reusable text and cell storage, and [`RowBuilder`] borrows
-//! it while assigning source extents to terminal columns. [`RowTraversal`] keeps
-//! the next row's source position independently of that temporary construction.
-//! A finished row borrows either the original visualization or normalized text.
+//! See [`RowBuffer`], [`RowBuilder`], and [`RowTraversal`] for further information.
 
 use alloc::{string::String, vec::Vec};
 use core::{iter, num::NonZero, ops::Range};

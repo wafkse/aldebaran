@@ -1,9 +1,7 @@
 //! Glyph configuration for styled diagnostic output.
 //!
-//! [`Charset`] pairs the frame edges, intersections, and corners in [`Delimit`]
-//! with the markers and directional cues in [`Indicator`].
-//! [`Fancy`](super::Fancy) uses frame glyphs around the source excerpt and a
-//! repeating marker sequence to connect highlighted spans to their messages.
+//! See [`Charset`], [`Delimit`], and [`Indicator`] for further information.
+//!
 //! Glyph selection is independent of color.
 
 pub mod indicate;
@@ -13,15 +11,12 @@ pub use self::{indicate::Indicator, shape::Delimit};
 
 use crate::render::textual::offload::fancy::setting::Fancyness;
 
-/// Glyph collection used by the fancy textual renderer.
+/// Characters for framing source excerpts and marking annotated spans.
 ///
-/// The value carries all characters required by source guides, connection lines,
-/// and annotation markers. Rendering code reads the collection as policy and does
-/// not embed terminal glyph choices in layout decisions.
-///
-/// ASCII and Unicode presets share the same marker sequence, so changing the
-/// preset changes framing and directional cues without changing span markers.
-/// Custom glyphs are accepted without checking their terminal-cell width.
+/// A `Charset` combines frame glyphs with directional cues and marker glyphs.
+/// Its ASCII and Unicode presets share the same marker sequence, so changing the
+/// preset affects framing and cues without changing span markers. Custom glyphs
+/// are accepted without checking their terminal-cell width.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 // NOTE(invariant): None.
 pub struct Charset {
@@ -83,7 +78,9 @@ impl Charset {
         delimit
     }
 
-    /// Edge, corner, and intersection configuration for the source excerpt.
+    /// Retrieve an immutable reference to the subset of characters to be
+    /// used as [`spatial delimiters`](shape::Delimit), i.e the characters used
+    /// to outline the shape of the error report.
     #[inline]
     pub const fn delimit_ref(&self) -> &Delimit {
         let &Self { ref delimit, .. } = self;
@@ -113,7 +110,10 @@ impl Charset {
         indicator
     }
 
-    /// Marker sequence and cue configuration, including its stored sequence position.
+    /// Retrieve an immutable reference to the subset of characters to be
+    /// used as [`spatial indicators`](indicate::Indicator), i.e the characters
+    /// used to emphasize the importance of a particular part of the error
+    /// report.
     #[inline]
     pub const fn indicator_ref(&self) -> &Indicator {
         let &Self { ref indicator, .. } = self;

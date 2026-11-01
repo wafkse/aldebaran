@@ -1,20 +1,14 @@
 //! Predicates for conditional logic during the painting process.
 //!
-//! See the [`ContextualPredicate`] trait for more information.
-//!
-//! [`Should`] binds a condition to borrowed context and implements
-//! [`ContextualPredicate`]. Painting evaluates that condition when
-//! [`only_when`](crate::brush::paint::Painted::only_when) is called, retaining
-//! the result rather than the predicate or its context.
+//! See [`Should`] and [`ContextualPredicate`] for further information.
 
 /// A predicate that holds an inherent context.
 ///
 /// This is a struct that holds a context and a predicate, and can be used as an
 /// [`ContextualPredicate`].
 ///
-/// Each [`holds`](Self::holds) evaluation consults the borrowed context. The
-/// adapter retains no cached decision, leaving painting to snapshot the result
-/// when the condition is applied.
+/// Each call to [`holds`](Self::holds) evaluates the predicate against the
+/// borrowed context. Painting snapshots the result when its condition is applied.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 // NOTE(invariant): None.
 pub struct Should<'a, C, P>
@@ -126,11 +120,13 @@ pub trait ContextualPredicate {
     /// Retrieve the context for this contextual predicate.
     fn context(&self) -> &Self::Context;
 
-    /// Determine if the contextua; predicate holds.
+    /// Determine if the contextual predicate holds.
     fn holds(&self) -> bool;
 }
 
-/// Zero-argument closures provide painting decisions without external context.
+/// Blanket implementation for all types that implement the `Fn` trait.
+///
+/// Uses a unit (`()`) context.
 impl<F> ContextualPredicate for F
 where
     F: Fn() -> bool,

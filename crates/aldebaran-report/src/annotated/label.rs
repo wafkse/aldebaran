@@ -1,8 +1,6 @@
 //! Minimal inline annotations for diagnostic reports.
 //!
-//! [`Label`] pairs a printable message with a nonempty diagnostic span and
-//! implements [`Annotated`]. It is the small building block
-//! used by one-shot reports and fixed annotation collections.
+//! See [`Label`] for further information.
 
 use crate::prelude::{Annotated, Title};
 

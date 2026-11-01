@@ -1,4 +1,6 @@
-//! Exclusive disjunction rejects both overlapping matches and absent matches.
+//! Exclusive disjunction over two assertion values.
+//!
+//! See [`Xor`] for further information.
 
 use core::fmt;
 
@@ -10,8 +12,11 @@ use crate::{
     select::Select,
 };
 
-/// Accepts exactly one operand on the same input. Successful classification
-/// preserves the matching branch in [`Select`], while overlap produces no result.
+/// Exclusive logical disjunction between two assertions.
+///
+/// Exactly one operand must accept an input. Classification therefore records
+/// the sole successful branch in a [`Select`] and rejects inputs accepted by both
+/// or neither.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 // NOTE(invariant): None.
 pub struct Xor<A1, A2>(A1, A2);

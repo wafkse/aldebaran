@@ -1,8 +1,4 @@
-//! Explicit color channels for terminal true-color output.
-//!
-//! [`AnsiRgb`] emits red, green, and blue bytes without palette quantization.
-//! [`Surface`] selects foreground or background emission without changing
-//! the channel values.
+//! ANSI true-color values represented as RGB channels.
 
 use core::fmt;
 
@@ -14,8 +10,20 @@ use crate::prelude::Surface;
 
 /// A RBG ANSI color determined by a RGB triplet.
 ///
-/// Channels range from zero intensity to 255 and are emitted without palette
-/// conversion. The default value is [`AnsiRgb::WHITE`].
+/// An RGB ANSI color determined by an RGB triplet.
+///
+/// This may also be referred to by the name of *true color*.
+///
+/// ## Technical Details
+///
+/// The sequence for setting an RGB color as the foreground color is:
+/// `ESC[38;2;{R};{G};{B}m`
+///
+/// The sequence for setting an RGB color as the background color is:
+/// `ESC[48;2;{R};{G};{B}m`
+///
+/// Each channel ranges from zero intensity to 255. The default value is
+/// [`AnsiRgb::WHITE`].
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 // NOTE(invariant): None.
 pub struct AnsiRgb([u8; 3]);
@@ -90,9 +98,9 @@ impl AnsiRgb {
     /// Attempt to instantiate a new [`AnsiRgb`] color from a slice of an
     /// arbitrary length.
     ///
-    /// Will return `None` if the slice is not at least of length `3`.
-    ///
-    /// The bytes are read in red, green, blue order. Any bytes after the first three are ignored.
+    /// Will return `None` if the slice is not at least of length `3`. Otherwise,
+    /// the first three bytes are read in red, green, blue order, and any remaining
+    /// bytes are ignored.
     #[inline]
     pub const fn try_from_slice(slice: &[u8]) -> Option<Self> {
         macro_rules! try_const {

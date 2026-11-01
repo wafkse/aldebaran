@@ -1,6 +1,6 @@
-//! Predicates with descriptions suitable for diagnostics. [`Assert`] combines
-//! acceptance with formatting, while [`IntoAssert`] and [`AsAssert`] let APIs
-//! accept owned or borrowed forms of the predicate they require.
+//! A module containing the [`Assert`] trait and its implementations.
+//!
+//! See [`Assert`], [`IntoAssert`], and [`AsAssert`] for further information.
 
 use core::fmt;
 
@@ -11,7 +11,8 @@ use crate::{
 
 /// A trait for types that test whether an arbitrary input `I` satisfies a property.
 ///
-/// The assertion can describe its rule without an input value, so it can also be used in an expectation message.
+/// An assertion can describe its rule without an input value, so it can also be
+/// used in an expectation message.
 pub trait Assert<I>
 where
     I: Input,
@@ -19,7 +20,7 @@ where
     /// Determine whether the input satisfies this assertion.
     fn assert(&self, input: I) -> bool;
 
-    /// Format this predicate at top level, with no surrounding connective.
+    /// Pretty-print this [`Assert`] using the target [`Formatter`] at top level.
     #[inline]
     fn output<W, F>(target_value: &Self, writer: &mut W) -> fmt::Result
     where
@@ -29,18 +30,16 @@ where
         Assert::output_with::<W, F>(target_value, writer, Precedence::None)
     }
 
-    /// Format this predicate in the surrounding connective's precedence context.
-    ///
-    /// A formatter can use that context to group a lower-precedence predicate.
+    /// Pretty-print this [`Assert`] using a [`Formatter`] and the surrounding
+    /// connective's [`Precedence`].
     fn output_with<W, F>(target_value: &Self, writer: &mut W, target_precedence: Precedence) -> fmt::Result
     where
         W: fmt::Write,
         F: Formatter;
 }
 
-/// Treats a formattable input value as an assertion for exact equality.
-///
-/// The formatted description comes from [`Format`].
+/// Blanket implementation of [`Assert`] for types that are both [`Input`] and
+/// [`Format`].
 impl<I> Assert<I> for I
 where
     I: Input,
@@ -61,10 +60,14 @@ where
     }
 }
 
-/// Converts a supplied value to the assertion type required by an API.
+/// A trait that is analogous to [`Into`] but for exclusive use with [`Assert`].
 ///
-/// Values already of type `A` pass through unchanged. Consumers can implement
-/// conversions for other forms they accept.
+/// The most prevalent use case for this trait is to allow simultaneous use of
+/// values that can be coerced to some assertion type, and values that are
+/// already of that assertion type.
+///
+/// Note that there is no such thing as `FromAssert` because conversion from an
+/// arbitrary type of some kind to an assertion type is not trivial.
 pub trait IntoAssert<I, A>
 where
     I: Input,
@@ -74,7 +77,8 @@ where
     fn into_assert(self) -> A;
 }
 
-/// Leaves an assertion unchanged when it already has the selected type.
+/// Blanket implementation of [`IntoAssert`] for types that are already
+/// [`Assert`]s.
 impl<I, A> IntoAssert<I, A> for A
 where
     I: Input,
@@ -86,10 +90,11 @@ where
     }
 }
 
-/// Borrows a value as an assertion of the selected type.
+/// A trait that is analogous to [`AsRef`] but for exclusive use with
+/// [`Assert`].
 ///
-/// The blanket implementations accept an assertion value or a reference to
-/// that assertion, which lets APIs inspect both forms without consuming it.
+/// The most prevalent use case for this trait is to allow simultaneous use of
+/// both by-value and by-reference [`Assert`] types.
 pub trait AsAssert<I, A>
 where
     I: Input,

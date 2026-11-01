@@ -1,16 +1,16 @@
-//! Pull-based token access for parsers.
+//! Incremental token consumption and lookahead abstractions.
 //!
-//! [`TokenStream`] keeps source errors distinct from an empty read, which need
-//! not mark permanent exhaustion. [`lookahead`] inspects upcoming tokens,
-//! [`skipping`] filters a stream, and [`mod@slice`] and [`storage`] provide
-//! streams over token tables.
+//! See [`TokenStream`] for further information.
 
 pub mod lookahead;
 pub mod skipping;
 pub mod slice;
 pub mod storage;
 
-/// A stream that consumes parser tokens in source order.
+/// A stream that produces parser tokens in source order.
+///
+/// `Ok(None)` means that no token is available on this call, so a later call may
+/// still return a token. Source failures are returned as `Err`.
 pub trait TokenStream {
     /// Token type yielded by the stream.
     type Token;
@@ -18,8 +18,7 @@ pub trait TokenStream {
     /// Failure produced while obtaining the next token.
     type Error;
 
-    /// Consume the next available token, preserving source failures as `Err`.
-    /// An empty read does not establish permanent exhaustion.
+    /// Consume the next token, if one is available on this read.
     fn next(&mut self) -> Result<Option<Self::Token>, Self::Error>;
 }
 

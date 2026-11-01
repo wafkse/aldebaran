@@ -1,10 +1,10 @@
-//! Bounded stack-buffer emission of repeated frame, spacing, and marker glyphs.
+//! Writes repeated frame, spacing, and marker glyphs through a bounded stack buffer.
 
 use core::{fmt, str};
 
 use aldebaran_print::prelude::Print;
 
-/// A repeated glyph emitted in chunks without allocating output storage.
+/// Writes one glyph repeatedly in bounded chunks without allocating an output buffer.
 // NOTE(invariant): None.
 pub(in crate::render::textual::offload::fancy) struct GlyphRun {
     /// Glyph selected by the existing presentation settings.

@@ -1,17 +1,15 @@
 //! Non-consuming access to tokens at offsets from the next read.
 //!
-//! [`Lookahead`] uses zero-based offsets, while the fixed `Lookahead1` through
-//! `Lookahead32` capabilities use one-based positions and include access to all
-//! preceding positions.
+//! See [`Lookahead`] and [`Lookahead1`] for further information.
 
 use super::TokenStream;
 
 /// A token stream that supports zero-based lookahead.
 pub trait Lookahead: TokenStream {
-    /// Inspect the token `N` positions after the next token.
+    /// Retrieve the token `N` positions ahead without consuming it.
     ///
-    /// `N = 0` selects the next token. A source error encountered at or before the
-    /// requested position is returned as `Err`.
+    /// `N = 0` denotes the next token. Source errors encountered through the
+    /// requested position are returned as `Err`.
     fn lookahead<const N: usize>(&self) -> Result<Option<Self::Token>, Self::Error>;
 }
 
@@ -25,7 +23,7 @@ where
     }
 }
 
-/// Fixed inspection capabilities that include all preceding token positions.
+/// Generate the fixed `LookaheadN` capability chain.
 macro_rules! lookahead {
     () => {};
     (impl for []) => {};

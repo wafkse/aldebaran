@@ -1,6 +1,6 @@
 //! Compact reports for diagnostics with a single annotated location.
 //!
-//! The annotation can provide the wording shown as the report title.
+//! See [`OneshotConcise`] for further information.
 
 use aldebaran_baseline::prelude::RefNonempty;
 use aldebaran_source::prelude::{SourceLines, SourceMetadata};
@@ -33,7 +33,8 @@ where
     A: Annotated,
     S: SourceLines<'source> + SourceMetadata<'source> + ?Sized,
 {
-    /// Use the annotation message as the report heading under the error classification.
+    /// Create a new [`OneshotConcise`] error with the given source and
+    /// annotation.
     #[inline]
     pub const fn raw(source: &'source S, annotation: A) -> Self {
         Self { source, annotation }

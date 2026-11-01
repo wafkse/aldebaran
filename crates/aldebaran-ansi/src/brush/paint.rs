@@ -1,9 +1,4 @@
-//! Printable values with deferred, optionally disabled terminal styling.
-//!
-//! [`Paintable`] builders produce [`Painted`] values that retain the subject's
-//! context requirements. Colors replace earlier choices for their surface and text
-//! attributes accumulate. Enable decisions are stored before rendering, while
-//! [`Style`] controls activation and reset when output is written.
+//! Deferred styling for printable values.
 
 use core::fmt;
 
@@ -44,8 +39,8 @@ where
 {
     /// Snapshot a contextual presentation decision before rendering.
     ///
-    /// [`ContextualPredicate::holds`] replaces the enable state immediately.
-    /// The predicate and its context are not retained for later printing.
+    /// The predicate is evaluated immediately, replacing the enable state. The
+    /// predicate and its context are not retained for later printing.
     #[inline]
     pub fn only_when<U>(mut self, target_predicate: &U) -> Self
     where
@@ -404,20 +399,20 @@ macro_rules! Bridge {
     };
 }
 
-/// Associates a wrapper with the input type it can accept.
+/// Implementation detail for arbitrarily blanketing a type.
 #[doc(hidden)]
 trait Blanketable {
-    /// The input type accepted by the wrapper.
+    /// The type to instantiate for.
     type For;
 
-    /// The wrapped output type.
+    /// The output for an instantiation operation.
     type Output;
 
-    /// Construct the wrapper from its input value.
+    /// Instantiate this type for the given type.
     fn instantiate_for(_: Self::For) -> Self::Output;
 }
 
-/// Generate methods that apply a builder operation to a wrapper.
+/// Forward painting methods through the blanket instantiation boundary.
 macro_rules! Blanket {
     () => {};
     (fn for $target_type:ty:) => {};

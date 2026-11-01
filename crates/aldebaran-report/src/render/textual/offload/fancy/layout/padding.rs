@@ -1,11 +1,8 @@
-//! Padding counts grouped by axis or by all four edges.
+//! This module groups padding values by axis and provides a type for all four edges.
 //!
-//! [`HorizontalPadding`] holds leading and trailing space counts, which
-//! [`Fancy`](super::super::Fancy) uses around its line-number digit column.
-//! [`VerticalPadding`] holds independent amounts above and below an element,
-//! and [`Padding`] combines both axes.
-//! Fancy currently consumes only horizontal padding, so it does not assign
-//! rendering units to the vertical counts. All defaults reserve no padding.
+//! See [`Padding`], [`HorizontalPadding`], and [`VerticalPadding`] for further information.
+//!
+//! All defaults reserve no padding.
 
 /// Nonnegative edge count, interpreted as ASCII spaces for horizontal padding.
 pub type PaddingPrimitive = u32;
@@ -274,7 +271,7 @@ impl Padding {
         Self::uniform(0)
     }
 
-    /// Leading horizontal padding measured in spaces.
+    /// Retrieve the left padding of this [`Padding`].
     #[inline]
     pub const fn left(&self) -> PaddingPrimitive {
         let &Self {
@@ -285,7 +282,7 @@ impl Padding {
         left
     }
 
-    /// Trailing horizontal padding measured in spaces.
+    /// Retrieve the right padding of this [`Padding`].
     #[inline]
     pub const fn right(&self) -> PaddingPrimitive {
         let &Self {
@@ -296,7 +293,7 @@ impl Padding {
         right
     }
 
-    /// Upper padding amount in the consumer's vertical unit.
+    /// Retrieve the top padding of this [`Padding`].
     #[inline]
     pub const fn top(&self) -> PaddingPrimitive {
         let &Self {
@@ -307,7 +304,7 @@ impl Padding {
         top
     }
 
-    /// Lower padding amount in the same unit as [`Self::top`].
+    /// Retrieve the bottom padding of this [`Padding`].
     #[inline]
     pub const fn bottom(&self) -> PaddingPrimitive {
         let &Self {
@@ -318,7 +315,7 @@ impl Padding {
         bottom
     }
 
-    /// Adjust leading spaces while retaining the other edge amounts.
+    /// Retrieve a mutable reference to the left padding of this [`Padding`].
     #[inline]
     pub const fn left_mut(&mut self) -> &mut PaddingPrimitive {
         let &mut Self {
@@ -329,7 +326,7 @@ impl Padding {
         left
     }
 
-    /// Adjust trailing spaces while retaining the other edge amounts.
+    /// Retrieve a mutable reference to the right padding of this [`Padding`].
     #[inline]
     pub const fn right_mut(&mut self) -> &mut PaddingPrimitive {
         let &mut Self {
@@ -340,7 +337,7 @@ impl Padding {
         right
     }
 
-    /// Adjust the upper margin independently of horizontal spacing.
+    /// Retrieve a mutable reference to the top padding of this [`Padding`].
     #[inline]
     pub const fn top_mut(&mut self) -> &mut PaddingPrimitive {
         let &mut Self {
@@ -351,7 +348,7 @@ impl Padding {
         top
     }
 
-    /// Adjust the lower margin independently of horizontal spacing.
+    /// Retrieve a mutable reference to the bottom padding of this [`Padding`].
     #[inline]
     pub const fn bottom_mut(&mut self) -> &mut PaddingPrimitive {
         let &mut Self {
@@ -422,7 +419,7 @@ impl Padding {
         previous_value
     }
 
-    /// Leading and trailing counts used together to determine extra display width.
+    /// Retrieve a reference to the horizontal padding of this [`Padding`].
     #[inline]
     pub const fn horizontal(&self) -> &HorizontalPadding {
         let &Self { ref horizontal, .. } = self;
@@ -430,7 +427,7 @@ impl Padding {
         horizontal
     }
 
-    /// Upper and lower counts, kept separate from horizontal space counts.
+    /// Retrieve a reference to the vertical padding of this [`Padding`].
     #[inline]
     pub const fn vertical(&self) -> &VerticalPadding {
         let &Self { ref vertical, .. } = self;
@@ -438,7 +435,8 @@ impl Padding {
         vertical
     }
 
-    /// Adjust both horizontal margins without changing vertical padding.
+    /// Retrieve a mutable reference to the horizontal padding of this
+    /// [`Padding`].
     #[inline]
     pub const fn horizontal_mut(&mut self) -> &mut HorizontalPadding {
         let &mut Self { ref mut horizontal, .. } = self;
@@ -446,7 +444,8 @@ impl Padding {
         horizontal
     }
 
-    /// Adjust both vertical margins without changing horizontal space counts.
+    /// Retrieve a mutable reference to the vertical padding of this
+    /// [`Padding`].
     #[inline]
     pub const fn vertical_mut(&mut self) -> &mut VerticalPadding {
         let &mut Self { ref mut vertical, .. } = self;

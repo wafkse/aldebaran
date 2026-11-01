@@ -1,7 +1,4 @@
-//! ID lookup with position-aligned views of stored entries.
-//!
-//! [`IdMap`] associates each ID with a value, while [`reverse::ReverseMap`]
-//! provides positional pair storage without requiring unique keys.
+//! Maps of [`trait@Id`]s to values.
 
 use core::hash::{BuildHasher, BuildHasherDefault, Hash};
 
@@ -13,9 +10,19 @@ use rustc_hash::FxHasher;
 
 use crate::prelude::Id;
 
-/// Associate values with IDs while retaining aligned key and value slice views.
-/// New IDs append to those views, replacements retain their position, and removal
-/// may reorder them independently of the hash-ordered [`Self::keys`] iterator.
+/// A map from [`trait@Id`]s to values.
+///
+/// # Time Complexity
+///
+/// Operations that use the hash table have the same expected time complexity as
+/// the underlying [`HashMap`]. Their actual cost also depends on hashing and
+/// comparing identifiers.
+///
+/// Although lookups are expected to take `O(1)` time with ordinary hash
+/// distribution, collisions can make them linear in the number of entries.
+///
+/// New IDs append to the aligned key and value slices, replacement preserves
+/// a pair's position, and removal may move the final pair into that position.
 #[derive(Debug, Clone, PartialEq, Eq)]
 // NOTE(invariant): ForAll((Id, Index) In Map): Index < Storage.Length And Storage.Keys[Index] = Id
 pub struct IdMap<I, V, S = BuildHasherDefault<FxHasher>>
@@ -205,7 +212,11 @@ where
         storage.len()
     }
 
-    /// Whether both paired views are empty and every ID lookup will fail.
+    /// Determine if this [`IdMap`] is empty.
+    ///
+    /// # Time Complexity
+    ///
+    /// The time complexity of this operation is `O(1)`.
     #[inline]
     pub fn is_empty(&self) -> bool {
         let &Self { ref storage, .. } = self;
@@ -213,7 +224,9 @@ where
         storage.is_empty()
     }
 
-    /// Discard all associations while retaining capacity for reuse.
+    /// Clear this [`IdMap`], removing all elements.
+    ///
+    /// Its capacity is retained so it can be reused for later entries.
     #[inline]
     pub fn clear(&mut self) {
         let &mut Self {
@@ -226,7 +239,11 @@ where
         map.clear();
     }
 
-    /// Membership under ID equality, independent of the entry's storage position.
+    /// Determine if the target [`trait@Id`] is contained in this [`IdMap`].
+    ///
+    /// # Time Complexity
+    ///
+    /// On average, this operation takes `O(1)` time.
     #[inline]
     pub fn contains_key<Q>(&self, id: Q) -> bool
     where
@@ -238,7 +255,12 @@ where
         map.contains_key(id.as_ref())
     }
 
-    /// Iterate over identifiers in unspecified hash-table order.
+    /// Retrieve an iterator over the keys of this [`IdMap`].
+    ///
+    /// # Time Complexity
+    ///
+    /// Creating the iterator takes `O(1)` time. Key order is unspecified because
+    /// it follows hash-table order.
     #[inline]
     pub fn keys<'a>(&'a self) -> impl Iterator<Item = &'a I> + 'a {
         let &Self { ref map, .. } = self;
@@ -246,8 +268,12 @@ where
         map.keys()
     }
 
-    /// Iterate over values in paired storage order, which may differ from
-    /// [`Self::keys`].
+    /// Retrieve an iterator over the values of entries of this [`IdMap`].
+    ///
+    /// # Time Complexity
+    ///
+    /// Creating the iterator takes `O(1)` time. Values follow paired storage
+    /// order and need not match [`Self::keys`].
     #[inline]
     pub fn values<'a>(&'a self) -> impl Iterator<Item = &'a V> + 'a {
         let &Self { ref storage, .. } = self;
@@ -255,8 +281,13 @@ where
         storage.values().iter()
     }
 
-    /// Edit values in the order of [`Self::as_keys`] without changing their IDs
-    /// or storage positions.
+    /// Retrieve a mutable iterator over the values of the entries of this
+    /// [`IdMap`].
+    ///
+    /// # Time Complexity
+    ///
+    /// Creating the iterator takes `O(1)` time. Values follow the order of
+    /// [`Self::as_keys`].
     #[inline]
     pub fn values_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut V> + 'a {
         let &mut Self { ref mut storage, .. } = self;
@@ -264,8 +295,13 @@ where
         storage.iter_mut().map(|(_, v)| v)
     }
 
-    /// Values aligned by index with [`Self::as_keys`], including after reordering
-    /// by removal.
+    /// Retrieve a reference to a slice of the values of the entries of this
+    /// [`IdMap`].
+    ///
+    /// # Time Complexity
+    ///
+    /// This operation takes `O(1)` time. Each value is aligned by index with
+    /// [`Self::as_keys`].
     #[inline]
     pub fn as_values(&self) -> &[V] {
         let &Self { ref storage, .. } = self;
@@ -273,8 +309,13 @@ where
         storage.values()
     }
 
-    /// IDs aligned by index with [`Self::as_values`], independently of the order
-    /// produced by [`Self::keys`].
+    /// Retrieve a reference to a slice of the keys of the entries of this
+    /// [`IdMap`].
+    ///
+    /// # Time Complexity
+    ///
+    /// This operation takes `O(1)` time. Each ID is aligned by index with
+    /// [`Self::as_values`].
     #[inline]
     pub fn as_keys(&self) -> &[I] {
         let &Self { ref storage, .. } = self;
@@ -282,8 +323,12 @@ where
         storage.keys()
     }
 
-    /// Resolve ID equality to its associated value, regardless of storage position.
-    /// An absent ID yields `None`.
+    /// Retrieve a reference to the value corresponding to the given [`trait@Id`].
+    ///
+    /// # Time Complexity
+    ///
+    /// On average, this operation takes `O(1)` time.
+    /// An ID that is not present yields [`None`].
     #[inline]
     pub fn get<Q>(&self, id: Q) -> Option<&V>
     where
@@ -295,8 +340,13 @@ where
         map.get(id.as_ref()).and_then(|&index| storage.get(index))
     }
 
-    /// Edit an ID's associated value without changing its key or storage position.
-    /// An absent ID yields `None`.
+    /// Retrieve a mutable reference to the value corresponding to the given
+    /// [`trait@Id`] in this [`IdMap`].
+    ///
+    /// # Time Complexity
+    ///
+    /// On average, this operation takes `O(1)` time.
+    /// An ID that is not present yields [`None`].
     #[inline]
     pub fn get_mut<Q>(&mut self, id: &Q) -> Option<&mut V>
     where
@@ -310,8 +360,14 @@ where
         map.get(id.as_ref()).and_then(move |&index| storage.get_mut(index))
     }
 
-    /// Insert or replace an entry. New IDs append to the paired slices.
-    /// Replacing an entry retains its position and returns the previous value.
+    /// Insert a new entry into this [`IdMap`], potentially replacing an
+    /// existing one.
+    ///
+    /// # Time Complexity
+    ///
+    /// This operation takes expected `O(1)` time and is amortized over growth.
+    /// New IDs append to the paired slices. Replacing an ID keeps its position
+    /// and returns the previous value.
     #[inline]
     pub fn insert(&mut self, id: I, value: V) -> Option<V> {
         let &mut Self {
@@ -339,9 +395,14 @@ where
         }
     }
 
-    /// Remove an entry and return its stored identifier and value, if present.
+    /// Remove the entry corresponding to the given [`trait@Id`] from this [`IdMap`].
     ///
+    /// # Time Complexity
+    ///
+    /// This operation takes expected `O(1)` time.
     /// Removing an entry may move the final stored pair into its position.
+    /// This returns the stored identifier and value when present, or [`None`]
+    /// when the ID is absent.
     ///
     /// # Panics
     ///

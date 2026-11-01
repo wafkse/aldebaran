@@ -1,8 +1,6 @@
 //! Shared capability bound for parsing, reporting, and source storage.
 //!
-//! [`Standard`] combines traversal and line access with content comparison,
-//! hashing, metadata, and owned conversion. Generic consumers can require this
-//! set while narrower operations continue to use the individual traits.
+//! See [`Standard`] for further information.
 
 use crate::{
     diff::SourceDiff, dissect::SourceDissect, hash::SourceHash, iter::SourceIter, line::SourceLines, metadata::SourceMetadata,

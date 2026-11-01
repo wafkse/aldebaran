@@ -1,8 +1,6 @@
 //! Messages located within the source supplied to a diagnostic renderer.
 //!
-//! [`Annotated`] supplies a message and target, while [`Annotations`] exposes
-//! the primary annotation followed by related context through [`RefNonempty`].
-//! [`InlineAnnotations`] stores a fixed collection without allocating.
+//! See [`Annotated`], [`Annotations`], and [`InlineAnnotations`] for further information.
 
 pub mod title;
 

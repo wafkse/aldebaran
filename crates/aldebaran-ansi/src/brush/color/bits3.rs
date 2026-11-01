@@ -1,8 +1,4 @@
-//! Base and bright palette selection through SGR codes.
-//!
-//! [`Ansi3Bit`] identifies palette slots rather than fixed RGB values, so their
-//! appearance follows the terminal palette. A [`Surface`] chooses whether
-//! emission changes glyphs or their background.
+//! Standard and bright ANSI 3-bit terminal colors.
 
 use core::fmt;
 
@@ -12,7 +8,7 @@ use crate::{brush::style::TextAttribute, prelude::AnsiSequence};
 
 use super::Surface;
 
-/// A enumeration of 3-bit ANSI color codes.
+/// An enumeration of 3-bit ANSI color codes.
 ///
 /// The values of this enum correspond to the `foreground` color code, and since
 /// all variants are unit variants, they can be cast to `u8` to get the actual
@@ -24,11 +20,9 @@ use super::Surface;
 /// A method for the `foreground` color code is also provided,
 /// [`Ansi3Bit::foreground`].
 ///
-/// The discriminants are foreground SGR codes. Background codes are ten higher,
-/// and [`surface`](Self::surface) selects the code for a [`Surface`]. Attribute
-/// inputs can combine a color with an activation in the same sequence. An
-/// absent optional attribute emits SGR 0 before the color, clearing prior SGR
-/// settings.
+/// The [`surface`](Self::surface) method selects the corresponding foreground or
+/// background code. When an optional attribute is absent, emission first sends
+/// SGR 0, which clears previous text attributes and colors.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
 pub enum Ansi3Bit {

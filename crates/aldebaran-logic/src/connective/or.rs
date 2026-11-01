@@ -1,4 +1,6 @@
-//! Disjunction over a shared input with left-biased classification.
+//! Logical disjunction over two assertion values.
+//!
+//! See [`Or`] for further information.
 
 use core::fmt;
 
@@ -10,8 +12,11 @@ use crate::{
     select::Select,
 };
 
-/// Accepts either operand on the same input and preserves the selected branch
-/// in [`Select`]. When both operands classify the input, the left result wins.
+/// Logical disjunction between two assertions.
+///
+/// Either assertion can accept the input. When used with [`Choose`], the result
+/// is a [`Select`] containing the value produced by the matching assertion. If
+/// both assertions match, the left assertion takes priority.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 // NOTE(invariant): None.
 pub struct Or<A1, A2>(A1, A2);

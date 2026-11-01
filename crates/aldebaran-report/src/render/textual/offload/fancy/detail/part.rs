@@ -1,4 +1,4 @@
-//! Borrowed output parts, using geometry and presentation resolved by Fancy.
+//! Printable parts that borrow the report data and layout resolved by Fancy.
 
 use core::{
     fmt,
@@ -18,7 +18,7 @@ use super::super::run::GlyphRun;
 use super::super::{Colored, charset::shape::Delimit, theme::HeaderTheme};
 use super::Gutter;
 
-/// The classification and title, without a trailing newline.
+/// Prints the report classification and title without adding a trailing newline.
 // NOTE(invariant): None.
 pub(in crate::render::textual::offload::fancy::detail) struct Header<'a, K, T: ?Sized> {
     /// Report classification supplying its printable descriptor.
@@ -64,7 +64,7 @@ where
     }
 }
 
-/// The digit column and its padding, excluding the vertical separator.
+/// Prints the line-number column and its padding, leaving the separator to the caller.
 // NOTE(invariant): LineNumber.IsSome => LineNumber.Digits <= Gutter.LineNumberDigitWidth
 pub(in crate::render::textual::offload::fancy::detail) struct GutterLine<'a> {
     /// Prepared digit width and surrounding spaces.
@@ -120,7 +120,7 @@ impl Print for GutterLine<'_> {
     }
 }
 
-/// The bracketed source origin and selected original line numbers.
+/// Prints the bracketed source origin and selected original line numbers.
 // NOTE(invariant): None.
 pub(in crate::render::textual::offload::fancy::detail) struct SourceLocation<'a, M: ?Sized> {
     /// Source-specific printable origin.
@@ -165,7 +165,7 @@ where
     }
 }
 
-/// Opening and closing parts of the excerpt frame, without newlines.
+/// Prints the excerpt's opening or closing frame without adding a newline.
 pub(in crate::render::textual::offload::fancy::detail) enum ExcerptBoundary<'a, M: ?Sized> {
     /// Gutter padding, opening corner and stroke, then the source location.
     Start {
@@ -219,7 +219,7 @@ where
     }
 }
 
-/// Visible source text already normalized and wrapped by layout.
+/// Prints source text after layout has normalized and wrapped it.
 // NOTE(invariant): Text = PreparedLayout.Output
 pub(in crate::render::textual::offload::fancy::detail) struct SourcePart<'a>(
     pub(in crate::render::textual::offload::fancy::detail) &'a str,
@@ -239,7 +239,7 @@ impl Print for SourcePart<'_> {
     }
 }
 
-/// A marker run with its identity and style resolved before printing.
+/// Prints an annotation marker in its assigned style across the selected columns.
 // NOTE(invariant): None.
 pub(in crate::render::textual::offload::fancy::detail) struct Underline {
     /// Assigned annotation glyph.
@@ -275,7 +275,7 @@ impl Print for Underline {
     }
 }
 
-/// An underline at a position assigned during lane preparation.
+/// Marks a terminal-column range with an annotation's underline glyph.
 // NOTE(invariant): ColumnRange.Start < ColumnRange.End
 pub(in crate::render::textual::offload::fancy::detail) struct UnderlineSegment {
     /// Terminal columns occupied by this segment.
@@ -285,7 +285,7 @@ pub(in crate::render::textual::offload::fancy::detail) struct UnderlineSegment {
     pub(in crate::render::textual::offload::fancy::detail) underline: Underline,
 }
 
-/// One prepared marker lane, excluding the gutter and newline.
+/// Prints one marker lane, leaving the gutter and newline to the caller.
 // NOTE(invariant): OrderedNonoverlapping(UnderlineSegmentList.ColumnRange)
 pub(in crate::render::textual::offload::fancy::detail) struct UnderlineRow<'a> {
     /// Ordered segments selected for this lane.
@@ -325,7 +325,7 @@ impl Print for UnderlineRow<'_> {
     }
 }
 
-/// A bracketed annotation marker, without the message separator.
+/// Prints an annotation marker in brackets before the message separator.
 // NOTE(invariant): None.
 pub(in crate::render::textual::offload::fancy::detail) struct AnnotationReference<'a> {
     /// Assigned annotation glyph.
@@ -367,7 +367,8 @@ impl Print for AnnotationReference<'_> {
     }
 }
 
-/// An annotation reference and message, without indentation or a newline.
+/// Prints an annotation marker and its message. The caller adds indentation and
+/// a newline.
 // NOTE(invariant): Reference = AssignedPresentation(Annotation.Target)
 pub(in crate::render::textual::offload::fancy::detail) struct AnnotationMessage<'a, A> {
     /// Borrowed annotation supplying the message content.

@@ -1,10 +1,6 @@
-//! Source lines as numbered views with absolute source spans.
+//! Line discovery, segmentation, and metadata for source values.
 //!
-//! [`SourceLines`] selects a contiguous set of lines through a [`LineExtent`].
-//! Its [`LineId`] values separate nonempty content from an optional terminator,
-//! while [`Metadata`] describes the selected lines including their breaks.
-//! [`LineSegmented`] projects annotations onto content for rendering without
-//! including the terminators in those views.
+//! See [`SourceLines`] and [`LineSegmented`] for further information.
 
 mod content;
 mod extent;
@@ -58,7 +54,11 @@ pub type ExtentsOf<'a, S, T> = <S as SourceLines<'a>>::Extents<T>;
 /// [`extents`]: SourceLines::Extents
 pub type DefaultExtents<'a, S> = ExtentsOf<'a, S, DefaultTerminator<'a, S>>;
 
-/// Source-line selection under a configurable termination policy.
+/// A trait for source sequences that can be expressed as a linear sequence of
+/// lines.
+///
+/// This is an **extension trait**, and thus only builds functionality on top of
+/// [`Source`].
 ///
 /// Selections retain the original source coordinates and line numbers, so a
 /// renderer can inspect a subset without rebasing its annotations. The built-in
@@ -74,15 +74,21 @@ pub trait SourceLines<'a>: Source<'a> + SourceDissect<'a> + Terminated<'a, Self>
     where
         T: Terminator<'a, Self>;
 
-    /// Select every source line under [`Terminated::DEFAULT_TERMINATOR`].
-    /// Empty input has no selection.
+    /// Compute the [`extents`] for all lines in the source, using the default
+    /// [`line terminator`].
+    ///
+    /// [`extents`]: SourceLines::Extents
+    /// [`line terminator`]: Terminator
     #[inline]
     fn extents(&'a self) -> Option<Self::Extents<Self::TerminatedBy>> {
         self.extents_with(Self::DEFAULT_TERMINATOR)
     }
 
-    /// Select every source line under a caller-selected termination policy.
-    /// Empty input has no selection.
+    /// Compute the [`extents`] for all lines in the source with the target
+    /// [`line terminator`].
+    ///
+    /// [`extents`]: SourceLines::Extents
+    /// [`line terminator`]: Terminator
     #[inline]
     fn extents_with<T>(&'a self, terminator: T) -> Option<Self::Extents<T>>
     where
@@ -91,26 +97,33 @@ pub trait SourceLines<'a>: Source<'a> + SourceDissect<'a> + Terminated<'a, Self>
         self.footprint().and_then(|span| self.segment_with::<T>(terminator, span))
     }
 
-    /// Selects physical source lines using [`Terminated::DEFAULT_TERMINATOR`].
+    /// Segment the source into lines that overlap the target [`span`].
     ///
-    /// See [`Self::segment_with`] for target selection and EOF behavior.
+    /// Uses the default [`terminator`] for the source. See
+    /// [`Self::segment_with`] for target selection and EOF behavior.
+    ///
+    /// [`span`]: Span
+    /// [`terminator`]: Terminator
     #[inline]
     fn segment(&'a self, span: Span) -> Option<Self::Extents<Self::TerminatedBy>> {
         self.segment_with(Self::DEFAULT_TERMINATOR, span)
     }
 
-    /// Selects physical source lines intersecting the target span.
+    /// Segment the source into lines that coalesce with the target [`span`].
     ///
-    /// Line terminators participate in overlap checks.
+    /// Line content and terminators participate in overlap checks.
     ///
     /// # Remarks
     ///
-    /// A unit span at EOF selects the final physical line of nonempty input.
+    /// A unit span at the exclusive source end selects the final physical line
+    /// of nonempty input, even though it does not overlap that line.
     ///
     /// This does not synthesize a trailing empty line.
     ///
     /// Empty input yields no selection. Other targets select only overlapping
     /// lines, including when part of the target extends beyond the source.
+    ///
+    /// [`span`]: Span
     fn segment_with<T>(&'a self, terminator: T, span: Span) -> Option<Self::Extents<T>>
     where
         T: Terminator<'a, Self>;

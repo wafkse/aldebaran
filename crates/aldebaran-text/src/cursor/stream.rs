@@ -1,14 +1,17 @@
-//! Lexical values exposed through the parser's [`TokenStream`] interface.
-//! [`LexStream`] retains source progress and construction state between reads.
+//! Incremental token streams backed directly by lexical source consumption.
+//!
+//! See [`LexStream`] for further information.
 
 use aldebaran_grammar::stream::TokenStream;
 use aldebaran_source::prelude::{Source, SourceDissect, SourceIter};
 
 use super::{consume::Lex, internment::Internment};
 
-/// Produces lexical tokens with source progress and construction context shared
-/// across reads. Exhaustion returns `None` without invoking the lexer, while
-/// failures retain any cursor and context effects the lexer leaves behind.
+/// A lexical token stream over one source cursor and persistent mutable context.
+///
+/// Each successful stream step recognizes and constructs exactly one lexical
+/// value through `L`. The wrapped [`Internment`] guarantees that every step sees
+/// the same construction context and advances the same source cursor.
 #[derive(Debug)]
 pub struct LexStream<'source, 'context, S, L>(pub Internment<'source, 'context, S, L::Context>)
 where
@@ -20,7 +23,7 @@ where
     S: Source<'source> + SourceDissect<'source> + SourceIter<'source> + ?Sized,
     L: Lex<'source, S>,
 {
-    /// Continue lexical production from the supplied source position and shared context.
+    /// Create a lexical stream over one source and mutable lexical context.
     #[inline]
     #[must_use]
     pub const fn new(target_context: Internment<'source, 'context, S, L::Context>) -> Self {
@@ -36,9 +39,10 @@ where
     type Token = L;
     type Error = L::Error;
 
-    /// Read the next lexical value, returning `None` at source exhaustion.
+    /// Consume one lexical item from the underlying source.
     ///
-    /// A failed read does not restore cursor or context changes made by the lexer.
+    /// Source exhaustion returns `None` without invoking the lexer. If lexing
+    /// fails, cursor or context changes made by the lexer are not restored.
     #[inline]
     fn next(&mut self) -> Result<Option<Self::Token>, Self::Error> {
         let Self(state) = self;

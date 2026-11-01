@@ -1,8 +1,5 @@
-//! Rendering contracts for diagnostics paired with their source.
-//!
-//! [`Render`] permits shared access to renderer state, while [`RenderMut`] also
-//! supports retained writable sinks. The [`textual`] adapter combines such a
-//! sink with a formatting backend and per-call presentation settings.
+//! This module contains the traits and adapters that turn source reports into
+//! human-readable text or other structured output.
 
 use crate::report::SourceReport;
 
@@ -18,17 +15,18 @@ pub trait Render<'source, E>
 where
     E: SourceReport<'source>,
 {
-    /// Per-call presentation data, which may borrow the renderer or source.
+    /// Each render call receives this input, which may borrow the renderer or source.
     type Input<'input>
     where
         'source: 'input,
         E: 'source,
         Self: 'input;
 
-    /// Completion value, which may be `()` when rendering writes to a retained sink.
+    /// The value returned after rendering, which may be `()` when output is
+    /// written to a retained sink.
     type Output;
 
-    /// Renderer-defined failures, including any output errors it propagates.
+    /// This type covers renderer failures and any output errors the renderer propagates.
     type Error;
 
     /// Render the target [`SourceReport`] into the target output, using the provided
@@ -94,17 +92,18 @@ pub trait RenderMut<'source, E>
 where
     E: SourceReport<'source>,
 {
-    /// Per-call presentation data, which may borrow the renderer or source.
+    /// Each render call receives this input, which may borrow the renderer or source.
     type Input<'input>
     where
         'source: 'input,
         E: 'source,
         Self: 'input;
 
-    /// Completion value, which may be `()` when rendering writes to a retained sink.
+    /// The value returned after rendering, which may be `()` when output is
+    /// written to a retained sink.
     type Output;
 
-    /// Renderer-defined failures, including any output errors it propagates.
+    /// This type covers renderer failures and any output errors the renderer propagates.
     type Error;
 
     /// Render the target [`SourceReport`] into the target output, using the provided

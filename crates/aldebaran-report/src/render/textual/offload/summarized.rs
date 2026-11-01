@@ -1,6 +1,6 @@
-//! Compact report view for logs and problem lists where source excerpts are unnecessary.
+//! A compact report for logs and problem lists that do not need source excerpts.
 //!
-//! Annotation coordinates remain visible even though source text is not included.
+//! See [`Summarized`] for further information.
 
 use core::fmt;
 
@@ -14,11 +14,11 @@ use crate::{
 
 use crate::render::textual::{Offload, OffloadContext};
 
-/// Renders the kind and title followed by each annotation's span and message.
+/// Renders the report's kind and title, followed by each annotation's span and message.
 ///
-/// By omitting source text, this backend can present annotated locations
-/// without printing an excerpt. When annotations are present, the final count
-/// reports how many follow the primary annotation.
+/// It omits source excerpts, so annotated locations remain visible without
+/// printing source text. When annotations are present, the final count gives
+/// the number that follow the primary annotation.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum Summarized {}
 

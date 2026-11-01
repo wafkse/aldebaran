@@ -1,4 +1,6 @@
-//! Assertions applied independently to tuple components.
+//! Product assertions over independently typed input components.
+//!
+//! See [`Pair`] for further information.
 
 use core::fmt;
 
@@ -9,8 +11,10 @@ use crate::{
     input::Input,
 };
 
-/// Requires each tuple component to satisfy its corresponding predicate.
-/// Successful classification retains both results in their input positions.
+/// A product assertion over two independently typed input components.
+///
+/// Each component must satisfy its corresponding assertion. If both succeed,
+/// [`Choose`] returns their results together, in the same order as the input.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 // NOTE(invariant): None.
 pub struct Pair<A1, A2>(A1, A2);

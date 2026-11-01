@@ -1,9 +1,6 @@
-//! Component traversal with source-coordinate offsets.
+//! Component iteration over source representations.
 //!
-//! [`SourceIter`] preserves the source's component type. Its
-//! [`enumerate`](SourceIter::enumerate) adaptor advances by each component's
-//! width, keeping yielded offsets aligned with spans even when component count
-//! differs from source length.
+//! See [`SourceIter`] and [`EnumeratedComponent`] for further information.
 
 use crate::component::Component;
 use crate::source::Source;
@@ -25,8 +22,10 @@ pub trait SourceIter<'source>: Source<'source> {
     /// Retrieve an iterator over the source components.
     fn iter(&self) -> Self::Iterator<'_>;
 
-    /// Pair components with offsets in source units, starting at zero.
-    /// String offsets count UTF-8 bytes rather than Unicode scalar values.
+    /// Iterate over the components, enumerated in this source plane.
+    ///
+    /// Offsets advance by component width rather than iterator count, so UTF-8
+    /// strings retain byte coordinates even though iteration yields `char`s.
     #[inline]
     fn enumerate(&self) -> EnumeratedComponent<Self::Iterator<'_>, Self::Component> {
         EnumeratedComponent::enumerate(self.iter())
@@ -50,11 +49,12 @@ where
     }
 }
 
-/// Iterator adaptor that pairs source components with their source offsets.
+/// Iterator adaptor that pairs source components with source offsets.
 ///
-/// The first offset is zero. Each subsequent offset advances by the preceding
-/// component's nonzero width, so Unicode scalar iteration can still produce
-/// byte coordinates. Width sums must fit in `usize`.
+/// The running index advances by each component's nonzero width rather than by
+/// iterator count. This keeps byte coordinates correct for variable-width source
+/// components such as Unicode scalar values in UTF-8 strings. The sum of widths
+/// must fit in `usize`.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 // NOTE(invariant): NextOffset = Sum(ComponentWidths(Yielded)) <= UsizeMax
 pub struct EnumeratedComponent<I, C>
@@ -65,7 +65,7 @@ where
     /// The remaining source components.
     iter: I,
 
-    /// Offset of the next component relative to the supplied iterator's origin.
+    /// The offset of the next component relative to the supplied iterator's origin.
     target_index: usize,
 }
 
@@ -75,7 +75,6 @@ where
     C: Component,
 {
     /// Create a new [`EnumeratedComponent`] from an iterator of components.
-    ///
     /// The offsets start at zero, and the sum of component widths must fit in `usize`.
     #[inline]
     pub const fn enumerate(iter: I) -> Self {

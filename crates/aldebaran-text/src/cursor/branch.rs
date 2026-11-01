@@ -1,5 +1,6 @@
-//! Speculative traversal with explicit commitment of cursor progress. Nested
-//! branches commit only to their immediate parent, so outer speculation remains independent.
+//! Speculative traversal with explicit commitment of cursor progress.
+//!
+//! See [`Branch`] for further information.
 
 use core::ops::{Deref, DerefMut};
 

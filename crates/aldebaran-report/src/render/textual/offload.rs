@@ -1,9 +1,6 @@
-//! Formatting policies used by the [`Textual`](super::Textual) renderer.
+//! Formatting backends used by the [`Textual`](super::Textual) renderer.
 //!
-//! [`Offload`] defines backend input and output, while [`OffloadContext`] makes
-//! the sink and presentation available during a render call. Composed backends
-//! can borrow the same sink and project input for a child backend without
-//! transferring ownership of the destination.
+//! See [`Offload`] and [`OffloadContext`] for further information.
 
 pub mod fancy;
 pub mod hexdump;
@@ -18,17 +15,16 @@ use crate::report::SourceReport;
 
 use crate::render::textual::Present;
 
-/// A trait for offloading the rendering of a textual report to a different
-/// renderer.
+/// A backend that formats a textual report through an [`OffloadContext`].
 ///
-/// This trait is identical to both [`Render`] and [`RenderMut`], but has no
-/// dispatcher type for its primary method.
+/// Unlike [`Render`] and [`RenderMut`], its method does not take a renderer
+/// value. The context supplies the destination and presentation settings.
 ///
 /// [`Render`]: crate::render::Render
 /// [`RenderMut`]: crate::render::RenderMut
 ///
-/// Implementations define the required input and partial-output behavior, while
-/// [`OffloadContext`] provides the destination sink and viewport.
+/// Each backend defines its input, output, and errors, and decides whether a
+/// failure can leave partial output in the context's sink.
 pub trait Offload<'source, E>
 where
     E: SourceReport<'source>,
@@ -51,16 +47,11 @@ where
         W: fmt::Write;
 }
 
-/// An offload context for subordinates to render a textual report.
+/// The sink and presentation settings an [`Offload`] backend uses to format a
+/// report.
 ///
-/// This structure contains the sink to write the report to and the
-/// presentational settings.
-///
-/// See [`Offload`] for more information.
-///
-/// Child backends can reuse the destination with the current input through
-/// [`Self::referenced`], or with a projected input through
-/// [`Self::referenced_with`].
+/// Child backends can borrow the same sink and input through [`Self::referenced`],
+/// or project that input through [`Self::referenced_with`].
 // NOTE(invariant): None.
 pub struct OffloadContext<'source, 'input, W, O, E>
 where
@@ -221,7 +212,7 @@ where
         present
     }
 
-    /// Access the destination while retaining shared access to presentation policy.
+    /// Borrow the destination and presentation settings together.
     #[inline]
     pub const fn decompose(&mut self) -> (&mut W, &Present<'source, 'input, O, E>) {
         let &mut Self { ref mut sink, ref present } = self;

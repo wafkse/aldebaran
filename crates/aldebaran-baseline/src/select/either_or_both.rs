@@ -1,15 +1,18 @@
 //! Values selected from one or both of two alternatives.
 
-/// The present values from two alternatives, preserving whether one or both exist.
+/// A selection type that represents a choice between two types, or both.
+///
+/// This is similar to the [`Either`] type, but it also includes a case where
+/// both the left-hand side and the right-hand side are selected.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum EitherOrBoth<L, R> {
-    /// Only the left alternative is present.
+    /// The left-hand side of the selection.
     Left(L),
 
-    /// Only the right alternative is present.
+    /// The right-hand side of the selection.
     Right(R),
 
-    /// Both alternatives are present.
+    /// Both the left-hand side and the right-hand side of the selection.
     Both(L, R),
 }
 
@@ -28,9 +31,11 @@ impl<L, R> EitherOrBoth<L, R> {
         }
     }
 
-    /// Map the present values while preserving whether the left, right, or both were present.
+    /// An all-variant monadic map operation.
     ///
-    /// Only the function for the current variant is called.
+    /// In other words, this applies a different function depending on which
+    /// side the value is on, mapping the value to a different type. Only the
+    /// function for the current variant is called.
     #[inline]
     pub fn map<F, G, I, J, K>(self, left: F, right: G, both: K) -> EitherOrBoth<I, J>
     where
@@ -49,7 +54,7 @@ impl<L, R> EitherOrBoth<L, R> {
         }
     }
 
-    /// Borrow the present values without changing the variant.
+    /// Map the selected types to their references.
     #[inline]
     pub const fn as_ref(&self) -> EitherOrBoth<&L, &R> {
         match self {

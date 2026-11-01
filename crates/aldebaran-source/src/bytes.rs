@@ -1,7 +1,9 @@
-//! Built-in source traits for borrowed byte slices.
+//! Source capability implementations for borrowed byte slices.
+//!
+//! See [`Source`], [`SourceDissect`], and [`SourceIter`] for further information.
 //!
 //! Components and coordinates both count bytes. Dissection clips to the source
-//! extent, while line windows reject out-of-bounds spans. Line traversal uses
+//! extent, while line windows reject out-of-bounds spans. Line traversal recognizes
 //! LF and CRLF without interpreting bytes as UTF-8.
 
 use core::iter::{Copied, FusedIterator};

@@ -1,5 +1,7 @@
 //! Built-in source traits for borrowed UTF-8 strings.
 //!
+//! See [`Source`], [`SourceDissect`], and [`SourceIter`] for further information.
+//!
 //! Iteration yields Unicode scalar values while spans count UTF-8 bytes.
 //! Dissection clips to the source extent and requires UTF-8 endpoints. Line
 //! windows reject invalid endpoints, and line traversal recognizes LF and CRLF.

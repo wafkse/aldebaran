@@ -1,8 +1,6 @@
 //! Hashing support for source storage keys.
 //!
-//! [`SourceHash`] supplies the standard [`Hash`] capability alongside [`Source`].
-//! When storage uses [`SourceDiff`](crate::diff::SourceDiff) to compare keys,
-//! its content equivalence must agree with their hashes.
+//! See [`SourceHash`] for further information.
 
 use core::hash::Hash;
 

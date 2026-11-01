@@ -1,10 +1,6 @@
 //! A module for generic resettable ANSI sequences.
 //!
-//! See the [`Resettable`] trait for more information.
-//!
-//! [`Resettable`] defines the reset corresponding to a setting, and [`Reset`]
-//! exposes it as an [`AnsiSequence`]. Reset codes clear settings rather than
-//! recovering the terminal state that preceded activation.
+//! See [`Resettable`] and [`Reset`] for further information.
 
 use core::{fmt, marker::PhantomData};
 
@@ -13,11 +9,10 @@ use crate::prelude::AnsiSequence;
 /// A trait that indicates that a determined [`AnsiSequence`]'s effects
 /// can be reset.
 pub trait Resettable<I>: AnsiSequence<I> {
-    /// Write a reset sequence for this value.
+    /// Reset the effects of the current [`AnsiSequence`].
     ///
-    /// Because a reset code can clear more state than this value's sequence changed,
-    /// it does not restore prior terminal settings. Writing can also fail partway
-    /// through, leaving the sink partially updated.
+    /// A reset code may clear terminal state beyond what the sequence changed,
+    /// and a failed write can leave the sink partially updated.
     fn reset<W>(&self, writer: &mut W) -> fmt::Result
     where
         W: fmt::Write;

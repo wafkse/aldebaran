@@ -76,8 +76,13 @@ fn fresh(generics: &Generics, base: &str) -> Ident {
 
 #[proc_macro_derive(Choose, attributes(aldebaran))]
 /// Derive [`Choose`](https://docs.rs/aldebaran-logic/latest/aldebaran_logic/choose/trait.Choose.html)
-/// for a type implementing [`Assert`](https://docs.rs/aldebaran-logic/latest/aldebaran_logic/assert/trait.Assert.html)
-/// and [`Clone`]. Accepted inputs return a clone of the value.
+/// from the target type's [`Assert`](https://docs.rs/aldebaran-logic/latest/aldebaran_logic/assert/trait.Assert.html)
+/// implementation.
+///
+/// The generated implementation returns a clone of the asserted value when the
+/// input satisfies the assertion and returns `None` otherwise. Add
+/// `#[aldebaran(crate)]` to resolve the runtime through a direct
+/// `aldebaran-logic` dependency instead of the `aldebaran` facade.
 #[inline]
 pub fn derive_choose(input: TokenStream) -> TokenStream {
     let DeriveInput {
@@ -124,7 +129,11 @@ pub fn derive_choose(input: TokenStream) -> TokenStream {
     })
 }
 
-/// Derive assertion behavior from `assert` attributes on a struct or enum.
+/// Derive composable assertion behavior from `assert` attributes.
+///
+/// Struct metadata defines one assertion composition. Enum metadata defines one
+/// assertion per variant and expands the corresponding predicate and formatter
+/// implementations.
 ///
 /// `#[assert(conjunctive)]` requires every field predicate and
 /// `#[assert(disjunctive)]` accepts any field predicate, with each field type
@@ -140,6 +149,8 @@ pub fn derive_choose(input: TokenStream) -> TokenStream {
 ///
 /// A struct or each enum variant requires exactly one supported attribute.
 /// Enums use the active variant's rule, and unions are unsupported.
+/// Add `#[aldebaran(crate)]` to resolve the runtime through a direct
+/// `aldebaran-logic` dependency instead of the `aldebaran` facade.
 #[proc_macro_derive(Assert, attributes(assert, aldebaran))]
 #[inline]
 pub fn derive_assert(input: TokenStream) -> TokenStream {
@@ -249,22 +260,25 @@ impl Target {
     }
 }
 
-/// A struct's predicate rule and the declaration it applies to.
+/// Validated derive state for one assertion structure.
+///
+/// This representation retains the assertion policy, generics, attributes, name,
+/// and fields required to generate predicate and formatting implementations.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Struct {
     /// The assertion parameter for this struct.
     pub param: Param,
 
-    /// Parameters and bounds required wherever this declaration is used.
+    /// The generic parameters of the struct.
     pub generics: Generics,
 
-    /// Non-assertion metadata supplied with the declaration.
+    /// The attributes of the struct.
     pub attribute_list: Vec<Attribute>,
 
-    /// Identity of the type receiving the assertion contract.
+    /// The name of the struct.
     pub name_ident: Ident,
 
-    /// Predicate operands for field-based rules, including their declaration order.
+    /// The fields of the struct.
     pub field_list: Fields,
 }
 
@@ -502,16 +516,19 @@ impl Struct {
     }
 }
 
-/// Assertion alternatives whose active variant supplies the acceptance rule.
+/// Validated derive state for one assertion enum.
+///
+/// Each variant has already been paired with its assertion policy so expansion
+/// can generate one exhaustive predicate and formatter implementation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Enum {
-    /// Non-assertion metadata supplied with the declaration.
+    /// The attributes of the enum.
     pub attribute_list: Vec<Attribute>,
 
-    /// Parameters and bounds shared by all assertion alternatives.
+    /// The generic parameters of the enum.
     pub generics: Generics,
 
-    /// Identity of the type receiving the assertion contract.
+    /// The name of the enum.
     pub name_ident: Ident,
 
     /// The variants of the enum.
@@ -808,33 +825,36 @@ impl Enum {
     }
 }
 
-/// An assertion alternative with its own field-based or delegated rule.
+/// One validated assertion enum variant used during derive expansion.
+///
+/// The stored policy determines how the variant fields participate in the
+/// generated assertion while the remaining syntax is retained for pattern output.
 #[derive(Debug, Clone, PartialEq, Eq)]
 // NOTE(invariant): None.
 struct Variant {
     /// The assertion parameter for this variant.
     param: Param,
 
-    /// Non-assertion metadata supplied with this alternative.
+    /// The attributes of the variant.
     pub attribute_list: Vec<Attribute>,
 
-    /// Identity selecting this alternative's assertion rule.
+    /// The name of the variant.
     pub name_ident: Ident,
 
-    /// Ordered predicate operands or bindings available to a delegated expression.
+    /// The fields of the variant.
     pub field_list: Fields,
 }
 
 /// An assertion parameter.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Param {
-    /// Delegate to an assertion expression.
+    /// An assertion dictated by an arbitrary expression.
     Expr(Box<ParamExpr>),
 
-    /// Require all field assertions to accept.
+    /// A conjunctive assertion.
     Conjunctive,
 
-    /// Require any field assertion to accept.
+    /// A disjunctive assertion.
     Disjunctive,
 }
 
@@ -867,7 +887,8 @@ impl Parse for Param {
 }
 
 impl Param {
-    /// An optional assertion rule, with duplicate rules rejected and unrelated metadata retained.
+    /// Remove and return the optional assertion attribute, rejecting duplicates
+    /// and retaining unrelated attributes.
     fn take_attribute(attributes: &mut Vec<Attribute>) -> syn::Result<Option<Attribute>> {
         let mut found = None;
         let mut duplicate = None;
@@ -895,7 +916,7 @@ impl Param {
         }
     }
 
-    /// Accept a delegated expression or exactly one enabled field-composition policy.
+    /// Parse the target attribute into a [`Param`].
     pub fn attribute(target_attr: Attribute) -> syn::Result<Self> {
         let attr_span = target_attr.span();
 
@@ -935,14 +956,16 @@ impl Param {
     }
 }
 
-/// Field-composition options requiring exactly one enabled policy for acceptance.
+/// Declarative assertion policies parsed through Darling.
 #[derive(Debug, Default, FromMeta)]
 // NOTE(invariant): None.
 struct AssertionMetadata {
-    /// Requires every field predicate when enabled, excluding disjunction.
+    /// Selects conjunction across the structure fields, requiring each field
+    /// predicate to accept.
     conjunctive: Option<bool>,
 
-    /// Accepts any field predicate when enabled, excluding conjunction.
+    /// Selects disjunction across the structure fields, requiring any field
+    /// predicate to accept.
     disjunctive: Option<bool>,
 }
 

@@ -1,7 +1,6 @@
 //! Positional groups of identifiers with a fixed cardinality.
 //!
-//! [`IdArray`] groups IDs by position and permits duplicates, with
-//! named slot accessors available for lengths 1 through 32.
+//! See [`IdArray`] for further information.
 
 use core::{
     fmt,
@@ -14,9 +13,9 @@ use crate::prelude::Id;
 
 /// An array of [`trait@Id`]'s of length `N`.
 ///
-/// This exposes methods for accessing each individual [`trait@Id`] in the array,
-/// named `id1`, `id2`, and so on. Slots can be replaced independently and may
-/// contain repeated IDs.
+/// This exposes methods for accessing each individual [`trait@Id`] in the array.
+/// Accessor names use the zero-based index of each identifier, from `id0` through
+/// `id31`. Slots can be replaced independently and may contain repeated IDs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 // NOTE(invariant): None.
 pub struct IdArray<I: Id, const N: usize>([I; N]);
@@ -109,7 +108,7 @@ macro_rules! Accessors {
             $(
                 impl<I: Id> $target_ty <I, $target_length> {
                     $(
-                        #[doc = concat!("Zero-based slot ", stringify!($target_index), ", whose availability is guaranteed by this array length.")]
+                        #[doc = concat!("Return a reference to the identifier at index ", stringify!($target_index), " in this [`", stringify!($target_ty), "`].")]
                         #[inline]
                         #[must_use = "redundant access to identifier"]
                         pub const fn [< id $target_index >]:to_string:flatten:concatenate:unstringify (&self) -> &I {
@@ -118,7 +117,7 @@ macro_rules! Accessors {
                             &storage[$target_index]
                         }
 
-                        #[doc = concat!("Edit zero-based slot ", stringify!($target_index), " without changing the length or other slots. Duplicate IDs remain permitted.")]
+                        #[doc = concat!("Return a mutable reference to the identifier at index ", stringify!($target_index), " in this [`", stringify!($target_ty), "`].")]
                         #[inline]
                         #[must_use = "redundant mutable access to identifier"]
                         pub const fn [< id $target_index _mut >]:to_string:flatten:concatenate:unstringify (&mut self) -> &mut I {
@@ -127,7 +126,7 @@ macro_rules! Accessors {
                             &mut storage[$target_index]
                         }
 
-                        #[doc = concat!("Project from zero-based slot ", stringify!($target_index), " without requiring the caller to copy its ID. The slot exists for this array length.")]
+                        #[doc = concat!("Call the closure with a reference to the identifier at index ", stringify!($target_index), " in this [`", stringify!($target_ty), "`].")]
                         #[inline]
                         #[must_use = "redundant access to identifier"]
                         pub fn [< id $target_index _with >]:to_string:flatten:concatenate:unstringify <F, T> (&self, target_closure: F) -> T
@@ -139,7 +138,7 @@ macro_rules! Accessors {
                             target_closure(&storage[$target_index])
                         }
 
-                        #[doc = concat!("Edit zero-based slot ", stringify!($target_index), " through a closure while preserving the length and other slots. Duplicate IDs remain permitted.")]
+                        #[doc = concat!("Call the closure with a mutable reference to the identifier at index ", stringify!($target_index), " in this [`", stringify!($target_ty), "`].")]
                         #[inline]
                         #[must_use = "redundant access to identifier"]
                         pub fn [< id $target_index _mut_with >]:to_string:flatten:concatenate:unstringify <F, T> (&mut self, target_closure: F) -> T

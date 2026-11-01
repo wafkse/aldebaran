@@ -1,36 +1,39 @@
-//! Interning whose stored values outlive their input borrows.
+//! Owning interner storage.
 //!
-//! [`OwnedInterner`] makes implementations responsible for retaining a value that
-//! later lookups can borrow, allowing the caller's input to be released.
+//! See [`OwnedInterner`] for more information.
 
 use alloc::borrow::ToOwned;
 
 use aldebaran_id::ident::{Id, TaggedId};
 
-/// Retain values independently of input borrows under keys resolvable by the same interner.
-/// Successful storage promises lookup of the stored value, while equal inputs
-/// need not share a key.
+/// A trait for interner storage that owns values independently of the input
+/// borrow. This is useful when a value must outlive its source. A successful key
+/// resolves through the interner that returned it, while equal inputs need not
+/// receive the same key.
 pub trait OwnedInterner<B, K>
 where
     B: ToOwned + ?Sized,
     K: Id,
 {
-    /// Store a value, returning `None` when no key can be assigned.
+    /// Attempt to store the target value in the interner.
+    ///
+    /// If internment succeeds, return the associated key `K`. If no key can be
+    /// assigned, this method returns [`None`].
     fn try_store(&mut self, target_value: &B) -> Option<K>;
 
-    /// Resolve a key in this interner. Keys from another interner may fail or
-    /// identify a different value.
+    /// Try to resolve `target_id` to a reference to a stored value. A key from
+    /// another interner may fail to resolve or may identify a different value.
     fn try_resolve(&self, target_id: K) -> Option<&B>;
 
-    /// Store under the same success and failure contract as [`Self::try_store`],
-    /// adding a value-type distinction that does not identify the issuing interner.
+    /// Attempt to store the target value and return a [`TaggedId`] tagged with
+    /// its type. The type tag does not identify the interner that issued the key.
     #[inline]
     fn try_store_tagged(&mut self, target_value: &B) -> Option<TaggedId<B, K>> {
         self.try_store(target_value).map(TaggedId::new)
     }
 
-    /// Resolve under [`Self::try_resolve`]'s contract, including its restriction
-    /// to the issuing interner despite the value-type tag.
+    /// Try to resolve a [`TaggedId`] to a reference to the stored value. The tag
+    /// distinguishes the value type but does not identify the issuing interner.
     #[inline]
     fn try_resolve_tagged(&self, tagged_id: TaggedId<B, K>) -> Option<&B> {
         self.try_resolve(tagged_id.unwrap())

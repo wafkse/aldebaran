@@ -1,8 +1,6 @@
 //! Repeatable traversal of a selected source-line range.
 //!
-//! [`LineHandle`] retains the original source and the terminator state at the
-//! selection's beginning. Its [`LineExtent`] traversal therefore preserves
-//! absolute coordinates and line numbers while stopping at the selected end.
+//! See [`LineHandle`] for further information.
 
 use crate::dissect::SourceDissect;
 
@@ -33,13 +31,14 @@ where
     /// The original source backing the absolute line spans.
     source: &'a S,
 
-    /// Aggregate extents and length statistics for the selected lines.
+    /// Aggregate bounds and line-length statistics computed for the selection.
     metadata: Metadata,
 
-    /// First selected line, fixing the traversal's absolute offset and number.
+    /// The first line identity used to resume iteration.
     start_id: LineId<'a, S>,
 
-    /// Termination policy and state immediately before the first selected line.
+    /// The line termination policy used by the handle, with state saved immediately
+    /// before the first selected line.
     terminator: T,
 }
 
@@ -48,7 +47,8 @@ where
     S: SourceLines<'a, Line = &'a S> + SourceIter<'a> + SourceDissect<'a, View<'a> = &'a S> + ?Sized,
     T: Terminator<'a, S> + 'a,
 {
-    /// Create a handle from a source, metadata, starting line, and terminator.
+    /// Create a new [`LineHandle`] from its raw parts: the source, the
+    /// metadata, the starting line identifier, and the terminator.
     ///
     /// `metadata` and `start_id` must describe the same nonempty contiguous
     /// selection in `source`, including its final line number, source-coordinate

@@ -1,8 +1,6 @@
 //! Compact source previews for debug and display output.
 //!
-//! [`Preview`] uses the source's default termination policy, while
-//! [`PreviewWith`] selects a policy explicitly. Both visualize only the first
-//! line's content and share the same formatting for debug and display.
+//! See [`Preview`] and [`PreviewWith`] for further information.
 
 use crate::dissect::SourceDissect;
 

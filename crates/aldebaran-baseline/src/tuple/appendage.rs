@@ -1,26 +1,27 @@
 //! Tuple growth that preserves component types and positions.
 
-/// Tuple operations that preserve each element's type and position.
+/// A trait for tuple types that can have elements appended or prepended.
 ///
-/// Implementations are provided for tuples with one through seventeen elements.
+/// This is useful for certain cumulative operations, such as appending values
+/// to a tuple in a type-safe manner.
 pub trait Appendage {
-    /// The tuple type with `T` as its final element.
+    /// The next type that has type `T` appended to, e.g. `(..., T)`.
     type Append<T>;
 
-    /// The tuple type with `T` as its first element.
+    /// The next type that has type `T` prepended to, e.g `(T, ...)`.
     type Prepend<T>;
 
-    /// Number of elements in the current tuple.
+    /// The current length for this [`Appendage`] type.
     const LENGTH: usize;
 
-    /// Return the tuple with `target_value` appended.
+    /// Append a value of type `T` to the current [`Appendage`] type.
     fn append<T>(self, target_value: T) -> Self::Append<T>;
 
-    /// Return the tuple with `target_value` prepended.
+    /// Prepend a value of type `T` to the current [`Appendage`] type.
     fn prepend<T>(self, target_value: T) -> Self::Prepend<T>;
 }
 
-/// Generate [`Appendage`] implementations for the supplied tuple shapes.
+/// TT-Muncher that implements [`Appendage`] for tuple types.
 macro_rules! appendage {
     (
         @

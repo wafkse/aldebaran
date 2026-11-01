@@ -1,16 +1,14 @@
 //! Deferred composition of printable values.
 //!
-//! [`Combine`] builds printable output without writing it. Aggregation shares
-//! a printing context, sequencing keeps separate contexts, and repetition reuses
-//! the same context for each rendering. The caller supplies context and sink
-//! when the composed value is printed.
+//! See [`Combine`] for further information.
 
 use core::fmt;
 
 use crate::print::Print;
 
-/// Deferred output composition for values that retain their own context requirements.
-/// Builders preserve the subjects until rendering and add no separators.
+/// Extension operations for composing printable values.
+///
+/// Builders retain the subjects until rendering and add no separators.
 pub trait Combine: Print {
     /// Print `self` followed by `other` using one shared context.
     #[inline]
@@ -116,7 +114,9 @@ where
     }
 }
 
-/// Repeated rendering of a retained subject with shared context and no separators.
+/// One printable value repeated a fixed number of times.
+///
+/// Each repetition uses the same context, and no separator is added.
 // NOTE(invariant): None.
 struct Times<T>
 where

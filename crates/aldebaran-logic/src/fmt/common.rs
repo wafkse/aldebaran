@@ -1,7 +1,9 @@
-//! Human-readable and symbolic assertion formatters.
+//! Common formatter policies for structured logical assertions.
 //!
-//! Both parenthesize operators weaker than their surrounding context and preserve
-//! custom segment text verbatim. Equal binding strengths require no parentheses.
+//! See [`Human`] and [`Symbolic`] for further information.
+//!
+//! Both honor the same precedence model and insert grouping only where the
+//! surrounding expression requires it.
 
 use core::fmt;
 
@@ -15,8 +17,7 @@ use super::{
 /// The default [`Formatter`] to be used.
 pub type DefaultFormatter = Human;
 
-/// Word-based assertion notation using `and`, `or`, `xor`, and `not`.
-/// Parentheses preserve grouping when an operator binds less tightly than its context.
+/// A human-readable printer for [`Assert`](crate::assert::Assert) specifications.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Human;
 
@@ -108,8 +109,7 @@ where
     }
 }
 
-/// Assertion notation using `∧`, `∨`, `⊻`, and `¬`.
-/// It groups operators by precedence in the same way as [`Human`].
+/// A symbolic printer for [`Assert`](crate::assert::Assert) specifications.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Symbolic;
 

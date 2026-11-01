@@ -1,8 +1,6 @@
 //! Source line contents excluding their terminating line break.
 //!
-//! [`LineContent`] pairs the source-specific line view with its absolute span.
-//! Mapping can change the source line representation while preserving those
-//! coordinates, so renderers can adapt content while keeping annotation positions aligned.
+//! See [`LineContent`] for further information.
 
 use core::{cmp, fmt, hash};
 

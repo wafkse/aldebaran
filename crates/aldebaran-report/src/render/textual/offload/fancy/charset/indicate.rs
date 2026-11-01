@@ -1,11 +1,10 @@
 //! Annotation markers and optional directional or diagnostic cues.
 //!
-//! [`Indicator`] groups [`Arrow`], [`Point`], and [`Connote`] with a [`Marker`]
-//! sequence. [`Fancy`](super::super::Fancy) currently uses the marker sequence to
-//! associate highlighted source spans with their messages. The other cue sets
-//! are configurable but are not emitted by that renderer. Glyphs are stored
-//! without width checks, so marker alignment requires glyphs that occupy one
-//! terminal cell.
+//! See [`Indicator`], [`Marker`], [`Arrow`], [`Point`], and [`Connote`] for further information.
+//!
+//! Fancy does not emit configured arrows, points, or diagnostic cues, and it does not
+//! check marker glyph width. Marker alignment requires glyphs that occupy one terminal
+//! cell.
 
 /// A set of indicator characters.
 ///
@@ -77,7 +76,8 @@ impl Indicator {
         }
     }
 
-    /// Directional cues distinct from the repeating symbols used for spans.
+    /// Retrieve the arrow characters for [`this set`](Indicator), which provide
+    /// directional cues distinct from the repeating symbols used for spans.
     #[inline]
     pub const fn arrow(&self) -> Arrow {
         let &Self { arrow, .. } = self;
@@ -85,7 +85,8 @@ impl Indicator {
         arrow
     }
 
-    /// Arrow configuration whose Unicode preset uses shafted direction symbols.
+    /// Retrieve an immutable reference to the arrow characters for [`this
+    /// set`](Indicator), whose Unicode preset uses shafted direction symbols.
     #[inline]
     pub const fn arrow_ref(&self) -> &Arrow {
         let &Self { ref arrow, .. } = self;
@@ -93,7 +94,8 @@ impl Indicator {
         arrow
     }
 
-    /// Customize directional arrows independently of points and span markers.
+    /// Retrieve a mutable reference to the arrow characters for [`this
+    /// set`](Indicator), independently of its points and span markers.
     #[inline]
     pub const fn arrow_mut(&mut self) -> &mut Arrow {
         let &mut Self { ref mut arrow, .. } = self;
@@ -101,7 +103,8 @@ impl Indicator {
         arrow
     }
 
-    /// Directional tips whose Unicode preset uses solid triangles.
+    /// Retrieve the point characters for [`this set`](Indicator), whose Unicode
+    /// preset uses solid triangles for directional tips.
     #[inline]
     pub const fn point(&self) -> Point {
         let &Self { point, .. } = self;
@@ -109,7 +112,8 @@ impl Indicator {
         point
     }
 
-    /// Tip configuration separate from the shafted arrows in [`Arrow`].
+    /// Retrieve an immutable reference to the point characters for [`this
+    /// set`](Indicator), separate from the shafted arrows in [`Arrow`].
     #[inline]
     pub const fn point_ref(&self) -> &Point {
         let &Self { ref point, .. } = self;
@@ -117,7 +121,8 @@ impl Indicator {
         point
     }
 
-    /// Customize directional tips without changing the arrow configuration.
+    /// Retrieve a mutable reference to the point characters for [`this
+    /// set`](Indicator), without changing its arrow configuration.
     #[inline]
     pub const fn point_mut(&mut self) -> &mut Point {
         let &mut Self { ref mut point, .. } = self;
@@ -125,7 +130,8 @@ impl Indicator {
         point
     }
 
-    /// Diagnostic meanings represented by warning, error, note, and help symbols.
+    /// Retrieve the connotative characters for [`this set`](Indicator): warning,
+    /// error, note, and help cues.
     #[inline]
     pub const fn connote(&self) -> Connote {
         let &Self { connote, .. } = self;
@@ -133,7 +139,8 @@ impl Indicator {
         connote
     }
 
-    /// Diagnostic cue configuration, including whether note and help symbols are present.
+    /// Retrieve an immutable reference to the connotative characters for
+    /// [`this set`](Indicator), including optional note and help cues.
     #[inline]
     pub const fn connote_ref(&self) -> &Connote {
         let &Self { ref connote, .. } = self;
@@ -141,7 +148,8 @@ impl Indicator {
         connote
     }
 
-    /// Replace diagnostic cues independently of directional and span markers.
+    /// Retrieve a mutable reference to the connotative characters for
+    /// [`this set`](Indicator), independently of directional and span markers.
     #[inline]
     pub const fn connote_mut(&mut self) -> &mut Connote {
         let &mut Self { ref mut connote, .. } = self;
@@ -258,7 +266,8 @@ impl Connote {
         }
     }
 
-    /// Caution symbol, spelled `!` in the ASCII preset.
+    /// Retrieve the *warning* connotative character for [`this set`](Connote),
+    /// spelled `!` in the ASCII preset.
     #[inline]
     pub const fn warning(&self) -> char {
         let &Self { warning, .. } = self;
@@ -266,7 +275,8 @@ impl Connote {
         warning
     }
 
-    /// Configured symbol for a warning rather than an error.
+    /// Retrieve an immutable reference to the *warning* connotative
+    /// character for [`this set`](Connote).
     #[inline]
     pub const fn warning_ref(&self) -> &char {
         let &Self { ref warning, .. } = self;
@@ -274,7 +284,8 @@ impl Connote {
         warning
     }
 
-    /// Customize the warning symbol independently of the error symbol.
+    /// Retrieve a mutable reference to the *warning* connotative character
+    /// for [`this set`](Connote).
     #[inline]
     pub const fn warning_mut(&mut self) -> &mut char {
         let &mut Self { ref mut warning, .. } = self;
@@ -282,7 +293,8 @@ impl Connote {
         warning
     }
 
-    /// Error symbol, spelled `x` in the ASCII preset.
+    /// Retrieve the *error* connotative character for [`this set`](Connote),
+    /// spelled `x` in the ASCII preset.
     #[inline]
     pub const fn error(&self) -> char {
         let &Self { error, .. } = self;
@@ -290,7 +302,8 @@ impl Connote {
         error
     }
 
-    /// Configured symbol for a failure rather than a warning.
+    /// Retrieve an immutable reference to the *error* connotative character
+    /// for [`this set`](Connote).
     #[inline]
     pub const fn error_ref(&self) -> &char {
         let &Self { ref error, .. } = self;
@@ -298,32 +311,29 @@ impl Connote {
         error
     }
 
-    /// Customize the failure cue while retaining the warning cue.
+    /// Retrieve a mutable reference to the *error* connotative character
+    /// for [`this set`](Connote).
     #[inline]
     pub const fn error_mut(&mut self) -> &mut char {
         let &mut Self { ref mut error, .. } = self;
 
         error
     }
-
-    /// Symbol for additional information, with `None` denoting an omitted cue.
+    /// Retrieve the note connotative character, if one is set, for this set.
     #[inline]
     pub const fn note(&self) -> Option<char> {
         let &Self { note, .. } = self;
 
         note
     }
-
-    /// Configured note cue, absent when note symbolism is disabled.
+    /// Retrieve an immutable reference to the note character, if one is set.
     #[inline]
     pub const fn note_ref(&self) -> Option<&char> {
         let &Self { ref note, .. } = self;
 
         note.as_ref()
     }
-
-    /// Customize an existing note cue.
-    ///
+    /// Retrieve a mutable reference to the note character, if one is set.
     /// An absent cue remains absent because this view does not expose its option.
     #[inline]
     pub const fn note_mut(&mut self) -> Option<&mut char> {
@@ -331,24 +341,22 @@ impl Connote {
 
         note.as_mut()
     }
-
-    /// Symbol for corrective advice, with `None` denoting an omitted cue.
+    /// Retrieve the help connotative character, if one is set, for this set.
     #[inline]
     pub const fn help(&self) -> Option<char> {
         let &Self { help, .. } = self;
 
         help
     }
-
-    /// Configured help cue, absent when help symbolism is disabled.
+    /// Retrieve an immutable reference to the help character, if one is set.
     #[inline]
     pub const fn help_ref(&self) -> Option<&char> {
         let &Self { ref help, .. } = self;
 
         help.as_ref()
     }
-
-    /// Customize an existing help cue without enabling an absent cue.
+    /// Retrieve a mutable reference to the help character, if one is set.
+    /// An absent cue remains absent because this view does not expose its option.
     #[inline]
     pub const fn help_mut(&mut self) -> Option<&mut char> {
         let &mut Self { ref mut help, .. } = self;
@@ -581,7 +589,8 @@ impl Arrow {
         Self { up, down, left, right }
     }
 
-    /// Arrow toward an earlier row, represented by `↑` in the Unicode preset.
+    /// Retrieve the *upwards* arrow character for [`this set`](Arrow), shown as
+    /// `↑` in the Unicode preset.
     #[inline]
     pub const fn up(&self) -> char {
         let &Self { up, .. } = self;
@@ -589,7 +598,8 @@ impl Arrow {
         up
     }
 
-    /// Upward arrow whose ASCII form coincides with [`Point::up`].
+    /// Retrieve an immutable reference to the *upwards* arrow character for
+    /// [`this set`](Arrow). Its ASCII form matches [`Point::up`].
     #[inline]
     pub const fn up_ref(&self) -> &char {
         let &Self { ref up, .. } = self;
@@ -597,7 +607,8 @@ impl Arrow {
         up
     }
 
-    /// Customize the upward arrow without altering the separate point set.
+    /// Retrieve a mutable reference to the *upwards* arrow character for
+    /// [`this set`](Arrow), independently of the separate point set.
     #[inline]
     pub const fn up_mut(&mut self) -> &mut char {
         let &mut Self { ref mut up, .. } = self;
@@ -605,7 +616,8 @@ impl Arrow {
         up
     }
 
-    /// Arrow toward a later row, represented by `↓` in the Unicode preset.
+    /// Retrieve the *downwards* arrow character for [`this set`](Arrow), shown
+    /// as `↓` in the Unicode preset.
     #[inline]
     pub const fn down(&self) -> char {
         let &Self { down, .. } = self;
@@ -613,7 +625,8 @@ impl Arrow {
         down
     }
 
-    /// Downward arrow whose ASCII form coincides with [`Point::down`].
+    /// Retrieve an immutable reference to the *downwards* arrow character
+    /// for [`this set`](Arrow). Its ASCII form matches [`Point::down`].
     #[inline]
     pub const fn down_ref(&self) -> &char {
         let &Self { ref down, .. } = self;
@@ -621,7 +634,8 @@ impl Arrow {
         down
     }
 
-    /// Customize the downward arrow independently of its tip.
+    /// Retrieve a mutable reference to the *downwards* arrow character for
+    /// [`this set`](Arrow), independently of its point.
     #[inline]
     pub const fn down_mut(&mut self) -> &mut char {
         let &mut Self { ref mut down, .. } = self;
@@ -629,7 +643,8 @@ impl Arrow {
         down
     }
 
-    /// Arrow toward an earlier column, represented by `←` in the Unicode preset.
+    /// Retrieve the *leftwards* arrow character for [`this set`](Arrow), shown
+    /// as `←` in the Unicode preset.
     #[inline]
     pub const fn left(&self) -> char {
         let &Self { left, .. } = self;
@@ -637,7 +652,8 @@ impl Arrow {
         left
     }
 
-    /// Leftward arrow whose ASCII form coincides with [`Point::left`].
+    /// Retrieve an immutable reference to the *leftwards* arrow character
+    /// for [`this set`](Arrow). Its ASCII form matches [`Point::left`].
     #[inline]
     pub const fn left_ref(&self) -> &char {
         let &Self { ref left, .. } = self;
@@ -645,7 +661,8 @@ impl Arrow {
         left
     }
 
-    /// Customize the leftward arrow while retaining the separate point set.
+    /// Retrieve a mutable reference to the *leftwards* arrow character for
+    /// [`this set`](Arrow), independently of the separate point set.
     #[inline]
     pub const fn left_mut(&mut self) -> &mut char {
         let &mut Self { ref mut left, .. } = self;
@@ -653,7 +670,8 @@ impl Arrow {
         left
     }
 
-    /// Arrow toward a later column, represented by `→` in the Unicode preset.
+    /// Retrieve the *rightwards* arrow character for [`this set`](Arrow), shown
+    /// as `→` in the Unicode preset.
     #[inline]
     pub const fn right(&self) -> char {
         let &Self { right, .. } = self;
@@ -661,7 +679,8 @@ impl Arrow {
         right
     }
 
-    /// Rightward arrow whose ASCII form coincides with [`Point::right`].
+    /// Retrieve an immutable reference to the *rightwards* arrow character
+    /// for [`this set`](Arrow). Its ASCII form matches [`Point::right`].
     #[inline]
     pub const fn right_ref(&self) -> &char {
         let &Self { ref right, .. } = self;
@@ -669,7 +688,8 @@ impl Arrow {
         right
     }
 
-    /// Customize the rightward arrow independently of its tip.
+    /// Retrieve a mutable reference to the *rightwards* arrow character for
+    /// [`this set`](Arrow), independently of its point.
     #[inline]
     pub const fn right_mut(&mut self) -> &mut char {
         let &mut Self { ref mut right, .. } = self;

@@ -1,4 +1,6 @@
-//! Negation represents the complement of an assertion predicate.
+//! Logical negation of one assertion value.
+//!
+//! See [`Not`] for further information.
 
 use core::{
     fmt,
@@ -11,8 +13,12 @@ use crate::{
     input::Input,
 };
 
-/// Accepts inputs rejected by the wrapped predicate. Negation provides no
-/// [`Choose`](crate::choose::Choose) result for this complementary set.
+/// Logical negation of one assertion.
+///
+/// The wrapper retains the original assertion value while reversing only the
+/// predicate result and adding the appropriate formatter precedence. Since a
+/// rejected input has no classification from the wrapped assertion, this type
+/// does not implement [`Choose`](crate::choose::Choose).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 #[repr(transparent)]
 // NOTE(invariant): None.

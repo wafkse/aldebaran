@@ -1,6 +1,6 @@
-//! Source synchronization after a parse failure. Delimiter strategies preserve
-//! the next synchronization component for the parser, while [`Skip`] discards a
-//! bounded number of components.
+//! Cursor-based finite state machines.
+//!
+//! See [`Recover`], [`Until`], [`AnyOf`], and [`Skip`] for further information.
 
 use core::convert::Infallible;
 
@@ -11,20 +11,24 @@ use aldebaran_source::prelude::{Component, Source, SourceDissect, SourceIter};
 
 use crate::cursor::Cursor;
 
-/// A recovery policy whose success and failure both retain the policy value.
-/// Cursor movement is independent of the result and is not automatically rolled back.
+/// A state machine that incorporates error recovery from a [`Cursor`] input.
 pub trait Recover<'source, S>
 where
     S: Source<'source> + SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
-    /// Attempt synchronization, retaining any cursor movement even on failure.
+    /// Perform one error recovery step.
+    ///
+    /// Returns `Ok(Self)` if recovery succeeds, or `Err(Self)` if recovery fails.
+    /// Cursor movement is retained in either case.
     fn recover(self, text: &mut Cursor<'source, S>) -> Result<Self, Self>
     where
         Self: Sized;
 }
 
-/// Synchronizes at the next occurrence of a component, leaving it unconsumed.
-/// Absence of that component is also successful recovery at source exhaustion.
+/// A [`Recover`] state machine that discards input until a certain component is
+/// found, leaving it for the parser.
+///
+/// If the component is absent, recovery succeeds at source exhaustion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 // NOTE(invariant): None.
 pub struct Until<C>(C)
@@ -35,7 +39,7 @@ impl<C> Until<C>
 where
     C: Component,
 {
-    /// Preserve the next occurrence of `value` for the parser after recovery.
+    /// Create a new [`Until`] state machine from a target value.
     #[inline]
     pub const fn that(value: C) -> Self {
         Self(value)
@@ -62,9 +66,12 @@ where
     }
 }
 
-/// Synchronizes at the earliest source occurrence of any candidate, leaving it
-/// unconsumed. If no candidate occurs, including for an empty set, recovery succeeds
-/// at source exhaustion.
+/// A [`Recover`] state machine that discards input until one of a set of matching
+/// components is found, leaving it for the parser.
+///
+/// Recovery stops at the earliest matching source position, regardless of the
+/// order of the candidates. If none occurs, including when the set is empty,
+/// recovery succeeds at source exhaustion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 // NOTE(invariant): None.
 pub struct AnyOf<C, const N: usize>(OneOf<C, N>)
@@ -75,14 +82,15 @@ impl<C, const N: usize> AnyOf<C, N>
 where
     C: Component,
 {
-    /// Accept any listed delimiter as a synchronization point, regardless of array order.
+    /// Create a new [`AnyOf`] state machine from a set of target values.
     #[inline]
     pub const fn many(target_list: [C; N]) -> Self {
         Self(OneOf::these(target_list))
     }
 
-    /// Delimiters preserved for the parser when encountered during recovery.
-    /// Their array order does not affect which source position wins.
+    /// Determine the storage array for this [`AnyOf`] state machine.
+    ///
+    /// Its order does not affect which source position wins during recovery.
     #[inline]
     pub const fn storage(&self) -> &[C; N] {
         let &Self { 0: ref target_list } = self;
@@ -111,8 +119,11 @@ where
     }
 }
 
-/// Discards up to `N` components, counting Unicode scalars for `str` rather than bytes.
-/// Recovery succeeds even when fewer components remain, and `N = 0` preserves the position.
+/// A [`Recover`] state machine that discards input a certain number of times.
+///
+/// `N` counts source components, which are Unicode scalars for `str` rather than
+/// bytes. Recovery succeeds when fewer than `N` components remain, and `N = 0`
+/// leaves the cursor at its current position.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Skip<const N: usize>;
 

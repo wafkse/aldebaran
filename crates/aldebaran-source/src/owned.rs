@@ -1,15 +1,15 @@
 //! Module providing the correspondence between a source and its owned form.
 //!
-//! See [`SourceOwned`] for more information.
-//!
-//! [`SourceOwned`] connects a borrowed source representation with [`ToOwned`],
-//! allowing storage consumers to select its associated owned form.
+//! See [`SourceOwned`] for further information.
 
 use crate::source::Source;
 
 use alloc::borrow::ToOwned;
 
-/// Source data that storage can retain through [`ToOwned::to_owned`].
+/// A trait for those sources that can be transformed into their owned form.
+///
+/// This is purely an extension of the [`Source`] trait. The owned form is
+/// obtained through [`ToOwned::to_owned`].
 pub trait SourceOwned<'source>: Source<'source> + ToOwned {}
 
 impl<'source, S> SourceOwned<'source> for S where S: Source<'source> + ToOwned + ?Sized {}

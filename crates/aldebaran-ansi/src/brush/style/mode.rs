@@ -1,8 +1,4 @@
 //! SGR codes and sets of active text attributes.
-//!
-//! [`TextAttribute`] identifies an individual SGR attribute, while [`Attributes`]
-//! collects attributes for emission. This lets styling code combine attributes
-//! before writing the corresponding terminal sequences.
 
 use core::fmt;
 
@@ -12,7 +8,14 @@ use crate::{prelude::AnsiSequence, reset::Resettable};
 
 /// The stylistic settings that can be applied to text.
 ///
-/// Resetting an attribute clears it without restoring the previous terminal state.
+/// To retrieve the control index assigned to each respective variant, simply
+/// cast the enum to [`u8`].
+///
+/// ## Remarks
+///
+/// Be aware that not all terminals may support these attributes or show a
+/// noticeable difference when they are used. Resetting an attribute clears it
+/// rather than restoring the previous terminal state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
 pub enum TextAttribute {
@@ -42,7 +45,8 @@ pub enum TextAttribute {
 }
 
 impl TextAttribute {
-    /// The SGR code for resetting active text and color settings.
+    /// The ANSI code that resets all the stylistic settings to their default
+    /// value.
     pub const RESET_ALL_CODE: u8 = 0;
 
     /// Retrieve the ANSI code to activate the current attribute.
@@ -88,8 +92,8 @@ impl TextAttribute {
 /// A bitfield that consists of the text attributes that can be applied to text,
 /// as seen in [`TextAttribute`].
 ///
-/// Iteration consumes the set in descending SGR code order. Sequence emission
-/// uses a copy, so emitting or resetting the set preserves its stored activations.
+/// Iteration consumes attributes in descending code order. Sequence emission
+/// uses a copy, so emitting or resetting the set preserves its stored values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 // NOTE(invariant): SetBits(Attributes) SubsetOf Discriminants(TextAttribute)
 pub struct Attributes(u16);
@@ -103,7 +107,7 @@ impl Attributes {
         Self(0)
     }
 
-    /// Select an isolated activation, with all other attributes absent.
+    /// Create a new set of attributes from a single [`TextAttribute`].
     #[inline]
     pub const fn single(attr: TextAttribute) -> Self {
         Self(1 << attr as u8)
@@ -153,7 +157,7 @@ macro_rules! method_impl {
         tokel::stream! {
             impl $target_struct {
                 $(
-                    #[doc = concat!("Whether `", stringify!($display_name), "` is selected for subsequent attribute emission.")]
+                    #[doc = concat!("Determine whether the text attributes contain the `", stringify!($display_name), "` attribute.")]
                     #[inline]
                     pub const fn [< is_ $display_name >]:concatenate (&self) -> bool {
                         let &Self(target_value) = self;
@@ -181,7 +185,7 @@ macro_rules! method_impl {
                         last_state
                     }
 
-                    #[doc = concat!("Select `", stringify!($display_name), "` for emission while preserving other attributes.")]
+                    #[doc = concat!("Set the status of the `", stringify!($display_name), "` attribute.")]
                     ///
                     /// Returns whether the attribute was active before this call.
                     #[inline]
@@ -241,10 +245,14 @@ impl Resettable<()> for TextAttribute {
     }
 }
 
-/// Emit a [`TextAttribute`] activation or an SGR 0 reset when the option is absent.
+/// An [`AnsiSequence`] implementation for `Option<TextAttribute>`.
 ///
-/// SGR 0 clears all active SGR settings. Use [`crate::reset::Reset`] to emit an
-/// attribute's reset code instead.
+/// In most cases, [`TextAttribute`] is wrapped inside an [`Option<T>`], and for
+/// ease of use, if [`None`] is encountered, an all-resetting sequence is sent
+/// through instead.
+///
+/// For a way to reset a specific [`TextAttribute`], please see
+/// [`crate::reset::Reset`].
 impl<Input> AnsiSequence<Input> for Option<TextAttribute>
 where
     TextAttribute: AnsiSequence<Input>,

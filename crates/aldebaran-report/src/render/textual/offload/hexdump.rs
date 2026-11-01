@@ -1,7 +1,9 @@
 //! Renders raw byte sources as offset-indexed hexadecimal rows with annotation markers.
 //!
-//! Only ASCII graphic bytes and spaces appear literally in the ASCII column.
-//! Other bytes use the configured replacement glyph.
+//! See [`Hexdump`] and [`HexdumpSettings`] for further information.
+//!
+//! Only ASCII graphic bytes and spaces appear literally in the ASCII column. Other
+//! bytes use the configured replacement glyph.
 
 use core::{cmp, fmt, num::NonZero};
 
@@ -93,7 +95,7 @@ impl HexdumpSettings {
         case
     }
 
-    /// ASCII-column substitute for bytes other than graphic ASCII and ordinary space.
+    /// Retrieve the non-graphic byte replacement glyph.
     #[inline]
     #[must_use]
     pub const fn replacement(&self) -> char {
@@ -112,8 +114,7 @@ impl HexdumpSettings {
 
         span
     }
-
-    /// Insertion marker for a unit annotation at the exclusive source end.
+    /// Retrieve the source-boundary point glyph, which marks a unit annotation at the exclusive source end.
     #[inline]
     #[must_use]
     pub const fn point(&self) -> char {

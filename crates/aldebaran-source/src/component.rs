@@ -1,8 +1,6 @@
 //! Component capabilities for one-dimensional source sequences.
 //!
-//! [`Component`] defines the width used to advance source coordinates.
-//! Additional ASCII and digit capabilities let text algorithms classify [`u8`]
-//! and [`char`] without forcing every source component into one representation.
+//! See [`Component`], [`AsciiComponent`], and [`DigitComponent`] for further information.
 
 use core::{mem, num::NonZero};
 
@@ -16,25 +14,26 @@ use aldebaran_print::visualize::Visualize;
 /// Albeit defined generically, this trait is part of a larger scheme: see
 /// [`Source`](crate::source::Source).
 pub trait Component: Copy + PartialEq + Eq + PartialOrd + Ord + Visualize + 'static {
-    /// Return this component's width in source-coordinate units.
+    /// The size of the component inside its respective one-dimensional plane.
     ///
-    /// The width must use the same unit as the source's
-    /// [`footprint`](crate::source::Source::footprint), so traversing components
-    /// advances coordinates consistently with source spans. For string [`char`]
-    /// components this means UTF-8 byte widths, whereas byte slices advance by
-    /// one coordinate unit per byte.
+    /// For detailed documentation on source planes, refer to
+    /// [`Source`](crate::source::Source). An arbitrary component must have a size
+    /// greater than zero, and its width uses the same unit as the source
+    /// footprint. For string [`char`] components this means UTF-8 byte widths,
+    /// whereas byte slices advance by one coordinate unit per byte.
     fn size(&self) -> NonZero<usize>;
 }
 
-/// Lossless ASCII classification shared by byte and character sources.
-/// Construction accepts only `0x00..=0x7f`, so conversion to a character preserves the value.
+/// One source component proven to be an ASCII byte.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 // NOTE(invariant): Value In 0x00..=0x7f
 pub struct AsciiByte(u8);
 
 impl AsciiByte {
-    /// Return an `AsciiByte` when `value` is in `0x00..=0x7f`.
+    /// Validate one byte as ASCII.
+    ///
+    /// Values outside `0x00..=0x7f` return `None`.
     #[inline]
     #[must_use]
     pub const fn new(value: u8) -> Option<Self> {
@@ -59,23 +58,25 @@ impl AsciiByte {
     }
 }
 
-/// ASCII classification without changing a source's component representation.
+/// Source component capability for lossless ASCII classification.
 pub trait AsciiComponent: Component {
-    /// Return its ASCII byte when the component represents a value in `0x00..=0x7f`.
+    /// Classify this component as ASCII when possible.
     fn ascii(self) -> Option<AsciiByte>;
 }
 
 /// Source component capability for positional-radix digits.
 pub trait DigitComponent: Component {
-    /// Return the digit value when this component is valid in `radix`.
+    /// Interpret this component as one digit in the requested radix.
     ///
     /// The supported radix range is 2 through 36, following
     /// [`char::to_digit`].
     fn digit(self, radix: u32) -> Option<u32>;
 }
 
-/// Shared text-processing bound for ASCII and radix-digit recognition.
-/// Both character and byte sources satisfy it without converting their stored components.
+/// Source component supporting ordinary textual classification.
+///
+/// Both character and byte sources satisfy it without converting their stored
+/// components.
 pub trait TextComponent: Component + AsciiComponent + DigitComponent {}
 
 impl<C> TextComponent for C where C: Component + AsciiComponent + DigitComponent {}
@@ -110,8 +111,8 @@ impl DigitComponent for u8 {
     }
 }
 
-/// Implement [`Component`] for types whose built-in operation returns their
-/// width in source-coordinate units.
+/// A macro for automatic implementation of the [`Component`] trait for types
+/// that have a built-in way to determine their size.
 macro_rules! lengthed {
     () => {};
     (

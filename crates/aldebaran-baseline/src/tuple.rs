@@ -1,7 +1,6 @@
 //! Type-level tuple append and prepend operations.
 //!
-//! [`Appendage`] grows tuples while preserving their component types, and
-//! [`Uniform`] converts homogeneous tuples into fixed-size arrays.
+//! See [`Appendage`] and [`Uniform`] for further information.
 
 mod appendage;
 mod uniform;

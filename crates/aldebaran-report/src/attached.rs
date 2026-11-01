@@ -1,7 +1,8 @@
 //! Source association for diagnostics that store their locations separately.
 //!
-//! [`Attached`] exposes an existing [`Report`] as a [`SourceReport`] by borrowing
-//! its source. The source and report may have different owners and lifetimes.
+//! See [`Attached`] for further information.
+//!
+//! The source and report may have different owners and lifetimes.
 
 use aldebaran_source::prelude::{SourceLines, SourceMetadata};
 

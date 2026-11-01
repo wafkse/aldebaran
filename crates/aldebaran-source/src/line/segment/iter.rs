@@ -1,8 +1,6 @@
-//! Built-in annotation projection onto line content.
+//! The module for the [`Segmented`](Segmented) iterator adaptor.
 //!
-//! [`Segmented`] clips renderable views to content, preserving the original
-//! annotations in [`Piecewise::Relevant`] and filling uncovered intervals with
-//! [`Piecewise::Irrelevant`]. Terminators are excluded from both kinds of view.
+//! See [`Segmented`] for further information.
 
 use alloc::{collections::VecDeque, vec::Vec};
 
@@ -12,8 +10,9 @@ use aldebaran_baseline::prelude::{Span, Spanned};
 
 use crate::line::{LineId, LineSegmented, Piecewise, Segment, SourceLines};
 
-/// Built-in projection of annotations and gaps onto a line view.
+/// An iterator adaptor over the segments of a line.
 ///
+/// This adaptor adapts a [`Span`]-based iterator into a [`Piecewise`] iterator.
 /// Construction consumes the annotation iterator and allocates storage for
 /// representable content overlaps. Views are ordered by their clipped start,
 /// with input order preserved for equal starts. Overlapping annotations remain
@@ -221,7 +220,7 @@ where
     I: Iterator<Item = D> + FusedIterator,
     D: Spanned,
 {
-    /// Prepare annotations for rendering against this line's content.
+    /// Construct a new [`Segmented`] iterator.
     ///
     /// Views are clipped to content while data remains intact. An annotation
     /// is omitted if it has no content overlap or if that overlap cannot be

@@ -1,7 +1,6 @@
-//! Membership and ordered views of distinct typed IDs.
+//! Sets of Aldebaran identifier values.
 //!
-//! [`IdSet`] uses ID equality for membership and permits removal to reorder its
-//! slice view, so positions do not serve as stable identities.
+//! See [`IdSet`] for further information.
 
 use core::{
     hash::{BuildHasher, BuildHasherDefault, Hash},
@@ -12,8 +11,11 @@ use crate::prelude::{Id, IdMap};
 
 use rustc_hash::FxHasher;
 
-/// Retain distinct IDs with a slice view whose order may change on removal.
-/// No public constructor or conversion currently permits creating a set.
+/// A set of identifiers.
+///
+/// This is a set of identifiers, where each identifier is unique. The values are
+/// exposed as a slice whose order may change when an identifier is removed.
+/// This type currently has no public constructor or conversion.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[repr(transparent)]
 // NOTE(invariant): None.
@@ -27,7 +29,12 @@ where
     I: Id,
     S: BuildHasher,
 {
-    /// Membership under ID equality, independent of slice position.
+    /// Determine whether the target [`trait@Id`] is in this set.
+    ///
+    /// # Time Complexity
+    ///
+    /// This operation has the same expected `O(1)` time complexity as
+    /// [`IdMap::contains_key`].
     #[inline]
     pub fn has<Q>(&self, id: Q) -> bool
     where
@@ -39,7 +46,15 @@ where
         map.contains_key(id)
     }
 
-    /// Insert an identifier, returning the existing value if already present.
+    /// Insert the target [`trait@Id`] into this set, if it is not already present.
+    ///
+    /// If the target [`trait@Id`] is already present, this operation returns it
+    /// to the caller.
+    ///
+    /// # Time Complexity
+    ///
+    /// This operation has the same expected, amortized `O(1)` time complexity as
+    /// [`IdMap::insert`].
     #[inline]
     pub fn insert(&mut self, id: I) -> Option<I> {
         let &mut Self(ref mut map, ..) = self;
@@ -47,13 +62,20 @@ where
         map.insert(id, id)
     }
 
-    /// Remove and return an identifier if present.
+    /// Remove the target [`trait@Id`] from this set, if it is present.
     ///
-    /// Removal may reorder the slice view.
+    /// If the target [`trait@Id`] is not present, this operation returns [`None`].
+    /// The final pair is moved into a removed pair's position. [`IdMap::remove`]
+    /// panics after removing a pair in the final storage position.
+    ///
+    /// # Time Complexity
+    ///
+    /// This operation has the same expected, amortized `O(1)` time complexity as
+    /// [`IdMap::remove`].
     ///
     /// # Panics
     ///
-    /// Panics after removing an identifier that occupies the final storage position.
+    /// Panics after removing an identifier that occupied the final storage position.
     #[inline]
     pub fn remove<Q>(&mut self, id: Q) -> Option<I>
     where
@@ -65,7 +87,11 @@ where
         map.remove(id).map(|(id, _)| id)
     }
 
-    /// Distinct IDs in their current storage order, which removal may change.
+    /// Return a slice containing all the [`trait@Id`]s in this set.
+    ///
+    /// # Time Complexity
+    ///
+    /// This operation is `O(1)`. The slice order may change after removal.
     #[inline]
     pub fn as_slice(&self) -> &[I] {
         let &Self(ref map, ..) = self;

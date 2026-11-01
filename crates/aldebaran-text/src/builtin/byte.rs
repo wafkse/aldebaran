@@ -1,5 +1,6 @@
-//! Byte equality across byte and character sources. [`Byte`] accepts any byte
-//! value but restricts cross-kind matching to ASCII.
+//! Byte equality across byte and character sources.
+//!
+//! See [`Byte`] for further information.
 
 use aldebaran_print::visualize::Visualize;
 use core::{
@@ -14,8 +15,12 @@ use aldebaran_logic::{
 
 use aldebaran_print::prelude::Print;
 
-/// Matches a byte exactly, with the same rule for borrowed inputs.
-/// Character inputs match only in ASCII, so byte values above `0x7f` never match a character.
+/// A singular byte.
+///
+/// This is a *new-type* over [`u8`] that represents a singular byte.
+///
+/// This can also be used as an assertion over character inputs, but only ASCII
+/// values match across the two types. The same rules apply to borrowed inputs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct Byte(pub u8);

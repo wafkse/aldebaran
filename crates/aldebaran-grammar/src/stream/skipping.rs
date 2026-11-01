@@ -1,15 +1,15 @@
-//! Token filtering that preserves the source's error type.
+//! Token stream filtering that preserves the underlying stream.
 //!
-//! [`Skipping`] excludes selected tokens from reads and lookahead positions, so
-//! parsers can count only the tokens relevant to their grammar.
+//! See [`Skipping`] for further information.
 
 use super::{TokenStream, lookahead::Lookahead};
 
 /// A token stream that omits values selected by a predicate.
 ///
-/// Read errors leave previously skipped tokens consumed, and lookahead counts
-/// only retained tokens without guaranteeing isolation from shared state in
-/// cloned sources or predicates.
+/// During `next`, source errors leave previously skipped tokens consumed.
+/// Lookahead counts only retained tokens by inspecting a clone of the filtered
+/// view. Because the cloned source or predicate may share state with the
+/// original, looking ahead can still affect the caller.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 // NOTE(invariant): None.
 pub struct Skipping<S, P> {

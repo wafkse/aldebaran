@@ -1,8 +1,6 @@
 //! Numbered source lines with separate content and terminator views.
 //!
-//! [`LineId`] represents an unterminated content line, content followed by a
-//! break, or a break without content. Each shape has a nonempty combined span
-//! even though either content or a terminator can be absent.
+//! See [`LineId`] for further information.
 
 use core::{fmt, hash, num::NonZero};
 
@@ -129,7 +127,8 @@ impl<'a, S> LineId<'a, S>
 where
     S: SourceLines<'a> + ?Sized,
 {
-    /// Construct a line from its number, content, and optional terminator.
+    /// Construct a new [`LineId`] from its raw parts: a line number, the line
+    /// content, and its optional line break.
     ///
     /// When `line_break` is present, the caller must ensure its span immediately
     /// follows the content span and both refer to the same source.
@@ -209,7 +208,9 @@ where
         line_inner.content_break()
     }
 
-    /// Change the source type while preserving the line view and spans.
+    /// Coerce this [`LineId`] to refer to a source with the same kind of lines.
+    ///
+    /// The line views and their spans remain unchanged.
     #[inline]
     pub fn coerce<O>(self) -> LineId<'a, O>
     where
@@ -265,9 +266,9 @@ enum LineIdInner<'a, S>
 where
     S: SourceLines<'a> + ?Sized,
 {
-    /// Content with no recognized terminator.
+    /// A standalone line, i.e., a line without a line break.
     Standalone {
-        /// One-based position assigned by the producing traversal.
+        /// The one-based line number assigned by the producing traversal.
         line_number: NonZero<usize>,
 
         /// The nonempty content extent before the line ends.
@@ -276,7 +277,7 @@ where
 
     /// A line with content and a line break.
     WithBreak {
-        /// One-based position assigned by the producing traversal.
+        /// The one-based line number assigned by the producing traversal.
         line_number: NonZero<usize>,
 
         /// The nonempty content extent before the line break.
@@ -288,7 +289,7 @@ where
 
     /// A line with no content, but with a line break.
     BreakOnly {
-        /// One-based position assigned by the producing traversal.
+        /// The one-based line number assigned by the producing traversal.
         line_number: NonZero<usize>,
 
         /// The terminator view and its absolute source extent.

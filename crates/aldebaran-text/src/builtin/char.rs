@@ -1,5 +1,6 @@
-//! Unicode scalar equality for character sources. [`Char`] also accepts matching
-//! ASCII bytes, letting the same predicate serve either source kind within ASCII.
+//! Unicode scalar equality for character sources.
+//!
+//! See [`Char`] for further information.
 
 use aldebaran_print::visualize::Visualize;
 use core::{
@@ -14,8 +15,12 @@ use aldebaran_logic::{
 
 use aldebaran_print::prelude::Print;
 
-/// Matches a Unicode scalar exactly, with the same rule for borrowed inputs.
-/// Byte inputs match only in ASCII, so a multibyte UTF-8 encoding cannot satisfy this predicate.
+/// A singular character.
+///
+/// This is a *newtype* over [`char`] that represents a singular character.
+///
+/// This can also be used as an assertion over byte inputs, but only ASCII
+/// values match across the two types. The same rules apply to borrowed inputs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct Char(pub char);

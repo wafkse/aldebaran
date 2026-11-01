@@ -1,7 +1,6 @@
-//! Output rows within a source excerpt.
+//! Source and marker rows within an excerpt.
 //!
-//! A long source line can occupy several [`Phase`] values, which share the
-//! rendering context and original source coordinates.
+//! See [`Phase`] for further information.
 
 use core::{fmt, num::NonZero, ops::Range};
 
@@ -42,7 +41,7 @@ pub(in crate::render::textual::offload::fancy::detail) struct Phase<'gutter> {
     gutter: &'gutter Gutter,
 }
 
-/// Content shown by a source row, including an insertion with no stored text.
+/// A source row or an insertion after the final line break.
 enum PhaseContent<'layout> {
     /// A wrapped portion of a physical source line.
     Content {
@@ -120,7 +119,7 @@ impl<'gutter> Phase<'gutter> {
             .print(context.sink)
     }
 
-    /// Prepare row geometry once, assign lanes, then print borrowed marker rows.
+    /// Project annotation spans onto this row and print their markers in separate lanes.
     pub(in crate::render::textual::offload::fancy::detail) fn marker<A, W, T, I>(
         &self,
         annotation_record_list: &mut [AnnotationRecord<'_, A>],
@@ -263,7 +262,7 @@ impl<'gutter> Phase<'gutter> {
         }
     }
 
-    /// Emit a selected message using the row projection and cached marker identity.
+    /// Write the annotation message once its final visible marker row is reached.
     pub(in crate::render::textual::offload::fancy::detail) fn message<A, W, T, I>(
         &self,
         annotation_record: &mut AnnotationRecord<'_, A>,
@@ -330,7 +329,7 @@ impl<'gutter> Phase<'gutter> {
         }
     }
 
-    /// Terminal columns to mark for a source target or the final insertion.
+    /// Find the terminal columns for a visible span or EOF insertion on this row.
     #[inline]
     pub(in crate::render::textual::offload::fancy::detail) fn marker_columns(&self, target_span: Span) -> Option<Range<usize>> {
         let Self { row_content, .. } = self;
@@ -355,7 +354,7 @@ impl<'gutter> Phase<'gutter> {
     }
 }
 
-/// One annotation retained once for the whole excerpt.
+/// Tracks one annotation across the excerpt's source rows.
 // NOTE(invariant): MarkerPresentation.IsSome => MarkerPresentation = AssignedPresentation(TargetSpan)
 pub(in crate::render::textual::offload::fancy::detail) struct AnnotationRecord<'a, A> {
     /// Original report annotation.
@@ -377,7 +376,7 @@ pub(in crate::render::textual::offload::fancy::detail) struct AnnotationRecord<'
     pub(in crate::render::textual::offload::fancy::detail) message_emitted: bool,
 }
 
-/// An annotation's projected columns and stable lane ordering.
+/// Tracks an annotation's columns on this row and its assigned lane.
 // NOTE(invariant): ColumnRange.Start < ColumnRange.End
 struct Projection {
     /// Index into the excerpt's annotation table.
@@ -393,7 +392,7 @@ struct Projection {
     endpoint_order_index: usize,
 }
 
-/// Scratch storage retained across every physical and wrapped row.
+/// Storage reused for the excerpt's physical and wrapped rows.
 #[derive(Default)]
 // NOTE(invariant): None.
 pub(in crate::render::textual::offload::fancy::detail) struct MarkerLayout {
@@ -407,11 +406,11 @@ pub(in crate::render::textual::offload::fancy::detail) struct MarkerLayout {
     lane_tree: LaneTree,
 }
 
-/// Minimum lane endpoints supporting first-compatible placement in logarithmic time.
+/// Tracks lane endpoints so the renderer can find the first lane that fits a marker.
 #[derive(Default)]
 // NOTE(invariant): LaneEndpointList.IsEmpty Or (LaneEndpointList.Length = 2 * LeafStartIndex And IsPowerOfTwo(LeafStartIndex))
 struct LaneTree {
-    /// Minimum occupied endpoint for each subtree; unused lanes end at zero.
+    /// Stores each subtree's minimum occupied endpoint, with unused lanes ending at zero.
     lane_endpoint_list: Vec<usize>,
 
     /// Index of the first leaf and maximum number of lanes.
@@ -431,7 +430,7 @@ impl LaneTree {
         lane_endpoint_list.fill(usize::MIN);
     }
 
-    /// Select the lowest numbered compatible lane, preserving the old greedy order.
+    /// Choose the lowest numbered lane whose previous marker ends before this one starts.
     pub(in crate::render::textual::offload::fancy::detail) fn assign(&mut self, start_column: usize, end_column: usize) -> usize {
         let Self {
             lane_endpoint_list,

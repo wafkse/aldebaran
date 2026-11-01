@@ -1,11 +1,15 @@
-//! Named alternatives for ASCII opening and closing delimiters. Each enum value
-//! matches its selected side for byte or character input and imposes no balancing rule.
+//! Semantic punctuation assertions built from ASCII predicates.
+//!
+//! See [`Parenthesis`], [`Bracket`], [`Brace`], and [`AngleBracket`] for further information.
+//!
+//! Each variant matches one ASCII delimiter for byte or character input, without
+//! checking whether opening and closing delimiters balance.
 
 use aldebaran_logic::prelude::Assert;
 
 use super::Ascii;
 
-/// Selects a parenthesis side as an ASCII equality predicate for either source kind.
+/// A parenthesis character, regardless of its direction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Assert)]
 #[aldebaran(crate)]
 pub enum Parenthesis {
@@ -18,7 +22,7 @@ pub enum Parenthesis {
     Right,
 }
 
-/// Selects a square-bracket side as an ASCII equality predicate for either source kind.
+/// A bracket character, regardless of its direction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Assert)]
 #[aldebaran(crate)]
 pub enum Bracket {
@@ -31,7 +35,7 @@ pub enum Bracket {
     Right,
 }
 
-/// Selects a brace side as an ASCII equality predicate for either source kind.
+/// A brace character, regardless of its direction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Assert)]
 #[aldebaran(crate)]
 pub enum Brace {
@@ -44,7 +48,7 @@ pub enum Brace {
     Right,
 }
 
-/// Selects an angle-bracket side as an ASCII equality predicate for either source kind.
+/// An angle bracket character, regardless of its direction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Assert)]
 #[aldebaran(crate)]
 pub enum AngleBracket {

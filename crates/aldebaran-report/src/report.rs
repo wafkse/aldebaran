@@ -1,9 +1,7 @@
 //! Diagnostic content that can be associated with source data for rendering.
 //!
-//! [`Report`] keeps headings, classification, and annotations independent of
-//! source ownership. [`SourceReport`] adds the source needed to interpret those
-//! locations. Use [`oneshot`] for diagnostics assembled at the call site or
-//! [`dynamic::DynamicError`] when the annotation collection needs to grow.
+//! See [`Report`], [`SourceReport`], [`oneshot`], and [`dynamic::DynamicError`] for
+//! further information.
 
 pub mod dynamic;
 

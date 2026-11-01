@@ -11,9 +11,10 @@ use proc_macro2::{Span as Span2, TokenStream as TokenStream2};
 use quote::quote;
 use syn::{DeriveInput, parse_macro_input};
 
-/// Runtime namespace selected by the declaration's dependency policy.
-/// Resolution accepts Cargo aliases and uses the facade unless direct dependency
-/// metadata is present.
+/// Runtime path used by generated report implementations.
+///
+/// Generated code uses the `aldebaran` facade by default and honors Cargo aliases.
+/// Add `#[aldebaran(crate)]` to use a direct `aldebaran-report` dependency instead.
 #[derive(Debug)]
 // NOTE(invariant): Tokens = AccessibleRuntimeNamespace(DeclarationPolicy)
 struct RuntimePath(
@@ -22,7 +23,7 @@ struct RuntimePath(
 );
 
 impl RuntimePath {
-    /// Resolve the runtime namespace after admitting at most one dependency policy.
+    /// Resolve either the direct runtime crate or the public facade.
     fn resolve(attributes: &[syn::Attribute]) -> syn::Result<Self> {
         let policy = attributes
             .iter()
@@ -57,25 +58,28 @@ impl RuntimePath {
 /// and [`Report`](https://docs.rs/aldebaran-report/latest/aldebaran_report/report/trait.Report.html)
 /// together with [`Display`](core::fmt::Display) and [`Error`](core::error::Error).
 ///
-/// Separate `report` and `error` attributes control diagnostic content and standard
-/// error behavior. Supply an `error` declaration such as `#[error("invalid value")]`
-/// on a struct or each enum variant, and provide [`Debug`](core::fmt::Debug)
-/// separately. Report headings and annotation messages are independent of error
-/// display text. Use separate `#[error(transparent(field))]` or
-/// `#[error(transparent(0))]` metadata for standard error forwarding.
+/// Use `report` attributes to describe the diagnostic and `error` attributes to
+/// set standard error behavior. Put an `error` declaration such as
+/// `#[error("invalid value")]` on a struct or on each enum variant, and provide
+/// [`Debug`](core::fmt::Debug) separately. The report title and annotation message
+/// do not control standard error display text. To forward the standard error
+/// behavior, use `#[error(transparent(field))]` or `#[error(transparent(0))]`.
 ///
 /// # Struct reports
 ///
 /// A custom struct requires exactly one of `title = "text"` or `title_with = path`
 /// and exactly one of `message = "text"` or `message_with = path` inside `#[report(...)]`.
-/// Projection functions receive `&Self`, with results coercible to `&str` for
-/// that borrow. Text literals are used verbatim, without format interpolation.
+/// Any function supplied through `title_with` or `message_with` receives
+/// `&Self` and must return a value that coerces to `&str` for as long as that
+/// borrow is valid. Text literals are used as written, without format
+/// interpolation.
 ///
-/// The primary target is inferred from exactly one field whose final type path
-/// segment is `Span`. When no field has that spelling, a sole field must implement
-/// `Annotated` and supplies the target instead. Aliases are not resolved, and
-/// multiple `Span` fields are ambiguous. The struct acts as its own annotation
-/// and uses `Simple::Error` as its classification.
+/// A unique field whose final type path segment is `Span` supplies the primary
+/// target. If there is no such field, the struct must have a sole field that
+/// implements `Annotated`, and the derive uses that field's target instead. It
+/// checks only the path spelling, so it cannot resolve aliases. If multiple
+/// fields end in `Span`, the target is ambiguous. The struct acts as its own
+/// annotation and uses `Simple::Error` as its classification.
 ///
 /// `annotations = field` or `annotations = 0` selects a stored collection implementing
 /// `PrimaryAnnotations`. A title is still required, but a message is optional
@@ -92,28 +96,28 @@ impl RuntimePath {
 ///
 /// # Enum reports
 ///
-/// Every variant must wrap exactly one unnamed field. A custom variant requires
-/// `title = "text"` and exactly one of `message = "text"` or `message_with = path`.
-/// Its message projection receives the borrowed payload, with a result coercible
-/// to `&str` for that borrow. A payload type path ending in `Span` supplies the
-/// target directly, while other payloads require `Annotated` to supply it.
+/// Each variant must wrap exactly one unnamed field. A custom variant needs a
+/// literal `title` and either a literal `message` or a `message_with` function.
+/// That function receives a reference to the payload, and its result must coerce
+/// to `&str` for that borrow. A payload whose final type path segment is `Span`
+/// supplies the target directly, while any other payload must implement `Annotated`.
 ///
-/// `#[report(transparent)]` instead reuses the payload's annotation message and
-/// report heading, each coercible to `&str` for the payload borrow, together with
-/// its annotation target.
-/// Derived enums always expose themselves as their annotation and use `Simple::Error`,
-/// so transparent variants do not expose a wrapped annotation collection or classification.
-/// Enum variants support neither `title_with`, stored annotations, nor explicit
-/// transparent field selectors.
+/// A transparent variant takes its annotation message, report title, and target
+/// from the payload, which must implement both `Annotated` and `Report`. Its
+/// borrowed message and title must each coerce to `&str` for the payload borrow.
+/// The derived enum still acts as its own annotation and uses `Simple::Error`,
+/// so it does not forward the payload's annotation collection or classification.
+/// Variants do not support `title_with`, stored annotations, or transparent field
+/// selectors.
 ///
 /// # Dependencies and type requirements
 ///
-/// Report implementations preserve declared generics and where clauses without
-/// inferring additional field bounds, so those bounds must already support the
-/// chosen report policy. Struct and variant options must have recognized names
-/// and cannot be repeated or conflict, and unions are unsupported.
-/// Targets are not checked against any source, and callers
-/// must pair reports with a source using the same coordinates.
+/// Generated implementations keep the type's declared generics and `where`
+/// clauses without adding field bounds, so those bounds must support the chosen
+/// report form. Option names must be recognized, and options on a struct or
+/// variant cannot repeat or conflict. Unions are unsupported. The derive does
+/// not compare targets with a source, so pair each report with a source that uses
+/// the same coordinates.
 #[proc_macro_derive(Report, attributes(error, report, aldebaran))]
 #[inline]
 pub fn report_derive(input: TokenStream) -> TokenStream {

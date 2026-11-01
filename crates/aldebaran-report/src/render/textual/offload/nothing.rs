@@ -1,4 +1,5 @@
-//! Output suppression as a textual backend policy.
+//! [`Nothing`] implements [`Offload`] while discarding the report, so callers can
+//! suppress output without changing the rendering pipeline.
 
 use core::convert::Infallible;
 
@@ -8,7 +9,10 @@ use crate::report::SourceReport;
 
 use super::{Offload, OffloadContext};
 
-/// Uninhabited backend that returns success without writing to the sink.
+/// Offload backend that deliberately produces no output.
+///
+/// This enum carries no state. Its [`Offload`] implementation lets callers
+/// select suppression through the same interface as other backends.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum Nothing {}
 

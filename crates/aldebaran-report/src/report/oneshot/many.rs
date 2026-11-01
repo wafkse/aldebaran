@@ -1,7 +1,6 @@
 //! One-shot reports over a nonempty annotation collection.
 //!
-//! Use [`OneshotMany`] when a diagnostic needs a separate title and multiple
-//! source annotations.
+//! See [`OneshotMany`] for further information.
 
 use aldebaran_baseline::prelude::RefNonempty;
 
@@ -43,7 +42,7 @@ where
     S: SourceLines<'source> + SourceMetadata<'source> + ?Sized,
     'source: 'borrow,
 {
-    /// Retain the borrowed annotation order under a separate heading and error kind.
+    /// Instantiate a new [`OneshotMany`] error from its raw components.
     #[inline]
     pub const fn raw(source: &'source S, title: T, annotation: RefNonempty<'borrow, A>) -> Self {
         Self { source, title, annotation }
@@ -57,7 +56,7 @@ where
         source
     }
 
-    /// Caller-ordered annotations with their original input lifetime.
+    /// Retrieve the [`RefNonempty`] corresponding to the annotations of this error.
     #[inline]
     pub const fn annotations(&self) -> RefNonempty<'borrow, A> {
         let &Self { annotation, .. } = self;

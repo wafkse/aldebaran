@@ -1,4 +1,6 @@
-//! Ordered disjunctions over assertion values.
+//! Fixed and borrowed disjunctions over homogeneous assertions.
+//!
+//! See [`OneOf`] and [`Sliced`] for further information.
 
 use core::fmt;
 use core::ops::{Deref, DerefMut};
@@ -10,14 +12,19 @@ use crate::{
     input::Input,
 };
 
-/// Accepts any candidate and retains the first matching candidate's classification.
-/// Candidate order resolves overlapping matches, and an empty array rejects all input.
+/// A logical disjunction between `N` assertions.
+///
+/// This assertion accepts an input if any of its assertions accepts it. When used
+/// with [`Choose`], it returns the value produced by the first matching assertion
+/// in array order, so earlier assertions take priority when more than one matches.
+///
+/// If the array is empty, no input is accepted.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 // NOTE(invariant): None.
 pub struct OneOf<A, const N: usize>([A; N]);
 
 impl<A, const N: usize> OneOf<A, N> {
-    /// Give earlier array entries priority when classifications overlap.
+    /// Create a disjunction from the given assertions.
     #[inline]
     pub const fn these(target_value: [A; N]) -> Self {
         Self(target_value)
@@ -91,15 +98,18 @@ impl<A, const N: usize> DerefMut for OneOf<A, N> {
     }
 }
 
-/// Borrows candidates and retains the first matching candidate's classification.
-/// Slice order resolves overlapping matches, and an empty slice rejects all input.
+/// A logical disjunction between assertions borrowed from a slice.
+///
+/// The assertions are checked in slice order, so [`Choose`] returns the value
+/// produced by the first matching assertion when more than one matches. If the
+/// slice is empty, no input is accepted.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 // NOTE(invariant): None.
 pub struct Sliced<'a, A>(&'a [A]);
 
 impl<'a, A> Sliced<'a, A> {
-    /// Give earlier slice entries priority without taking ownership of the candidates.
+    /// Create a disjunction from the given assertions.
     #[inline]
     pub const fn these(target_value: &'a [A]) -> Self {
         Self(target_value)

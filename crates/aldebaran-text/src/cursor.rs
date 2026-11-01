@@ -1,6 +1,6 @@
-//! Source traversal for lexical recognition and recovery. [`Cursor`] preserves
-//! source coordinates for diagnostics, [`branch`] makes cursor progress speculative,
-//! and [`consume`] separates recognition from construction of lexical values.
+//! Source traversal for lexical recognition and recovery.
+//!
+//! See [`Cursor`], [`branch::Branch`], and [`consume::Lex`] for further information.
 
 pub mod error;
 

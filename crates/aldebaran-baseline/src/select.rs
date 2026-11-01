@@ -1,5 +1,6 @@
-//! Selection enums retain which of two alternatives produced a value, including
-//! whether both alternatives are present when combining optional results.
+//! The module hosting various "selection" types.
+//!
+//! See [`Either`] and [`EitherOrBoth`] for further information.
 
 mod either;
 mod either_or_both;

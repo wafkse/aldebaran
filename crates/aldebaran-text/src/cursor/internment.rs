@@ -1,12 +1,15 @@
-//! Shared state for lexical reads. [`Internment`] keeps source position and
-//! caller-owned construction context available together across token production.
+//! Pairing of a source cursor with borrowed mutable construction state.
+//!
+//! See [`Internment`] for further information.
 
 use aldebaran_source::prelude::{SourceDissect, SourceIter};
 
 use super::Cursor;
 
-/// Maintains source progress alongside a borrowed construction context across
-/// lexical reads. [`Self::parts_mut`] permits coordinated access to both states.
+/// A text cursor paired with one borrowed mutable construction context.
+///
+/// Lexical streams use this carrier to keep the source position and construction
+/// state together between reads.
 #[derive(Debug)]
 // NOTE(invariant): None.
 pub struct Internment<'source, 'interner, S, I>
@@ -14,10 +17,10 @@ where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
     I: ?Sized,
 {
-    /// Source position retained between lexical reads.
+    /// Source cursor owned by this carrier.
     text: Cursor<'source, S>,
 
-    /// Caller-owned context whose construction effects persist across reads.
+    /// Construction context borrowed while the source cursor is consumed.
     interner: &'interner mut I,
 }
 
@@ -26,7 +29,7 @@ where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
     I: ?Sized,
 {
-    /// Begin traversal at source offset zero while retaining the caller's construction context.
+    /// Create a source cursor paired with borrowed mutable construction state.
     #[inline]
     #[must_use]
     pub const fn new(source: &'source S, interner: &'interner mut I) -> Self {
@@ -35,8 +38,9 @@ where
         Self { text, interner }
     }
 
-    /// Access source progress and construction context together for a lexical read.
-    /// Changes to either remain available to subsequent reads.
+    /// Borrow the source cursor and construction context together.
+    ///
+    /// Changes to either state remain available to subsequent reads.
     #[inline]
     pub const fn parts_mut(&mut self) -> (&mut Cursor<'source, S>, &mut I) {
         let Self { text, interner } = self;

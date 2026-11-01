@@ -1,6 +1,6 @@
-//! Assertion descriptions with explicit operator identity and binding strength.
-//! [`Formatter`] controls connective notation and grouping, while [`Format`]
-//! supplies descriptions for values that need no connective context.
+//! Structured formatting of assertions and nested logical connectives.
+//!
+//! See [`Formatter`], [`Format`], and [`FormatWith`] for further information.
 
 pub mod common;
 
@@ -10,16 +10,27 @@ use core::fmt;
 
 use aldebaran_print::prelude::Print;
 
-/// A notation and grouping policy for assertion descriptions. Each [`Segment`]
-/// identifies part of an operator, while the supplied [`Precedence`] describes
-/// the surrounding expression whose grouping must be preserved.
+/// A trait for one-shot formatters.
+///
+/// One-shot formatters are those who dictate only by two parameters: the
+/// current [`Precedence`], and the inherent [`Segment`].
+///
+///
+/// We achieve this by operating on the *positional context*  rather than the
+/// specific parts of the assertion. This allows us to abstract over the
+/// specifics of each assertion type, and focus on the general structure of the
+/// assertion.
+/// In the end, this results in pretty-printed assertions that are easy to
+/// read and understand, and that have clear precedence rules.
+///
+/// [`Assert`]: crate::assert::Assert
 pub trait Formatter {
-    /// Render operator text and any grouping needed in the surrounding context.
+    /// Perform a format operation on the specified writer.
     fn enter<W>(writer: &mut W, target_segment: Segment, target_precedence: Precedence) -> fmt::Result
     where
         W: fmt::Write;
 
-    /// Establish grouping and any prefix text before the connective's operands.
+    /// Enter a [`Segment::Start`] in this formatter.
     #[inline]
     fn start<W>(writer: &mut W, target_connective: Connective, target_precedence: Precedence) -> fmt::Result
     where
@@ -28,7 +39,7 @@ pub trait Formatter {
         Self::enter(writer, Segment::Start(target_connective), target_precedence)
     }
 
-    /// Separate operands using the selected binary operator's notation.
+    /// Enter a [`Segment::Midway`] in this formatter.
     #[inline]
     fn middle<W>(writer: &mut W, target_connective: BinaryConnective, target_precedence: Precedence) -> fmt::Result
     where
@@ -37,7 +48,7 @@ pub trait Formatter {
         Self::enter(writer, Segment::Midway(target_connective), target_precedence)
     }
 
-    /// Close grouping and any suffix text after the connective's operands.
+    /// Enter a [`Segment::End`] in this formatter.
     #[inline]
     fn end<W>(writer: &mut W, target_connective: Connective, target_precedence: Precedence) -> fmt::Result
     where
@@ -47,8 +58,8 @@ pub trait Formatter {
     }
 }
 
-/// A description that needs no surrounding operator context. For inputs implementing
-/// [`Print`] with a default context, it also describes exact-equality assertions.
+/// A trait for those types that can be formatted regardless of the underlying
+/// formatter.
 pub trait Format {
     /// Pretty-print this type to the specified [`fmt::Write`] `W`
     fn output<W>(&self, writer: &mut W) -> fmt::Result
@@ -70,8 +81,7 @@ where
     }
 }
 
-/// A description whose notation is selected by `F`. This permits different
-/// representations of the same value without changing its assertion semantics.
+/// A trait for types that are specialized to a target [`Formatter`] `F`.
 pub trait FormatWith<F>
 where
     F: Formatter,
@@ -82,18 +92,35 @@ where
         W: fmt::Write;
 }
 
-/// A connective segment passed to a [`Formatter`].
+/// A format segment.
+///
+/// This is an enumeration of the relevant portions of a formatted expression,
+/// where a [`Formatter`] can have an effect.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Segment {
-    /// The opening boundary of a unary or binary connective.
+    /// The start of a connective.
+    ///
+    /// This represents the "place" where an arbitrary operator is situated.
+    ///
+    /// See [`Connective`] for more information.
     Start(Connective),
 
-    /// A binary operator between its operands.
+    /// Somewhere in the middle of a connective.
     ///
-    /// Unary connectives have no midway segment.
+    /// This represents the "place" where a binary operator is situated.
+    ///
+    /// This can only be a binary operator, as unary operators are never infix.
+    ///
+    /// See [`BinaryConnective`] for more information.
     Midway(BinaryConnective),
 
-    /// The closing boundary of a unary or binary connective.
+    /// The end of a connective.
+    ///
+    /// This represents the "place" where an arbitrary operator is situated.
+    ///
+    /// This can be either a unary operator or a binary operator.
+    ///
+    /// See [`Connective`] for more information.
     End(Connective),
 }
 
@@ -109,33 +136,32 @@ impl Segment {
     }
 }
 
-/// Operator identity used to select notation and grouping. Unary operators have
-/// boundary segments, while binary operators also have separators between operands.
+/// A logical connective.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Connective {
-    /// An operator with a prefix or suffix around its operand.
+    /// An 1-ary connective.
     Unary(UnaryConnective),
 
-    /// An operator with a separator between operands.
+    /// A 2-ary connective.
     Binary(BinaryConnective),
 }
 
 impl Connective {
-    /// Conjunction at [`Precedence::AND`].
+    /// A constant that is the built-in `and` connective.
     pub const AND: Self = Self::Binary(BinaryConnective::Builtin(BuiltinBinaryConnective::And));
 
-    /// Disjunction at [`Precedence::OR`].
+    /// A constant that is the built-in `or` connective.
     pub const OR: Self = Self::Binary(BinaryConnective::Builtin(BuiltinBinaryConnective::Or));
 
-    /// Exclusive disjunction at [`Precedence::XOR`].
+    /// A constant that is the built-in `xor` connective.
     pub const XOR: Self = Self::Binary(BinaryConnective::Builtin(BuiltinBinaryConnective::Xor));
 
-    /// Negation at [`Precedence::NOT`].
+    /// A constant that is the built-in `not` connective.
     pub const NOT: Self = Self::Unary(UnaryConnective::Builtin(BuiltinUnaryConnective::Not));
 }
 
 impl Connective {
-    /// Binding strength against which a formatter compares the surrounding context.
+    /// Determine the precedence of this connective.
     #[inline]
     pub const fn precedence(target_connective: Self) -> Precedence {
         match target_connective {
@@ -145,41 +171,41 @@ impl Connective {
     }
 }
 
-/// A binary operator's notation and binding strength. Custom operators may supply
-/// different text for their opening, separator, and closing segments.
+/// A 2-ary connective.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum BinaryConnective {
-    /// One of the library's built-in binary operators.
+    /// A built-in 2-ary connective.
     Builtin(BuiltinBinaryConnective),
 
-    /// A custom binary operator supplied by an assertion implementation.
+    /// An arbitrary 2-adic connective.
     Any {
-        /// Optional text for this operator at the current segment.
+        /// The potentially-missing representation of the connective at hand.
         ///
-        /// Opening, midway, and closing segments may use different text.
+        /// Note that this is not global to this connective, but is specific to
+        /// some formatter [`Segment`].
         target_repr: Option<&'static str>,
 
-        /// Identity available to custom formatters that distinguish operator kinds.
+        /// The type id of the target connective.
         target_id: TypeId,
 
-        /// Binding strength used when grouping this operator's operands.
+        /// The precedence of the connective.
         target_precedence: Precedence,
     },
 }
 
 impl BinaryConnective {
-    /// Conjunction at [`Precedence::AND`].
+    /// A constant that is the built-in `and` 2-ary connective.
     pub const AND: Self = Self::Builtin(BuiltinBinaryConnective::And);
 
-    /// Disjunction at [`Precedence::OR`].
+    /// A constant that is the built-in `or` 2-ary connective.
     pub const OR: Self = Self::Builtin(BuiltinBinaryConnective::Or);
 
-    /// Exclusive disjunction at [`Precedence::XOR`].
+    /// A constant that is the built-in `xor` 2-ary connective.
     pub const XOR: Self = Self::Builtin(BuiltinBinaryConnective::Xor);
 }
 
 impl BinaryConnective {
-    /// Binding strength used to decide whether this operator needs grouping.
+    /// Determine the precedence of the target binary connective.
     #[inline]
     pub const fn precedence(target_connective: Self) -> Precedence {
         match target_connective {
@@ -189,22 +215,21 @@ impl BinaryConnective {
     }
 }
 
-/// Binary operators understood by the supplied formatters. Their binding order
-/// is disjunction, exclusive disjunction, then conjunction from weakest to strongest.
+/// A 2-ary connective that is built-in to the library.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum BuiltinBinaryConnective {
-    /// Conjunction, binding more tightly than either disjunction.
+    /// The `and` 2-ary connective.
     And,
 
-    /// Disjunction, the weakest built-in operator.
+    /// The `or` 2-ary connective.
     Or,
 
-    /// Exclusive disjunction, binding between disjunction and conjunction.
+    /// The `xor` 2-ary connective.
     Xor,
 }
 
 impl BuiltinBinaryConnective {
-    /// Binding strength shared by the built-in human and symbolic notations.
+    /// Determine the [`Precedence`] of the target built-in binary connective.
     #[inline]
     pub const fn precedence(target_connective: Self) -> Precedence {
         match target_connective {
@@ -215,35 +240,35 @@ impl BuiltinBinaryConnective {
     }
 }
 
-/// A unary operator's notation and binding strength. Custom operators may supply
-/// different text for their opening and closing segments.
+/// An 1-ary connective.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum UnaryConnective {
-    /// The library's built-in unary operator.
+    /// A built-in 1-ary connective.
     Builtin(BuiltinUnaryConnective),
 
-    /// A custom unary operator supplied by an assertion implementation.
+    /// An arbitrary n-adic connective.
     Any {
-        /// Optional text for this operator at the current segment.
+        /// The potentially-missing representation of the connective at hand.
         ///
-        /// Opening and closing segments may use different text.
+        /// Note that this is not global to this connective, but is specific to
+        /// some formatter [`Segment`].
         target_repr: Option<&'static str>,
 
-        /// Identity available to custom formatters that distinguish operator kinds.
+        /// The type id of the target connective.
         target_id: TypeId,
 
-        /// Binding strength used when grouping this operator.
+        /// The inherent precedence of the connective.
         target_precedence: Precedence,
     },
 }
 
 impl UnaryConnective {
-    /// Negation at [`Precedence::NOT`].
+    /// A constant that is the built-in `not` 1-ary connective.
     pub const NOT: Self = Self::Builtin(BuiltinUnaryConnective::Not);
 }
 
 impl UnaryConnective {
-    /// Binding strength used to decide whether this operator needs grouping.
+    /// Determine the precedence of the target unary connective.
     #[inline]
     pub const fn precedence(target_connective: Self) -> Precedence {
         match target_connective {
@@ -253,15 +278,15 @@ impl UnaryConnective {
     }
 }
 
-/// Unary operators understood by the supplied formatters.
+/// An 1-ary connective that is built-in to the library.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum BuiltinUnaryConnective {
-    /// Negation, binding more tightly than the built-in binary operators.
+    /// The `not` 1-ary connective.
     Not,
 }
 
 impl BuiltinUnaryConnective {
-    /// Binding strength shared by the built-in human and symbolic notations.
+    /// Determine the [`Precedence`] of the target built-in unary connective.
     #[inline]
     pub const fn precedence(target_connective: Self) -> Precedence {
         match target_connective {
@@ -270,10 +295,7 @@ impl BuiltinUnaryConnective {
     }
 }
 
-/// Relative binding strength passed to formatters.
-///
-/// Larger values bind more tightly. [`None`](Self::None) marks top-level output.
-/// Formatters decide how precedence affects grouping.
+/// A potentially-none precedence level to rule the appearance of parentheses.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum Precedence {
     /// Top-level output with no surrounding operator context.
@@ -285,24 +307,24 @@ pub enum Precedence {
 }
 
 impl Precedence {
-    /// Weakest operator context, immediately above top-level output.
+    /// The minimum precedence level that is exactly above [`Precedence::None`].
     pub const MIN: Self = Self::Level(NonZero::<usize>::MIN);
 
-    /// Disjunction, the weakest built-in operator context.
+    /// The precedence level of a logical disjunction.
     pub const OR: Self = Self::MIN;
 
-    /// Exclusive disjunction, stronger than disjunction and weaker than conjunction.
+    /// The precedence level of a logical exclusive disjunction.
     pub const XOR: Self = Self::increase(Self::OR);
 
-    /// Conjunction, stronger than either disjunction and weaker than negation.
+    /// The precedence level of a logical conjunction.
     pub const AND: Self = Self::increase(Self::XOR);
 
-    /// Negation, the strongest built-in operator context.
+    /// The precedence level of a logical negation.
     pub const NOT: Self = Self::increase(Self::AND);
 }
 
 impl Precedence {
-    /// Interpret a positive integer as a binding strength, rejecting zero.
+    /// Interpret a positive integer as a binding strength, returning `None` for zero.
     #[inline]
     pub const fn integer(target_value: usize) -> Option<Self> {
         match NonZero::new(target_value) {

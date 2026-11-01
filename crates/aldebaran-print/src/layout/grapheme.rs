@@ -1,8 +1,6 @@
 //! Identifies grapheme boundaries without tying consumption to row placement.
 //!
-//! [`GraphemeTraversal`] retains segmentation context for a logical line. Its
-//! lookahead can identify a grapheme that does not fit the current row, while
-//! the consumed offset keeps that grapheme available for the following row.
+//! See [`GraphemeTraversal`] for further information.
 
 use core::ops::Range;
 

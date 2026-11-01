@@ -1,9 +1,6 @@
 //! Projection of spanned data onto individual source lines.
 //!
-//! [`LineSegmented`] maps spanned values onto source-specific line views while
-//! retaining their associated data. Since callers may supply unordered input,
-//! each implementation defines how overlapping and duplicate spans appear in
-//! the resulting segments.
+//! See [`LineSegmented`] and [`Segmented`] for further information.
 
 pub mod iter;
 pub mod piecewise;
@@ -24,7 +21,10 @@ pub trait LineSegmented<'source, S>
 where
     S: SourceLines<'source, Line = Self> + ?Sized,
 {
-    /// Annotation-bearing windows and unannotated gaps produced for a line.
+    /// The iterator type produced for segmented input data.
+    ///
+    /// No order is implied for the segments, so users must sort them if they
+    /// require a particular order.
     type Segments<'input, I, D>: Iterator<Item = Piecewise<'source, S, D>>
     where
         I: Iterator<Item = D> + FusedIterator,
@@ -32,20 +32,26 @@ where
         D: Spanned,
         'source: 'input;
 
-    /// The representation returned for a window of the source line.
+    /// A view into a source line.
+    ///
+    /// This is provided as a convenience for higher-kinded abstraction. Thus,
+    /// in most cases, it will be the same as the source line. In a generic
+    /// context it serves as a token type for a view into the source line, but
+    /// not the source line itself.
     type View;
 
-    /// Project annotations expressed in the original source coordinates onto this line.
+    /// Segment the source line with the given spanned data.
     ///
-    /// Input need not be ordered. Implementations define how overlapping or
-    /// duplicate spans are represented.
+    /// No order is imposed on the input [`spans`](Span), so the segments can be
+    /// in any order. Implementations define how overlapping or duplicate spans
+    /// are represented, and may ignore spans that do not intersect the source.
     fn segmented<'input, I, D>(line: &'input LineId<'source, S>, data_iter: I) -> Self::Segments<'input, I, D>
     where
         'source: 'input,
         I: Iterator<Item = D> + FusedIterator,
         D: Spanned;
 
-    /// Select a window using coordinates relative to this line view.
+    /// Retrieve a view into the source line for the given span.
     ///
     /// `None` means the window is out of bounds or not representable. For
     /// string views both endpoints must be UTF-8 boundaries.
@@ -78,7 +84,7 @@ where
     /// The view into the source line.
     line_view: <S::Line as LineSegmented<'a, S>>::View,
 
-    /// Original annotation data, retaining its unclipped source span.
+    /// The underlying [`Spanned`] data of the segment.
     data: D,
 }
 
@@ -105,14 +111,16 @@ where
         data
     }
 
-    /// Associate a line window with data covering its source region.
+    /// Construct a new [`Segment`] from its raw parts: the line view and the
+    /// data.
+    ///
     /// The caller must keep the view within the data's span in the original source.
     #[inline]
     pub const fn raw(line_view: <S::Line as LineSegmented<'a, S>>::View, data: D) -> Self {
         Self { line_view, data }
     }
 
-    /// Separate the renderable window from its original annotation.
+    /// Deconstruct this segment into its raw parts: the line view and the data.
     #[inline]
     pub fn partitioned(self) -> (<S::Line as LineSegmented<'a, S>>::View, D) {
         let Self { line_view, data } = self;
@@ -271,5 +279,8 @@ where
     }
 }
 
-/// A line interval that represents a gap in caller-provided annotations.
+/// An irrelevant line segment.
+///
+/// This is quite literally [`Segment`] but with a hardcoded [`Span`] as its
+/// associated data.
 pub type IrrelevantSegment<'a, S> = Segment<'a, S, Span>;

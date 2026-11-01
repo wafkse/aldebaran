@@ -66,9 +66,10 @@ pub mod rexport {
 }
 
 pub mod prelude {
-    //! The `aldebaran` prelude.
+    //! A prelude for the `aldebaran` crate.
     //!
-    //! Re-exports the most commonly used items from this crate.
+    //! This simply re-exports the most commonly used items in the
+    //! `aldebaran` crate.
 
     pub use crate::ansi::prelude::*;
 

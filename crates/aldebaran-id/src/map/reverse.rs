@@ -1,7 +1,6 @@
 //! Positional access to key/value pairs without key lookup or uniqueness checks.
 //!
-//! [`ReverseMap`] exposes aligned key and value slices, so the same element or
-//! range index selects corresponding parts of both views.
+//! See [`ReverseMap`] for further information.
 
 use core::{iter::Zip, mem, ops::IndexMut, slice::SliceIndex};
 

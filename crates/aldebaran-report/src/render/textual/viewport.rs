@@ -1,21 +1,16 @@
 //! Terminal dimensions and the layout preference carried with a textual render.
 //!
-//! [`Extents`] measures available columns and rows in terminal cells, while
-//! [`Viewport`] pairs those dimensions with a [`ViewportShape`]. The shape normally
-//! follows the longer axis but can be overridden independently.
-//! [`Fancy`](super::offload::fancy::Fancy) uses width to wrap source content and
-//! shape to select gutter padding when no explicit layout is present. Height
-//! does not limit the number of output rows.
+//! See [`Viewport`], [`ViewportShape`], [`Extents`], and [`Trend`] for further information.
+//!
+//! Height does not limit the number of output rows.
 
 use core::num::NonZero;
 
-/// A terminal viewport.
-///
-/// Represents the area of the terminal that is suitable for rendering text.
+/// The available terminal dimensions and layout preference for a render.
 ///
 /// [`Self::new`] derives the preference from the dimensions.
 /// [`Self::wide`] and [`Self::tall`] override it without changing the wrapping
-/// width, so layout policy need not follow the terminal's proportions.
+/// width, so the layout preference need not follow the terminal's proportions.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 // NOTE(invariant): None.
 pub struct Viewport {
@@ -146,7 +141,7 @@ pub enum ViewportShape {
 
     /// A preferred axis for choosing roomier gutter padding.
     Rectangular(
-        /// Axis favored by the layout policy, not necessarily the longer dimension.
+        /// Axis favored for layout, which may differ from the longer dimension.
         Trend,
     ),
 }
@@ -169,9 +164,7 @@ pub enum Trend {
     Downwards,
 }
 
-/// A width and height pair.
-///
-/// Represents the extents of a terminal window.
+/// The nonzero width and height available for terminal output, measured in display cells.
 ///
 /// These dimensions describe display space rather than source bytes or character
 /// counts. [`Self::shape`] compares the counts directly to derive a layout axis.
@@ -186,7 +179,7 @@ pub struct Extents {
 }
 
 impl Extents {
-    /// Create a new [`Extents`] with a determined width and height tuple pair.
+    /// Create extents from nonzero width and height values.
     #[inline]
     pub const fn tuple((width, height): (NonZero<u16>, NonZero<u16>)) -> Self {
         Self { width, height }
@@ -232,7 +225,7 @@ impl Extents {
 
     /// Retrieve the width component of these [`Extents`].
     ///
-    /// This is the raw width value, as per is it stored internally.
+    /// Retrieve the nonzero width value stored by these extents.
     #[inline]
     pub const fn width_raw(&self) -> NonZero<u16> {
         let &Self { width, .. } = self;
@@ -242,7 +235,7 @@ impl Extents {
 
     /// Retrieve the height component of these [`Extents`].
     ///
-    /// This is the raw height value, as per is it stored internally.
+    /// Retrieve the nonzero height value stored by these extents.
     #[inline]
     pub const fn height_raw(&self) -> NonZero<u16> {
         let &Self { height, .. } = self;

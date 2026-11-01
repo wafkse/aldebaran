@@ -1,13 +1,6 @@
 //! Context-aware printing into formatting sinks.
 //!
-//! [`Print`] writes a value using external context such as an interner or arena,
-//! so the value need not retain that data or implement [`fmt::Display`] itself.
-//! The display adapters make the same printing behavior available to standard
-//! formatting when a context can be supplied or created by default.
-//!
-//! Output goes incrementally to a [`fmt::Write`] sink. Because earlier writes
-//! are not rolled back, a later formatting error can leave partially written
-//! output in that sink.
+//! See [`Print`] for further information.
 
 use core::{
     convert::Infallible,
@@ -18,15 +11,17 @@ use core::{
 /// A value that can write its textual representation into a formatting sink.
 ///
 /// The context belongs to the caller, allowing stored values to remain separate
-/// from the data needed to display them. Output errors can leave a written
-/// prefix in the sink, with no rollback required by this contract.
+/// from the data needed to display them. Output is written incrementally, so an
+/// error may leave a prefix in the sink.
 #[diagnostic::on_unimplemented(message = "{Self} is not printable")]
 pub trait Print {
-    /// Data consulted while producing this value's textual representation.
+    /// External data required while printing this value.
     type Context;
 
-    /// Render using a newly created default context.
-    /// Prefer an explicit context when output depends on caller-owned storage.
+    /// Write this value using a default context.
+    ///
+    /// This convenience operation is available only when the context has a
+    /// natural default value.
     #[inline]
     fn print<W>(&self, writer: &mut W) -> fmt::Result
     where
@@ -38,13 +33,13 @@ pub trait Print {
         self.print_with_context(writer, &context)
     }
 
-    /// Render with caller-owned context into the supplied sink.
-    /// Implementations should propagate sink errors without implying output rollback.
+    /// Write this value using `context`. Formatting errors are returned to the
+    /// caller, but output already written to the sink is not rolled back.
     fn print_with_context<W>(&self, writer: &mut W, context: &Self::Context) -> fmt::Result
     where
         W: fmt::Write;
 
-    /// Use this rendering in standard formatting with a fresh default context each time.
+    /// Borrow this value as a standard display value using a default context.
     #[inline]
     #[must_use]
     fn display(&self) -> impl fmt::Display + use<'_, Self>
@@ -54,7 +49,7 @@ pub trait Print {
         DisplayDefault(self)
     }
 
-    /// Use this rendering in standard formatting while borrowing the same context.
+    /// Borrow this value as a standard display value using `context`.
     /// The adapter retains both borrows until formatting has finished.
     #[inline]
     #[must_use]
@@ -66,7 +61,7 @@ pub trait Print {
     }
 }
 
-/// Standard formatting that creates a fresh default context for each rendering.
+/// Borrowed standard-display view of one default-context [`Print`] value.
 #[repr(transparent)]
 // NOTE(invariant): None.
 struct DisplayDefault<'a, P>(&'a P)
@@ -86,7 +81,7 @@ where
     }
 }
 
-/// Standard formatting tied to caller-owned context for the lifetime of the adapter.
+/// Borrowed standard-display view of one contextual [`Print`] value.
 // NOTE(invariant): None.
 struct DisplayWith<'a, P>
 where

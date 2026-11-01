@@ -1,4 +1,6 @@
-//! The [`Anything`] wildcard can be combined with user-defined assertions.
+//! A generic predicate that does not depend on a particular input domain.
+//!
+//! See [`Anything`] for further information.
 
 use core::fmt;
 
@@ -10,7 +12,7 @@ use crate::{
 
 use aldebaran_print::print::Print;
 
-/// A wildcard assertion that accepts every input and prints as `<anything>`.
+/// An assertion that accepts every input value and prints as `<anything>`.
 #[derive(Debug, Clone, Copy, Hash, Default)]
 pub struct Anything;
 

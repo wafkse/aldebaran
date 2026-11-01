@@ -1,8 +1,6 @@
-//! Terminal control sequences written to caller-provided formatting sinks.
+//! Generic emission of ANSI control sequences.
 //!
-//! [`AnsiSequence`] separates a sequence's stored settings from per-emission
-//! input such as the foreground or background surface. It emits bytes without
-//! checking terminal capabilities or tracking previous terminal state.
+//! See [`AnsiSequence`] for further information.
 
 use core::fmt;
 
@@ -10,14 +8,14 @@ use core::fmt;
 ///
 /// Implementations can write to any formatting sink and do not require a terminal connection.
 pub trait AnsiSequence<Input> {
-    /// Emit settings with per-use input, such as the target color surface.
-    /// A formatting error may leave a prefix of the sequence in the sink.
+    /// Emit the corresponding ANSI sequence, taking an input. A formatting error
+    /// may leave a prefix of the sequence in the sink.
     fn emit_with_input<W>(&self, writer: &mut W, input: Input) -> fmt::Result
     where
         W: fmt::Write;
 
-    /// Emit settings using the input type's default selection.
-    /// For color surfaces this selects the foreground.
+    /// Emit the corresponding ANSI sequence, using the default input. For color
+    /// surfaces the default selects the foreground.
     #[inline]
     fn emit<W>(&self, writer: &mut W) -> fmt::Result
     where

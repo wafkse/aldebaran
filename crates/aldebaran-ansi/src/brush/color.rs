@@ -1,8 +1,4 @@
-//! Color representations independent of their terminal surface.
-//!
-//! [`Color`] preserves a base or bright palette color, a 256-color index, or
-//! RGB channels. Emission uses [`Surface`] to select foreground or background
-//! codes without converting between those representations.
+//! Color models used by ANSI painting and styling.
 
 pub mod bits3;
 pub mod bits8;
@@ -74,15 +70,16 @@ pub enum Surface {
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 #[non_exhaustive]
 pub enum Color {
-    /// A base or bright palette color.
+    /// ANSI 3-bit color.
     Bits3(Ansi3Bit),
 
-    /// An index in the ANSI 256-color palette.
+    /// ANSI 8-bit color, or, in other words, a color from the 256-color
+    /// palette.
     Bits8(Ansi8Bit),
 
-    /// A color specified by red, green, and blue channels.
+    /// A color that is determined by an RGB triplet.
     ///
-    /// This is also called true color.
+    /// This is also called *true color*.
     Rgb(AnsiRgb),
 }
 
@@ -185,14 +182,16 @@ impl Color {
 }
 
 impl Color {
-    /// Whether emission uses the base or bright palette SGR codes.
-    /// An indexed color with a visually similar entry does not satisfy this query.
+    /// Determine if the current [`Color`] is a [`3-bit color`](Ansi3Bit).
+    ///
+    /// This checks the representation, not whether another color model would
+    /// happen to produce a similar color.
     #[inline]
     pub const fn is_3bit(&self) -> bool {
         matches!(self, Self::Bits3(_))
     }
 
-    /// Whether emission uses a 256-color palette index rather than palette SGR or RGB codes.
+    /// Determine if the current [`Color`] is a [`8-bit color`](Ansi8Bit).
     #[inline]
     pub const fn is_8bit(&self) -> bool {
         matches!(self, Self::Bits8(_))

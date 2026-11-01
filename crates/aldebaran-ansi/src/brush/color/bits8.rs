@@ -1,9 +1,4 @@
-//! Indexed terminal colors selected without palette conversion.
-//!
-//! [`Ansi8Bit`] emits its index through the extended SGR color form, with
-//! [`Surface`] choosing foreground or background.
-//!
-//! Appearance depends on the terminal's interpretation of that palette slot.
+//! ANSI 8-bit indexed terminal colors.
 
 use core::fmt;
 
@@ -36,7 +31,7 @@ use super::Surface;
 pub struct Ansi8Bit(u8);
 
 impl Ansi8Bit {
-    /// Numeric palette slot preserved by indexed-color emission.
+    /// Retrieve the inner [`u8`] value contained in this [`Ansi8Bit`].
     #[inline]
     pub const fn unwrap(self) -> u8 {
         let Self(inner) = self;
@@ -44,8 +39,7 @@ impl Ansi8Bit {
         inner
     }
 
-    /// Select a slot in the terminal's 256-color palette.
-    /// Every byte value is a valid index.
+    /// Create a new [`Ansi8Bit`] from the given `u8` value.
     #[inline]
     pub const fn raw(value: u8) -> Self {
         Self(value)

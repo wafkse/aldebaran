@@ -1,8 +1,4 @@
 //! Terminal styles combining color overrides and text attributes.
-//!
-//! [`Style`] emits [`Attributes`] and optional foreground and background
-//! colors. Its [`Stylus`] implementation brackets a writer closure with
-//! activation and a global reset, without restoring earlier terminal settings.
 
 mod mode;
 

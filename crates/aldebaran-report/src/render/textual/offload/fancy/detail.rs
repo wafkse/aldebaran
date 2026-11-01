@@ -1,10 +1,7 @@
-//! Render a diagnostic's heading and annotated source under the same presentation.
+//! This module renders a diagnostic's heading and annotated source with the same
+//! presentation settings.
 //!
-//! [`Context`] keeps settings and annotation markers consistent throughout the
-//! diagnostic.
-//!
-//! [`Excerpt`] supplies the source context. Each [`Phase`] presents a source row
-//! and the annotations that belong beneath it.
+//! See [`Context`] and [`Excerpt`] for further information.
 
 mod part;
 mod phase;
@@ -54,7 +51,7 @@ struct Context<'a, 'b, W, T: Theme, I> {
     /// Destination for this diagnostic's output.
     sink: &'b mut W,
 
-    /// Presentation policy used by the heading and source excerpt.
+    /// Presentation settings shared by the heading and source excerpt.
     fancy_settings: &'a FancySettings<T>,
 
     /// Available display area, measured in terminal cells.
@@ -93,7 +90,7 @@ impl<W, T: Theme, I: Iterator<Item = Style>> Context<'_, '_, W, T, I> {
     }
 }
 
-/// Borrowed line selection and one annotation table for the entire excerpt.
+/// A borrowed excerpt that shares one annotation table across its source lines.
 // NOTE(invariant): (LineNumberRange, TerminalLineNumber) = Describe(Selection(Source, Extents))
 struct Excerpt<'source, 'extent, E, Te>
 where
@@ -338,7 +335,7 @@ where
     }
 }
 
-/// Alignment for the excerpt's line numbers and frame.
+/// Keeps the excerpt's line numbers and frame aligned.
 // NOTE(invariant): ForAll(Number In Excerpt.DisplayedNumbers): Digits(Number) <= LineNumberDigitWidth
 struct Gutter {
     /// Width of the largest line number, in terminal cells.
@@ -352,7 +349,7 @@ struct Gutter {
 }
 
 impl Gutter {
-    /// Column width before the frame delimiter, in terminal cells.
+    /// Return the terminal columns available before the frame delimiter.
     #[inline]
     const fn width(&self) -> u32 {
         let &Self {
@@ -364,7 +361,7 @@ impl Gutter {
         line_number_digit_width + line_column_padding.absolute()
     }
 
-    /// Describe the number column without taking an output sink.
+    /// Build a printable line-number column for this row.
     #[inline]
     pub(in crate::render::textual::offload::fancy::detail) fn line<'a>(
         &'a self,

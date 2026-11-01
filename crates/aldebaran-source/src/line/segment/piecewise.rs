@@ -1,8 +1,6 @@
 //! Annotated line windows and gaps between them.
 //!
-//! [`Piecewise::Relevant`] retains caller data through clipping, while
-//! [`Piecewise::Irrelevant`] carries only a gap's absolute span. Renderers can
-//! use [`Piecewise::view`] for either and inspect data only for annotations.
+//! See [`Piecewise`] for further information.
 
 use core::{fmt, hash};
 

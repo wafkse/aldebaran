@@ -1,8 +1,6 @@
 //! Recognized line breaks with their original source positions.
 //!
-//! [`LineBreak`] keeps the terminator separate from [`LineContent`](crate::line::LineContent),
-//! allowing a line's combined extent to include the break while rendering only
-//! its content.
+//! See [`LineBreak`] for further information.
 
 use core::{cmp, fmt, hash};
 
@@ -208,7 +206,8 @@ where
         span
     }
 
-    /// Separate the break representation from its absolute source extent.
+    /// Destruct this line break into its raw parts: the line break and the
+    /// span.
     #[inline]
     pub fn partitioned(self) -> (S::Line, Span) {
         let Self { line_break, span } = self;
@@ -216,7 +215,9 @@ where
         (line_break, span)
     }
 
-    /// Reassociate the break with a source type sharing the same line representation.
+    /// Coerce this line break's source type to another which has the same kind
+    /// of line.
+    ///
     /// Its view and absolute coordinates remain unchanged.
     #[inline]
     pub fn coerce<O>(self) -> LineBreak<'a, O>
@@ -228,8 +229,10 @@ where
         LineBreak::tuple((line_break, span))
     }
 
-    /// Adapt the break representation without rebasing its coordinates.
-    /// The mapped view must still describe the same source region.
+    /// Map the contents of this line to another type.
+    ///
+    /// The mapped view must still describe the same source region and retain
+    /// its absolute coordinates.
     #[inline]
     pub fn map<F, O>(self, map: F) -> LineBreak<'a, O>
     where

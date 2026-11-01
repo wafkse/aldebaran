@@ -1,8 +1,6 @@
 //! Selects the displayed text and cell width of an already segmented grapheme.
 //!
-//! [`TerminalGrapheme`] distinguishes tab expansion, control replacement, and
-//! unchanged text. Its measurement uses the proposed row column, independently
-//! of the original source coordinates associated with that grapheme.
+//! See [`TerminalGrapheme`] for further information.
 
 use alloc::string::String;
 use core::{iter, num::NonZero};

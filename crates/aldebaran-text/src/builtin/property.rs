@@ -1,10 +1,9 @@
-//! Property assertions for byte and character components.
+//! Reusable character and byte property assertions for text traversal.
 //!
-//! ASCII-prefixed properties use ASCII rules for both component types. Other
-//! properties use ASCII rules for bytes and Unicode predicates for `char`.
-//! For example, [`Digit`] uses `char::is_numeric` for characters and an ASCII
-//! digit check for bytes. Value and reference inputs have identical acceptance
-//! rules, and descriptions use the property name in angle brackets.
+//! See [`AsciiDigit`], [`Whitespace`], and [`Digit`] for further information.
+//!
+//! Value and reference inputs follow the same acceptance rules, and descriptions use the
+//! property name in angle brackets.
 
 use core::fmt;
 
@@ -15,7 +14,7 @@ use aldebaran_logic::{
 
 use aldebaran_print::prelude::Print;
 
-/// Property declarations share acceptance rules across values and references.
+/// A tt-muncher that expands to [`Assert`] implementations for a target type.
 macro_rules! property {
     (
         @impl for $target_ident:ident where {}

@@ -1,10 +1,6 @@
 //! Lays out source visualizations as rows of terminal cells with source provenance.
 //!
-//! [`SourceText`] associates displayed input with its original coordinates.
-//! Borrowed strings use UTF-8 byte offsets, while component visualizations can
-//! retain a different source unit. [`TextLayout`] wraps that input at grapheme
-//! boundaries and lends [`TextRow`] views whose [`Cell`] records connect terminal
-//! columns to the original source.
+//! See [`SourceText`], [`TextLayout`], [`TextRow`], and [`Cell`] for further information.
 //!
 //! Rows share reusable output storage, so advancing the layout requires releasing
 //! the preceding row's borrow. Cell storage grows with the widest displayed row

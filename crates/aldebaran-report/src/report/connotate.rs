@@ -1,10 +1,10 @@
-//! Association of report values with semantic metadata subjects.
+//! Metadata associated with diagnostic kinds.
 //!
-//! [`Connotate`] lets a diagnostic kind expose structured metadata describing
-//! severity and importance. Renderers can therefore style and order reports from
-//! structured semantics instead of matching display strings.
+//! See [`Connotate`] for further information.
 
-/// Maps a value to the semantic subject that consumers use to interpret it.
+/// A trait that connotates a subject with a semantic meaning through a [`connotative subject`].
+///
+/// [`connotative subject`]: Connotate::Subject
 pub trait Connotate {
     /// The connotative subject.
     ///

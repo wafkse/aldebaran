@@ -39,7 +39,7 @@ mod tests {
         use super::*;
 
         /// Field-free declarations share the selected connective's acceptance identity.
-        macro_rules! shapes {
+        macro_rules! shape {
             ($module:ident, $policy:ident) => {
                 /// Field-free predicates with the selected connective's acceptance identity.
                 mod $module {
@@ -81,8 +81,8 @@ mod tests {
             };
         }
 
-        shapes!(and, conjunctive);
-        shapes!(or, disjunctive);
+        shape!(and, conjunctive);
+        shape!(or, disjunctive);
 
         /// Requires the supplied acceptance identity, self-classification, and expected description.
         fn check<A>(value: A, identity: bool, expected: &str)

@@ -1,15 +1,16 @@
-//! Infallible access to static token tables.
+//! Token streams over statically borrowed storage.
 //!
-//! [`Store`] supports independent cursors over shared tokens, and rewinding
-//! creates a fresh cursor without changing the current stream.
+//! See [`Store`] for further information.
 
 use core::convert::Infallible;
 
 use super::{TokenStream, lookahead::Lookahead};
 
-/// Infallible stream over a static slice of copyable tokens.
+/// Rewindable infallible stream backed by a static token slice.
 ///
-/// Clones and [`Self::rewind`] provide independent cursors over the same table.
+/// Clones and [`Self::rewind`] create independent cursors over the same token
+/// table. The position advances only after successful lookup and never exceeds
+/// storage length.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 // NOTE(invariant): StorageIndex <= Storage.Length
 pub struct Store<T>
@@ -19,7 +20,7 @@ where
     /// Backing token storage.
     storage: &'static [T],
 
-    /// Zero-based offset of the next unread token, or the table length at exhaustion.
+    /// Zero-based position of the next token, or the storage length at exhaustion.
     storage_indice: usize,
 }
 

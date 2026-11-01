@@ -1,8 +1,8 @@
 //! Coordinate-based source views for traversal and rendering.
 //!
-//! [`SourceDissect`] selects a region in the original source plane and exposes
-//! it as an iterable source with the same component type. Built-in slices
-//! measure the resulting view from zero while callers retain the original
+//! See [`SourceDissect`] for further information.
+//!
+//! Built-in slices measure the resulting view from zero while callers retain the original
 //! span separately.
 
 use core::num::NonZero;

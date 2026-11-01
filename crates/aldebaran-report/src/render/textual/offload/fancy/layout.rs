@@ -1,9 +1,10 @@
 //! Gutter spacing between the margin, line numbers, separator, and source.
 //!
-//! [`LayoutSettings`] uses [`padding::HorizontalPadding`] to add spaces around
-//! the digit column. [`Fancy`] reserves the same gutter width on source, marker,
-//! and message rows so their separators align. Explicit settings take precedence
-//! over spacing derived from the [`Viewport`] shape.
+//! See [`LayoutSettings`] and [`SourceSpacing`] for further information.
+//!
+//! Fancy reserves the same gutter width on source, marker, and message rows so their
+//! separators align. Explicit settings take precedence over spacing derived from the
+//! viewport shape.
 //!
 //! [`Fancy`]: super::Fancy
 
@@ -100,7 +101,10 @@ impl LayoutSettings {
     /// Gutter width determined solely by the line-number digits.
     pub const MARGINAL: Self = Self::marginal();
 
-    /// Use the roomier rightward spacing of [`Viewport::standard`].
+    /// Retrieve the standard layout settings.
+    ///
+    /// This is the same as calling [`LayoutSettings::viewport`] with a
+    /// [`standard viewport`](Viewport::standard).
     #[inline]
     pub const fn standard() -> Self {
         Self::viewport(&Viewport::standard())
@@ -145,7 +149,7 @@ impl LayoutSettings {
         }
     }
 
-    /// Spaces before the digit column and before the source separator.
+    /// Retrieve the horizontal padding for the line column of the source excerpt.
     #[inline]
     pub const fn line_column_padding(&self) -> HorizontalPadding {
         let &Self { line_no_col_padding, .. } = self;

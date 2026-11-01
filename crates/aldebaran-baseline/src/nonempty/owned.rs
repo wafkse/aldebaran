@@ -1,4 +1,4 @@
-//! Owned nonempty sequences with a required value and a growable tail.
+//! Owned collections that guarantee at least one element.
 
 use core::{
     iter::{self, FusedIterator},
@@ -9,30 +9,31 @@ use alloc::vec::Vec;
 
 use super::RefNonempty;
 
-/// An owned sequence whose required first value survives changes to its tail.
+/// A structure that guarantees that there is at least one known element.
 ///
-/// Iteration visits the first value followed by the tail in storage order, and
-/// [`Self::as_ref`] shares that sequence without cloning its elements.
+/// For a reference-based version, see [`RefNonempty`]. The required first value
+/// is stored separately from the owned tail, and iteration visits them in order.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 // NOTE(invariant): None.
 pub struct Nonempty<T>((T, Vec<T>));
 
 impl<T> Nonempty<T> {
-    /// Start a collection with an empty, growable tail.
+    /// Create a new [`Nonempty`] with a single value.
     #[inline]
     pub const fn single(target_value: T) -> Self {
         Self((target_value, Vec::new()))
     }
 
-    /// Place the required value before the supplied tail without reordering it.
+    /// Create a new [`Nonempty`] with the specified first value and the rest.
     #[inline]
     pub const fn multiple(target_single: T, target_list: Vec<T>) -> Self {
         Self((target_single, target_list))
     }
 
-    /// Accept an owned vector without changing its element order.
+    /// Attempt to create a new [`Nonempty`] collection from a [`Vec`].
     ///
-    /// An empty vector returns `None` because it cannot supply the required value.
+    /// Returns [`None`] if the vector is empty. The vector's element order is
+    /// preserved.
     #[inline]
     pub fn vector(values: Vec<T>) -> Option<Self> {
         let mut values = values.into_iter();
@@ -47,7 +48,7 @@ impl<T> Nonempty<T> {
         }
     }
 
-    /// The required value and growable tail, in iteration order.
+    /// Retrieve the first value and the rest of the values as a pair.
     #[inline]
     pub const fn tuple(&self) -> &(T, Vec<T>) {
         let Self(target_tuple) = self;
@@ -63,7 +64,7 @@ impl<T> Nonempty<T> {
         NonZero::<usize>::MIN.saturating_add(target_list.len())
     }
 
-    /// The value retained even when the tail has no elements.
+    /// Retrieve a reference to the first value contained in this [`Nonempty`].
     #[inline]
     pub const fn first(&self) -> &T {
         let Self((target_value, ..)) = self;
@@ -71,7 +72,8 @@ impl<T> Nonempty<T> {
         target_value
     }
 
-    /// Replace or modify the required value while keeping the collection nonempty.
+    /// Retrieve a mutable reference to the first value contained in this
+    /// [`Nonempty`].
     #[inline]
     pub const fn first_mut(&mut self) -> &mut T {
         let Self((target_value, ..)) = self;
@@ -79,7 +81,7 @@ impl<T> Nonempty<T> {
         target_value
     }
 
-    /// Elements following the required value, in iteration order.
+    /// Retrieve a slice of the values following the first one.
     #[inline]
     pub const fn rest(&self) -> &[T] {
         let Self((.., target_list)) = self;
@@ -87,7 +89,8 @@ impl<T> Nonempty<T> {
         target_list.as_slice()
     }
 
-    /// Modify existing tail elements without changing the tail's length.
+    /// Retrieve a mutable slice of the values following the first one. Its length
+    /// cannot be changed through this slice.
     #[inline]
     pub const fn rest_mut(&mut self) -> &mut [T] {
         let Self((.., target_list)) = self;
@@ -111,7 +114,7 @@ impl<T> Nonempty<T> {
         target_list
     }
 
-    /// Visit the required value before the tail in storage order.
+    /// Retrieve an iterator over all values.
     #[inline]
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = &T> + FusedIterator + use<'_, T> {
         let Self((target_value, target_list)) = self;
@@ -119,7 +122,7 @@ impl<T> Nonempty<T> {
         iter::once(target_value).chain(target_list.iter())
     }
 
-    /// Visit each value exclusively, starting with the required value.
+    /// Retrieve an iterator over all values, mutably.
     #[inline]
     pub fn iter_mut(&mut self) -> impl DoubleEndedIterator<Item = &mut T> + FusedIterator + use<'_, T> {
         let Self((target_value, target_list)) = self;
@@ -127,7 +130,8 @@ impl<T> Nonempty<T> {
         iter::once(target_value).chain(target_list.iter_mut())
     }
 
-    /// Share the sequence with borrowed collection APIs without allocating.
+    /// Convert this [`Nonempty`] into its referential counterpart
+    /// [`RefNonempty`].
     #[inline]
     pub const fn as_ref(&self) -> RefNonempty<'_, T> {
         let Self((first, rest)) = self;

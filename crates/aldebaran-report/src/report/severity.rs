@@ -1,43 +1,50 @@
-//! Independent impact and priority classifications for diagnostic kinds.
+//! Severity and importance for diagnostics.
 //!
-//! [`Metadata`] combines [`Severity`] and [`Importance`] so styling and consumer
-//! policy can use structured values independently of a kind's displayed wording.
+//! See [`Severity`], [`Importance`], and [`Metadata`] for further information.
 
-/// Descriptive severity classification for a diagnostic.
+/// Severity describes how serious a diagnostic is to the user.
 ///
-/// Severity does not determine control flow. Consumers decide how to act on it.
-/// The default is [`Error`](Self::Error).
+/// It does not decide control flow, so consumers choose how to act on each
+/// level. The default is [`Error`](Self::Error).
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default)]
 pub enum Severity {
-    /// The relevant operation cannot continue, as determined by the consumer.
+    /// A fatal (☠) error.
+    ///
+    /// Its exact meaning depends on the consumer, but a fatal error is generally
+    /// understood to be so severe that it prevents the program from continuing,
+    /// either forcibly or because of the nature of the error.
     Fatal,
 
-    /// An error without the fatal classification.
+    /// An error, but not world-ending.
     #[default]
     Error,
 
-    /// A warning that leaves continuation policy to the consumer.
+    /// A warning (non-fatal error).
     Warning,
 }
 
-/// Diagnostic priority independently of severity.
+/// Importance describes how prominently a diagnostic should be ordered when
+/// a consumer combines several diagnostics into one list.
 ///
-/// Ascending ordering places [`Critical`](Self::Critical) first and
+/// Ascending order places [`Critical`](Self::Critical) first and
 /// [`Marginal`](Self::Marginal) last. The default is [`Trivial`](Self::Trivial).
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default)]
 pub enum Importance {
-    /// Highest priority, sorting before the other importance levels.
+    /// Very important, so it sorts before the other importance levels.
     Critical,
 
-    /// Ordinary priority between critical and marginal diagnostics.
+    /// Somewhat important, between critical and marginal in the ordering.
     #[default]
     Trivial,
 
-    /// Lowest priority, sorting after the other importance levels.
+    /// Not important, but still noteworthy, so it sorts after the other levels.
     Marginal,
 }
 
-/// Severity and relative importance carried by a diagnostic kind.
+/// A piece of error-specific metadata.
+///
+/// This is used to provide additional information about an error, such as its
+/// severity or overall importance.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 #[non_exhaustive]
 pub struct Metadata {

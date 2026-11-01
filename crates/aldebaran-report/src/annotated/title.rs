@@ -1,8 +1,9 @@
 //! Printable titles attached to report and annotation structures.
 //!
-//! [`Title`] exposes a printable view while preserving the context required by
-//! the underlying value. Textual renderers may choose to require a default
-//! context, while context-aware renderers can provide it explicitly.
+//! See [`Title`] for further information.
+//!
+//! Textual renderers may require a default context, while context-aware renderers can
+//! supply one explicitly.
 
 use aldebaran_print::prelude::Print;
 

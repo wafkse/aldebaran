@@ -1,10 +1,9 @@
-//! Content-based source interning with stable, storage-local identities.
+//! Unified interning storage for source-derived values.
 //!
-//! [`Storage`] permits source borrows, while [`OwnedStorage`] retains values
-//! independently of its inputs. Both assign one-based IDs and reuse an ID for
-//! values with equal hashes that compare equal under [`SourceDiff::same_as`].
-//! For consistent deduplication, source equality and hashing must agree and
-//! remain stable while values are stored.
+//! See [`Storage`] and [`OwnedStorage`] for further information.
+//!
+//! Source comparison through [`SourceDiff::same_as`] and hashing must agree, and
+//! their results must remain stable while values are stored.
 
 use core::{
     borrow::Borrow,
@@ -28,7 +27,7 @@ use crate::{borrow::BorrowInterner, owned::OwnedInterner};
 use aldebaran_source::prelude::{SourceDiff, SourceDissect, SourceHash, SourceOwned};
 
 Id!(
-    /// Storage-local identity whose default width is 32 bits.
+    /// A general-purpose storage identifier whose default width is 32 bits.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
     become StorageId as "storage-id{{{}}}"
 );
@@ -99,7 +98,7 @@ where
     I::BackingPrimitive: TryFrom<usize>,
     usize: TryFrom<I::BackingPrimitive>,
 {
-    /// Create empty storage with the default hasher.
+    /// A new, completely empty internment storage.
     #[inline]
     pub fn empty() -> Self
     where
@@ -118,7 +117,7 @@ where
         }
     }
 
-    /// Create empty storage using `build_hasher` for source-content hashing.
+    /// A new internment storage with a custom hasher builder.
     #[inline]
     pub const fn with_hasher(build_hasher: H) -> Self {
         let id_existence = HashMap::with_hasher(());
@@ -141,9 +140,11 @@ where
     I::BackingPrimitive: TryFrom<usize>,
     usize: TryFrom<I::BackingPrimitive>,
 {
-    /// Intern a source value, retaining the first representation of equal content.
-    /// A distinct value yields `None` without insertion if its new ID cannot be
-    /// represented, but already interned values still return their IDs at capacity.
+    /// Store either an owned value or a reference to a value in this [`Storage`].
+    ///
+    /// The first representation of equal content is retained. A distinct value
+    /// returns [`None`] without insertion if its new ID cannot be represented,
+    /// while an already interned value still returns its ID at capacity.
     #[inline]
     pub fn try_store<V>(&mut self, target_value: V) -> Option<I>
     where
@@ -196,9 +197,10 @@ where
         }
     }
 
-    /// Access a retained source by this storage's identity, yielding `None` for
-    /// an unassigned or unrepresentable position.
-    /// IDs from another storage may resolve to unrelated values here.
+    /// Try to resolve an ID to a reference to the stored value. If the ID
+    /// was assigned by this [`Storage`], it resolves to the retained value. An
+    /// unassigned or unrepresentable ID yields [`None`], while an ID from another
+    /// storage can fail or identify an unrelated value.
     #[inline]
     pub fn try_resolve(&self, target_id: I) -> Option<&S> {
         let &Self { ref storage_list, .. } = self;
@@ -225,8 +227,9 @@ where
     I::BackingPrimitive: TryFrom<usize>,
     usize: TryFrom<I::BackingPrimitive>,
 {
-    /// Intern under [`Self::try_store`]'s reuse and capacity contract, distinguishing
-    /// source types in the returned ID without proving storage membership.
+    /// Store the target value `V` in this [`Storage`] and return a [`TaggedId`]
+    /// tagged with this storage's source type. It follows [`Self::try_store`] for
+    /// reuse and capacity, and the tag does not prove storage membership.
     #[inline]
     pub fn try_store_tagged<V>(&mut self, target_value: V) -> Option<TaggedId<S, I>>
     where
@@ -237,16 +240,17 @@ where
         Some(TaggedId::new(target_id))
     }
 
-    /// Access a source under [`Self::try_resolve`]'s contract.
-    /// The type tag does not establish that this storage issued the ID.
+    /// Try to resolve a [`TaggedId`] to a reference to the stored value. The type
+    /// tag does not establish that this storage issued the ID.
     #[inline]
     pub fn try_resolve_tagged(&self, tagged_id: TaggedId<S, I>) -> Option<&S> {
         self.try_resolve(tagged_id.unwrap())
     }
 }
 
-/// Retain source values independently of input borrows under storage-local IDs.
-/// Assigned IDs remain valid across insertions, and resolved borrows are tied to this storage.
+/// This is the fully owned form of [`Storage`]. It retains source-derived values
+/// after their input borrows end, and its assigned IDs remain valid across
+/// insertions. Resolved references borrow from this storage.
 #[derive(Debug, Clone)]
 // NOTE(invariant): ForAll(Id In IndexedIds): 1 <= Id <= StorageList.Length
 // And IndexedHash(Id) = SourceHash(StorageList[Id - 1])
@@ -359,9 +363,10 @@ where
     S: ?Sized,
     usize: TryFrom<I::BackingPrimitive>,
 {
-    /// Intern an owned source value, retaining the first representation of equal content.
-    /// A distinct value yields `None` without insertion if its new ID cannot be
-    /// represented, but already interned values still return their IDs at capacity.
+    /// Store the target value `V` in this [`OwnedStorage`] and return an ID
+    /// if a new identifier can be represented. The first representation of equal
+    /// content is retained. A distinct value returns [`None`] without insertion
+    /// when the ID type is too small, while an existing value still returns its ID.
     #[inline]
     pub fn try_store<V>(&mut self, target_value: V) -> Option<I>
     where
@@ -414,9 +419,10 @@ where
         }
     }
 
-    /// Access a retained source by this storage's identity, yielding `None` for
-    /// an unassigned or unrepresentable position.
-    /// IDs from another storage may resolve to unrelated values here.
+    /// Try to resolve an ID to a reference to the stored value. If the ID
+    /// was assigned by this [`OwnedStorage`], it resolves to the retained value. An
+    /// unassigned or unrepresentable ID yields [`None`], while an ID from another
+    /// storage can fail or identify an unrelated value.
     #[inline]
     pub fn try_resolve(&self, target_id: I) -> Option<&S> {
         let &Self { ref storage_list, .. } = self;

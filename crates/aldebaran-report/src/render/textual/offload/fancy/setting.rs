@@ -1,12 +1,6 @@
 //! Configure the presentation of [`Fancy`] diagnostics.
 //!
-//! Start from a [`Fancyness`] preset or customize [`FancySettings`] directly.
-//!
-//! Styling and glyph selection are independent, so Unicode output does not
-//! require ANSI styling.
-//!
-//! Gutter and tab spacing follow these settings. Source wrapping, however,
-//! follows the viewport supplied for rendering.
+//! See [`Fancyness`], [`Colored`], and [`FancySettings`] for further information.
 //!
 //! [`Fancy`]: super::Fancy
 
@@ -84,7 +78,7 @@ impl Colored {
         if value { Self::Yes } else { Self::No }
     }
 
-    /// Whether ANSI colors and attributes are enabled.
+    /// Retrieve the colored settings of these settings.
     #[inline]
     pub const fn colored(&self) -> bool {
         match self {
@@ -216,8 +210,9 @@ where
 
         colored
     }
-
-    /// Gutter layout, or `None` for spacing chosen from the viewport.
+    /// Retrieve the optional layout settings.
+    ///
+    /// When absent, gutter spacing follows the viewport.
     #[inline]
     pub const fn layout(&self) -> Option<LayoutSettings> {
         let &Self { layout, .. } = self;
@@ -258,8 +253,7 @@ where
 
         colored
     }
-
-    /// Borrow the gutter override, if present.
+    /// Retrieve an immutable reference to the optional layout settings.
     #[inline]
     pub const fn layout_ref(&self) -> Option<&LayoutSettings> {
         let &Self { ref layout, .. } = self;
@@ -293,8 +287,9 @@ where
 
         colored
     }
-
-    /// Change the gutter override, returning `None` when spacing follows the viewport.
+    /// Retrieve a mutable reference to the optional layout settings.
+    ///
+    /// Clear the option to use viewport-based gutter spacing.
     #[inline]
     pub const fn layout_mut(&mut self) -> Option<&mut LayoutSettings> {
         let &mut Self { ref mut layout, .. } = self;

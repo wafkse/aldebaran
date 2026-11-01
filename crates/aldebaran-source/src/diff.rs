@@ -1,7 +1,6 @@
 //! Content comparison between source values.
 //!
-//! [`SourceDiff`] lets consumers define content identity independently of the
-//! source representation's [`Eq`] implementation.
+//! See [`SourceDiff`] for further information.
 
 use crate::source::Source;
 

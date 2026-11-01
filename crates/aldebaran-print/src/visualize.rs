@@ -1,16 +1,19 @@
-//! Byte-wise rendering for source-oriented output.
+//! Human-readable visualization of source-shaped values.
 //!
-//! For `[u8]`, ASCII bytes are copied as characters and each non-ASCII byte
-//! becomes U+FFFD. The view preserves byte boundaries instead of decoding
-//! UTF-8, and control characters remain literal.
+//! [`Visualize`] is intentionally distinct from ordinary printing. A byte, for
+//! example, prints as a number but visualizes as source text. Implementations
+//! write directly into a formatting sink and never allocate an intermediate
+//! string.
+//!
+//! For `[u8]`, each ASCII byte is copied as a character and each non-ASCII byte
+//! becomes U+FFFD. This preserves byte boundaries instead of decoding UTF-8, and
+//! control characters remain literal.
 
 use core::{fmt, slice};
 
 /// A value with a human-readable, potentially lossy textual visualization.
-///
-/// Built-in byte views replace each non-ASCII byte independently.
 pub trait Visualize {
-    /// Render the source view without requiring an intermediate string.
+    /// Write this value's visualization directly into `writer`.
     ///
     /// # Errors
     ///
@@ -20,8 +23,7 @@ pub trait Visualize {
     where
         W: fmt::Write;
 
-    /// Return an adapter that uses [`Self::visualize`] for [`fmt::Display`] and
-    /// [`fmt::Debug`].
+    /// Borrow this value through standard formatting traits.
     #[inline]
     #[must_use]
     fn visual(&self) -> impl fmt::Display + fmt::Debug {
@@ -29,8 +31,9 @@ pub trait Visualize {
     }
 }
 
-/// Standard formatting that shares the visualization for display and debug.
-/// Debug output adds no quoting or escaping of its own.
+/// Borrowed standard-formatting view of one [`Visualize`] value.
+///
+/// Both [`fmt::Display`] and [`fmt::Debug`] use this visualization directly.
 #[repr(transparent)]
 // NOTE(invariant): None.
 struct Visual<'a, V>(&'a V)

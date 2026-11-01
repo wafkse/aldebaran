@@ -25,9 +25,10 @@ mod bytes;
 mod str;
 
 pub mod prelude {
-    //! The `aldebaran-source` prelude.
+    //! A prelude for the `aldebaran-source` crate.
     //!
-    //! Re-exports the most commonly used items from this crate.
+    //! This simply re-exports the most commonly used items in the
+    //! `aldebaran-source` crate.
 
     pub use crate::component::{AsciiByte, AsciiComponent, Component, DigitComponent, TextComponent};
 

@@ -1,18 +1,17 @@
-//! Shared nonempty sequences for APIs that borrow their input collections.
+//! Borrowed nonempty collection views.
 //!
-//! [`RefNonempty`] can borrow separate first and tail values or view an owned
-//! [`Nonempty`](super::Nonempty). Copying the view shares the same elements and
-//! does not require those elements to implement [`Copy`].
+//! See [`RefNonempty`] for further information.
 
 use core::{
     iter::{self, FusedIterator},
     num::NonZero,
 };
 
-/// A nonempty sequence borrowed without copying its elements or allocating.
+/// Borrowed view that guarantees at least one element is present.
 ///
-/// Iteration visits the first value before the tail, and returned references
-/// retain the input lifetime so they can outlive the view itself.
+/// The first element is stored separately from the remaining slice, making the
+/// nonempty invariant intrinsic to the representation. This is the borrowed
+/// counterpart to [`super::Nonempty`].
 #[derive(Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 // NOTE(invariant): None.
 pub struct RefNonempty<'a, T>((&'a T, &'a [T]));
@@ -27,19 +26,21 @@ impl<T> Clone for RefNonempty<'_, T> {
 }
 
 impl<'a, T> RefNonempty<'a, T> {
-    /// View a required value with no following elements.
+    /// Create a new [`RefNonempty`] with a single value.
     #[inline]
     pub const fn single(first: &'a T) -> Self {
         Self((first, &[]))
     }
 
-    /// Place the required value before a borrowed tail without reordering it.
+    /// Create a new [`RefNonempty`] with the specified first value and the rest
+    /// of the values.
     #[inline]
     pub const fn multiple(first: &'a T, rest: &'a [T]) -> Self {
         Self((first, rest))
     }
 
-    /// Accept a required value and borrowed tail supplied as a pair.
+    /// Create a new [`RefNonempty`] from a 2-element tuple representing a
+    /// first + slice pair.
     #[inline]
     pub const fn tuple(parts: (&'a T, &'a [T])) -> Self {
         Self(parts)
@@ -62,7 +63,9 @@ impl<'a, T> RefNonempty<'a, T> {
         rest
     }
 
-    /// Recover the input references without shortening their lifetimes.
+    /// Retrieve the raw parts of this [`RefNonempty`].
+    ///
+    /// The references retain their original lifetime.
     #[inline]
     pub const fn partitioned(self) -> (&'a T, &'a [T]) {
         let Self(parts) = self;
@@ -70,7 +73,8 @@ impl<'a, T> RefNonempty<'a, T> {
         parts
     }
 
-    /// Count the required value and tail, saturating at `usize::MAX`.
+    /// Determine the length of this [`RefNonempty`]. The result saturates at
+    /// `usize::MAX` when the tail length is maximal.
     #[inline]
     pub const fn len(&self) -> NonZero<usize> {
         let Self((.., rest)) = self;
@@ -78,7 +82,8 @@ impl<'a, T> RefNonempty<'a, T> {
         NonZero::<usize>::MIN.saturating_add(rest.len())
     }
 
-    /// Visit the input elements in order without borrowing the view itself.
+    /// Retrieve an iterator over all values. Its references retain the input
+    /// lifetime, so the iterator may outlive this view.
     #[inline]
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = &'a T> + FusedIterator + use<'a, T> {
         let Self((first, rest)) = *self;

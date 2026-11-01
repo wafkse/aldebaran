@@ -1,8 +1,6 @@
 //! Diagnostic classifications with independent wording and styling metadata.
 //!
-//! [`ErrorKind`] supplies the printed descriptor and uses [`Connotate`] to expose
-//! severity and importance. [`Simple`] provides common classifications whose
-//! wording remains distinct even when their metadata is the same.
+//! See [`ErrorKind`] and [`Simple`] for further information.
 
 use core::fmt;
 
@@ -10,10 +8,11 @@ use aldebaran_print::prelude::Print;
 
 use crate::report::{connotate::Connotate, severity::Metadata};
 
-/// A diagnostic classification with printable wording and semantic metadata.
+/// An error kind gives a diagnostic its displayed descriptor and the severity
+/// and importance consumers use to style or order it.
 ///
-/// Renderers can use the descriptor for text and the [`Connotate`] result for
-/// styling or ordering without deriving meaning from the displayed word.
+/// Renderers can read the descriptor for text and get severity and importance
+/// through [`Connotate`], without inferring them from the displayed word.
 pub trait ErrorKind: Connotate<Subject = Metadata> {
     /// Printable descriptor associated with this classification.
     type Descriptor: Print;
