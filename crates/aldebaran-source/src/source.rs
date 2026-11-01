@@ -71,7 +71,7 @@ pub type DefaultTerminator<'a, S> = <S as Terminated<'a, S>>::TerminatedBy;
 /// always represented by a [`span`](Span), which is a nonzero section of the
 /// source plane. Due to the explicit design of the [`Span`] type, a source
 /// segment may never be empty.
-
+///
 /// Component widths and spans use the same unit. Built-in strings use UTF-8
 /// byte offsets even though iteration yields [`char`] values, whose widths may
 /// differ.
@@ -142,7 +142,7 @@ where
     /// start.
     #[inline]
     fn end(&self) -> Span {
-        let span_end = self.footprint().as_ref().map(Span::end).unwrap_or(0);
+        let span_end = self.footprint().as_ref().map(Span::end).unwrap_or(usize::MIN);
 
         Span::unit(span_end.saturating_sub(1))
     }

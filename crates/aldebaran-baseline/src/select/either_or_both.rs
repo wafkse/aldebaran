@@ -4,6 +4,8 @@
 ///
 /// This is similar to the [`Either`] type, but it also includes a case where
 /// both the left-hand side and the right-hand side are selected.
+///
+/// [`Either`]: super::Either
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum EitherOrBoth<L, R> {
     /// The left-hand side of the selection.
