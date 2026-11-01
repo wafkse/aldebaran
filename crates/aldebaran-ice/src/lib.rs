@@ -4,7 +4,11 @@
 #![doc = include_str!("../../../docs/part/FACADE.md")]
 #![doc = include_str!("../../../docs/part/LICENSE.md")]
 
-use core::{error::Error, fmt, hint::black_box, marker::PhantomData};
+use core::{
+    fmt,
+    hint::{black_box, cold_path},
+    marker::PhantomData,
+};
 
 /// A type to be used as the central type for raising `ICE`s.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -14,8 +18,9 @@ pub struct Ice<T>(PhantomData<fn() -> T>);
 impl<T> Ice<T> {
     /// Raise a message-less `ICE` (internal compiler error).
     #[cold]
-    #[expect(clippy::panic, reason = "this is intended for internal compiler errors")]
     #[inline(never)]
+    #[track_caller]
+    #[expect(clippy::panic, reason = "this is intended for internal compiler errors")]
     pub const fn raise() -> ! {
         panic!("ICE: internal compiler error");
     }
@@ -23,9 +28,10 @@ impl<T> Ice<T> {
     /// Raise a messaged `ICE` (internal compiler error) for a specific [`Error`] `E`.
     #[cold]
     #[inline(never)]
+    #[track_caller]
     pub fn known<E>(target_error: E) -> !
     where
-        E: Error,
+        E: fmt::Debug,
     {
         black_box(Err::<(), E>(target_error)).expect("ICE: internal compiler error");
 
@@ -39,10 +45,15 @@ impl<T> Ice<Option<T>> {
     /// Raises an `ICE` (internal compiler error) if the [`Option`] is a
     /// [`None`] variant.
     #[inline]
-    pub fn unwrap(target_value: Option<T>) -> T {
+    #[track_caller]
+    pub fn some(target_value: Option<T>) -> T {
         match target_value {
             Some(value) => value,
-            None => Self::raise(),
+            None => {
+                cold_path();
+
+                Self::raise()
+            }
         }
     }
 
@@ -51,10 +62,15 @@ impl<T> Ice<Option<T>> {
     /// Raises an `ICE` (internal compiler error) if the [`Option`] is a
     /// [`None`] variant, using a message that identifies the state as impossible.
     #[inline]
+    #[track_caller]
     pub fn impossible(target_value: Option<T>) -> T {
         match target_value {
             Some(value) => value,
-            None => unreachable!("ICE: internal compiler error; reached state deemed impossible"),
+            None => {
+                cold_path();
+
+                unreachable!("ICE: internal compiler error; reached state deemed impossible")
+            }
         }
     }
 }
@@ -65,13 +81,22 @@ impl<T, E> Ice<Result<T, E>> {
     /// Raises an `ICE` (internal compiler error) if the [`Result`] is an
     /// [`Err`] variant.
     ///
-    /// This is exactly the same as [`Result::expect`], but is used to indicate that
+    /// This is similar to [`Result::expect`], but is used to indicate that
     /// the expectation is internal to the compiler and should never be reached.
     #[inline]
-    pub fn expect(target_value: Result<T, E>) -> T
+    #[track_caller]
+    #[expect(clippy::expect_used, reason = "this is required for an internal compiler error")]
+    pub fn ok(target_value: Result<T, E>) -> T
     where
         E: fmt::Debug,
     {
-        target_value.expect("ICE: internal expectation was not met")
+        match target_value {
+            Ok(target_value) => target_value,
+            Err(target_error) => {
+                cold_path();
+
+                Self::known(target_error)
+            }
+        }
     }
 }
