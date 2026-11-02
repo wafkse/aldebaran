@@ -23,7 +23,12 @@ use crate::prelude::Id;
 ///
 /// New IDs append to the aligned key and value slices, replacement preserves
 /// a pair's position, and removal may move the final pair into that position.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// # Remarks
+///
+/// The [`PartialEq`] and [`Eq`] implementations compare identifier-value
+/// associations, independent of their storage order.
+#[derive(Debug, Clone)]
 // NOTE(invariant): ForAll((Id, Index) In Map): Index < Storage.Length And Storage.Keys[Index] = Id
 pub struct IdMap<I, V, S = BuildHasherDefault<FxHasher>>
 where
@@ -36,6 +41,40 @@ where
 
     /// The value storage.
     storage: ReverseMap<I, V>,
+}
+
+impl<I, V, S> PartialEq for IdMap<I, V, S>
+where
+    I: Id,
+    V: PartialEq,
+    S: BuildHasher,
+{
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        let &Self { ref storage, .. } = self;
+
+        let &Self {
+            map: ref other_map,
+            storage: ref other_storage,
+            ..
+        } = other;
+
+        storage.len() == other_storage.len()
+            && storage.iter().all(|(id, value)| {
+                other_map
+                    .get(id)
+                    .and_then(|&other_index| other_storage.get(other_index))
+                    == Some(value)
+            })
+    }
+}
+
+impl<I, V, S> Eq for IdMap<I, V, S>
+where
+    I: Id,
+    V: Eq,
+    S: BuildHasher,
+{
 }
 
 impl<I, V, S> IdMap<I, V, S>
@@ -235,8 +274,8 @@ where
             ..
         } = self;
 
-        storage.clear();
         map.clear();
+        storage.clear();
     }
 
     /// Determine if the target [`trait@Id`] is contained in this [`IdMap`].
@@ -379,17 +418,15 @@ where
         let target_index = map.get(&id).copied();
 
         if let Some(target_index) = target_index {
-            let (target_key, target_value) = storage.swap_at(target_index, (id, value));
-
-            let _: Option<usize> = map.insert(target_key, target_index);
+            let (_, target_value) = storage.swap_at(target_index, (id, value));
 
             Some(target_value)
         } else {
             let target_index = storage.len();
 
-            storage.push(id, value);
-
             let _: Option<usize> = map.insert(id, target_index);
+
+            storage.push(id, value);
 
             None
         }
@@ -397,17 +434,14 @@ where
 
     /// Remove the entry corresponding to the given [`trait@Id`] from this [`IdMap`].
     ///
+    /// This returns the stored identifier and value when the ID is present, or
+    /// [`None`] when it is absent.
+    ///
+    /// Removing an entry may move the final stored pair into its position.
+    ///
     /// # Time Complexity
     ///
     /// This operation takes expected `O(1)` time.
-    /// Removing an entry may move the final stored pair into its position.
-    /// This returns the stored identifier and value when present, or [`None`]
-    /// when the ID is absent.
-    ///
-    /// # Panics
-    ///
-    /// If the entry occupies the final storage position, this method panics
-    /// after removing it. This includes removing the only entry.
     #[inline]
     pub fn remove<Q>(&mut self, id: Q) -> Option<(I, V)>
     where
@@ -423,13 +457,13 @@ where
         let target_index = map.remove(id.as_ref());
 
         target_index.map(|target_index: usize| -> (I, V) {
-            let (target_key, target_value) = storage.swap_remove(target_index);
+            let removed = storage.swap_remove(target_index);
 
-            let target_id = storage.get_key(target_index).expect("index removed from storage");
+            if let Some(&moved_id) = storage.get_key(target_index) {
+                let _: Option<usize> = map.insert(moved_id, target_index);
+            }
 
-            map.insert(*target_id, target_index);
-
-            (target_key, target_value)
+            removed
         })
     }
 }
