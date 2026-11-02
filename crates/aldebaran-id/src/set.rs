@@ -62,20 +62,14 @@ where
         map.insert(id, id)
     }
 
-    /// Remove the target [`trait@Id`] from this set, if it is present.
+    /// Remove the target [`trait@Id`] from this set, if present.
     ///
-    /// If the target [`trait@Id`] is not present, this operation returns [`None`].
-    /// The final pair is moved into a removed pair's position. [`IdMap::remove`]
-    /// panics after removing a pair in the final storage position.
+    /// This returns the removed identifier, or [`None`] if it was absent.
     ///
     /// # Time Complexity
     ///
     /// This operation has the same expected, amortized `O(1)` time complexity as
     /// [`IdMap::remove`].
-    ///
-    /// # Panics
-    ///
-    /// Panics after removing an identifier that occupied the final storage position.
     #[inline]
     pub fn remove<Q>(&mut self, id: Q) -> Option<I>
     where
