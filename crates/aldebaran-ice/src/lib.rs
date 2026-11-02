@@ -29,6 +29,7 @@ impl<T> Ice<T> {
     #[cold]
     #[inline(never)]
     #[track_caller]
+    #[expect(clippy::unreachable, reason = "this is intended for internal compiler errors")]
     pub fn known<E>(target_error: E) -> !
     where
         E: fmt::Debug,
@@ -47,13 +48,12 @@ impl<T> Ice<Option<T>> {
     #[inline]
     #[track_caller]
     pub fn some(target_value: Option<T>) -> T {
-        match target_value {
-            Some(value) => value,
-            None => {
-                cold_path();
+        if let Some(target_value) = target_value {
+            target_value
+        } else {
+            cold_path();
 
-                Self::raise()
-            }
+            Self::raise()
         }
     }
 
@@ -64,13 +64,12 @@ impl<T> Ice<Option<T>> {
     #[inline]
     #[track_caller]
     pub fn impossible(target_value: Option<T>) -> T {
-        match target_value {
-            Some(value) => value,
-            None => {
-                cold_path();
+        if let Some(target_value) = target_value {
+            target_value
+        } else {
+            cold_path();
 
-                unreachable!("ICE: internal compiler error; reached state deemed impossible")
-            }
+            unreachable!("ICE: internal compiler error; reached state deemed impossible")
         }
     }
 }
@@ -85,7 +84,6 @@ impl<T, E> Ice<Result<T, E>> {
     /// the expectation is internal to the compiler and should never be reached.
     #[inline]
     #[track_caller]
-    #[expect(clippy::expect_used, reason = "this is required for an internal compiler error")]
     pub fn ok(target_value: Result<T, E>) -> T
     where
         E: fmt::Debug,
