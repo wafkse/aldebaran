@@ -25,7 +25,9 @@ impl<T> Ice<T> {
         panic!("ICE: internal compiler error");
     }
 
-    /// Raise a messaged `ICE` (internal compiler error) for a specific [`Error`] `E`.
+    /// Raise a messaged `ICE` (internal compiler error) for a specific [`Error`]-like `E`.
+    ///
+    /// [`Error`]: core::error::Error
     #[cold]
     #[inline(never)]
     #[track_caller]
