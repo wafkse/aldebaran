@@ -7,6 +7,7 @@ use super::{TokenStream, lookahead::Lookahead};
 /// A token stream that omits values selected by a predicate.
 ///
 /// During `next`, source errors leave previously skipped tokens consumed.
+///
 /// Lookahead counts only retained tokens by inspecting a clone of the filtered
 /// view. Because the cloned source or predicate may share state with the
 /// original, looking ahead can still affect the caller.
