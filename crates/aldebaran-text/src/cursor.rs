@@ -15,23 +15,27 @@ pub mod branch;
 use core::{
     fmt,
     hash::{Hash, Hasher},
+    num::NonZero,
     ops::Deref,
 };
 
 use aldebaran_logic::prelude::{AsAssert, Assert, Choose, Input};
 
-use aldebaran_source::prelude::{Component, SourceDissect, SourceIter};
+use aldebaran_source::{
+    line::{LineBreak, SourceLines},
+    prelude::{Component, SourceDissect, SourceIter},
+    terminate::{Outcome, Terminator, TerminatorContext},
+};
 
 use aldebaran_baseline::span::Span;
 
 use self::{branch::Branch, error::Expected};
 
-/// A cursor over a [`Source`](aldebaran_source::source::Source) `S`.
+/// A cursor over a [`Source`] `S`.
 ///
 /// This cursor keeps track of its position on the source and provides methods for reading, and matching against its individual components.
 ///
-/// Offsets and spans use source units, which are bytes for `str` and byte slices,
-/// while lookahead counts components, which are Unicode scalars for `str`.
+/// [`Source`]: aldebaran_source::source::Source
 // NOTE(invariant): None.
 pub struct Cursor<'source, S>
 where
@@ -51,13 +55,10 @@ where
     /// Create a new [`Cursor`] at the beginning of the borrowed source.
     #[inline]
     pub const fn create(source_code: &'source S) -> Self {
-        Self::at(source_code, 0)
+        Self::at(source_code, usize::MIN)
     }
 
-    /// Start at an absolute source offset.
-    ///
-    /// The offset is not validated. Out-of-range offsets may behave as exhaustion,
-    /// and offsets inside a `str` scalar can panic during a read.
+    /// Create a [`Cursor`] positioned at one source boundary.
     #[inline]
     #[must_use]
     pub const fn at(source_code: &'source S, source_index: usize) -> Self {
@@ -90,13 +91,9 @@ impl<'source, S> Cursor<'source, S>
 where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
-    /// Restrict the source through [`SourceDissect::dissect`] while retaining
-    /// `span.start()` as the new cursor's index.
+    /// Dissect this [`Cursor`] as per the given [`Span`].
     ///
-    /// Built-in string and byte views have coordinates beginning at zero, so a
-    /// nonzero start also skips that many units within the selected view and may
-    /// exhaust it. String views require UTF-8 boundaries for the selected endpoints
-    /// and for subsequent reads within the view.
+    /// This abides by the same rules as [`SourceDissect::dissect`].
     #[inline]
     pub fn slice(&self, span: Span) -> Cursor<'source, S>
     where
@@ -114,8 +111,6 @@ where
     ///
     /// Branching allows for arbitrary speculative operations to be performed on
     /// a [`Cursor`], and commiting the changes if necessary.
-    ///
-    /// Dropping the branch discards its movement. [`Branch::backport`] commits it to its immediate parent.
     #[inline]
     pub fn branch<'borrow>(&'borrow mut self) -> Branch<'source, 'borrow, S>
     where
@@ -144,8 +139,6 @@ where
     /// Peek at the `n`th immediate [`Component`] from the source text.
     ///
     /// `n` is zero-indexed, so `peek_at::<0>()` is equivalent to [`Self::peek`].
-    ///
-    /// `N` counts components rather than source units.
     #[inline]
     pub fn peek_at<const N: usize>(&self) -> Option<S::Component> {
         let &Self { source_index, source_code } = self;
@@ -154,8 +147,6 @@ where
     }
 
     /// Take the next [`Component`] from the source text, irrevocably.
-    ///
-    /// The cursor advances by the component's size and stays in place if the source is exhausted.
     #[inline]
     pub fn any(&mut self) -> Option<S::Component> {
         let &mut Self {
@@ -171,8 +162,6 @@ where
     }
 
     /// Take the next [`Component`] from the source text. Includes its associated [`Span`].
-    ///
-    /// The cursor stays in place if the source is exhausted.
     #[inline]
     pub fn any_spanned(&mut self) -> Option<(S::Component, Span)> {
         let &mut Self {
@@ -202,9 +191,6 @@ where
 {
     /// Irrevocably consumes the next component, determining if it is subject
     /// to the specified [`Assert`], bailing with an [`Expected`] otherwise.
-    ///
-    /// A mismatching component remains consumed, while exhaustion is reported at
-    /// a unit span at the current offset.
     #[inline]
     pub fn expect_is_next<A, T>(&mut self, target_assert: T) -> Result<S::Component, Expected<S::Component, A>>
     where
@@ -212,13 +198,10 @@ where
         A: Assert<S::Component> + Clone,
         S::Component: Input,
     {
-        self.expect_is_next_spanned(target_assert).map(|(component, _)| component)
+        self.expect_is_next_spanned(target_assert).map(|(component, ..)| component)
     }
 
-    /// Consume the next component and classify it with [`Choose`].
-    ///
-    /// A mismatch remains consumed, while exhaustion is reported at a unit span
-    /// at the current offset.
+    /// Consume the next component and return its classification value.
     #[inline]
     pub fn expected_is_next<A>(&mut self, target_assert: A) -> Result<A::Unit, Expected<S::Component, A>>
     where
@@ -230,8 +213,6 @@ where
 
     /// Alike to [`Self::is_next`], but reports an [`Expected`] instead of a
     /// boolean.
-    ///
-    /// A mismatch or exhaustion is reported at a unit span at the current offset.
     #[inline]
     pub fn validate_is_next<A, T>(&self, target_assert: T) -> Result<S::Component, Expected<S::Component, A>>
     where
@@ -266,8 +247,7 @@ where
     /// [`Assert`] or that `eof` has been reached, failing with an [`Expected`]
     /// otherwise.
     ///
-    /// A mismatch is reported at a unit span at the current offset. The cursor is
-    /// not advanced.
+    /// This won't consume the next component in case of failure.
     #[inline]
     pub fn validate_is_next_or_eof<A, T>(&self, target_assert: T) -> Result<(), Expected<S::Component, A>>
     where
@@ -299,8 +279,6 @@ where
 
     /// Optionally consumes the next component if subject to the specified
     /// [`Assert`], returning the value if it is.
-    ///
-    /// A mismatch or exhaustion leaves the cursor unchanged.
     #[inline]
     pub fn optional<A, T>(&mut self, target_assert: T) -> Option<S::Component>
     where
@@ -317,9 +295,6 @@ where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
 {
     /// Expect the next [`Component`] to be subject to `T`. Includes its associated [`Span`].
-    ///
-    /// A mismatch is consumed and reported at that component's span, while exhaustion
-    /// is reported at a unit span at the current offset.
     #[inline]
     pub fn expect_is_next_spanned<A, T>(&mut self, target_assert: T) -> Result<(S::Component, Span), Expected<S::Component, A>>
     where
@@ -337,9 +312,6 @@ where
     }
 
     /// Consume the next component and return its classification with the source extent.
-    ///
-    /// A mismatch is consumed and reported at that component's span, while exhaustion
-    /// is reported at a unit span at the current offset.
     #[inline]
     pub fn expected_is_next_spanned<A>(&mut self, target_assert: A) -> Result<(A::Unit, Span), Expected<S::Component, A>>
     where
@@ -356,8 +328,6 @@ where
     }
 
     /// Take the next [`Component`] if it is subject to `T`. Includes its associated [`Span`].
-    ///
-    /// A mismatch or exhaustion returns `None` without advancing.
     #[inline]
     pub fn optional_spanned<A, T>(&mut self, target_assert: T) -> Option<(S::Component, Span)>
     where
@@ -373,8 +343,6 @@ where
     }
 
     /// Repeatedly ignores any components that satisfy the target [`Assert`]. Returns the [`Span`] of all ignored components.
-    ///
-    /// The first nonmatching component is left unconsumed. An empty run produces no span.
     #[inline]
     pub fn ignore_while_spanned<A, T>(&mut self, target_assert: T) -> Option<Span>
     where
@@ -417,8 +385,6 @@ where
     ///
     /// Lookahead is zero-indexed, so `is_at::<0>(assertion)` examines the same
     /// component as [`Self::is_next`].
-    ///
-    /// Exhaustion returns `false`.
     #[inline]
     pub fn is_at<const N: usize, A, T>(&self, target_assert: T) -> bool
     where
@@ -434,8 +400,6 @@ where
     }
 
     /// Determines if the next component is subject to the specified [`Assert`].
-    ///
-    /// Exhaustion returns `false`.
     #[inline]
     pub fn is_next<A, T>(&self, target_assert: T) -> bool
     where
@@ -446,7 +410,7 @@ where
         self.is_at::<0, A, T>(target_assert)
     }
 
-    /// Return whether the next component matches or input is exhausted.
+    /// Determine whether the immediate component satisfies the target [`Assert`] or if the end of the source has been reached.
     #[inline]
     pub fn is_next_or_eof<A, T>(&self, target_assert: T) -> bool
     where
@@ -458,8 +422,6 @@ where
     }
 
     /// Repeatedly ignores any components that satisfy the target [`Assert`].
-    ///
-    /// The first nonmatching component is left unconsumed.
     #[inline]
     pub fn ignore_while<A, T>(&mut self, target_assert: T)
     where
@@ -472,7 +434,7 @@ where
 
     /// Counts the number of components that satisfy the target [`Assert`].
     ///
-    /// The count is measured in components, rather than source units. The first nonmatching component is left unconsumed.
+    /// This consumes said components, irrevocably.
     #[inline]
     pub fn count<A, T>(&mut self, target_assert: T) -> usize
     where
@@ -489,6 +451,61 @@ where
         }
 
         target_count
+    }
+}
+
+impl<'source, S> Cursor<'source, S>
+where
+    S: SourceDissect<'source> + SourceIter<'source> + SourceLines<'source> + ?Sized,
+{
+    /// Consume the current line in the [`Cursor`] using the default source-defined [`Terminator`].
+    ///
+    /// This returns a 2-tuple indicating the same-line content and the [`LineBreak`], if any.
+    #[inline]
+    pub fn line(&mut self) -> (Option<Span>, Option<LineBreak<'source, S>>) {
+        let mut target_termine = S::DEFAULT_TERMINATOR;
+
+        Self::line_with(self, &mut target_termine)
+    }
+
+    /// Consume the current line in the [`Cursor`] using the supplied [`Terminator`].
+    ///
+    /// This returns a 2-tuple indicating the same-line content and the [`LineBreak`], if any.
+    #[inline]
+    pub fn line_with<T>(&mut self, target_terminate: &mut T) -> (Option<Span>, Option<LineBreak<'source, S>>)
+    where
+        T: Terminator<'source, S>,
+    {
+        let &mut Self {
+            source_index: content_start,
+            source_code,
+        } = self;
+
+        'a: {
+            while let Some((target_component, target_span)) = self.any_spanned() {
+                let target_context = TerminatorContext::raw(source_code, target_component, target_span);
+
+                if let Outcome::Break(target_break) = target_terminate.state(&target_context) {
+                    let content_end = target_break.span().start();
+
+                    let content_bound = content_end
+                        .checked_sub(content_start)
+                        .and_then(NonZero::new)
+                        .map(|content_size| Span::new(content_start, content_size));
+
+                    break 'a (content_bound, Some(target_break));
+                }
+            }
+
+            let &mut Self {
+                source_index: content_end, ..
+            } = self;
+
+            (
+                NonZero::new(content_end - content_start).map(|content_size| Span::new(content_start, content_size)),
+                None,
+            )
+        }
     }
 }
 
@@ -587,25 +604,15 @@ mod tests {
     //!
     //! [`cursor`]: super
 
-    use alloc::string::String;
     use core::num::NonZero;
 
-    use aldebaran_logic::prelude::Connective as _;
-    use aldebaran_report::{
-        annotated::Annotated,
-        render::{
-            RenderMut,
-            textual::{
-                Present, Textual,
-                offload::fancy::{Fancy, FancySettings, Fancyness},
-            },
-        },
-        report::Report as _,
-    };
+    use aldebaran_report::annotated::Annotated;
+
+    use aldebaran_source::terminate::{Outcome, Terminator, TerminatorContext, Two};
 
     use aldebaran_baseline::span::Span;
 
-    use crate::prelude::{AsciiAlphanumeric, Digit};
+    use crate::prelude::AsciiAlphanumeric;
 
     use super::Cursor;
 
@@ -726,29 +733,146 @@ mod tests {
         assert_eq!(cursor.peek(), Some('c'));
     }
 
+    fn span(start: usize, length: usize) -> Span {
+        Span::new(start, NonZero::new(length).expect("nonempty span"))
+    }
+
     #[test]
-    fn a() {
-        let s = "bb";
+    fn line_consumes_lf_and_returns_remaining_content_at_eof() {
+        let mut cursor = Cursor::create("abc\nxyz");
 
-        let mut t = Cursor::create(s);
+        let (content, line_break) = cursor.line();
 
-        let first_error = t.expect_is_next(AsciiAlphanumeric.or('_').and(Digit)).expect_err("valid");
+        assert_eq!(content, Some(span(0, 3)));
+        assert_eq!(line_break.as_ref().map(|b| *b.line_break()), Some("\n"));
+        assert_eq!(line_break.as_ref().map(|b| b.span()), Some(Span::unit(3)));
+        assert_eq!(cursor.index(), 4);
 
-        let err = t.expect_is_next(AsciiAlphanumeric.or('_').and(Digit)).expect_err("valid");
+        let (content, line_break) = cursor.line();
 
-        assert_eq!(Annotated::target(&first_error), Span::unit(0));
-        assert_eq!(Annotated::target(&err), Span::unit(1));
-        assert_eq!(t.index(), s.len());
+        assert_eq!(content, Some(span(4, 3)));
+        assert!(line_break.is_none());
+        assert_eq!(cursor.index(), 7);
 
-        let mut target_sink = String::new();
+        assert_eq!(cursor.line(), (None, None));
+        assert_eq!(cursor.index(), 7);
+    }
 
-        let report = err.attach(s);
-        let mut renderer = Textual::<'_, _, Fancy, _>::new(&mut target_sink);
+    #[test]
+    fn line_distinguishes_empty_content_from_exhaustion() {
+        let mut cursor = Cursor::create("\n\n");
 
-        renderer
-            .render_mut_with_input(Present::with_input(FancySettings::level(Fancyness::Outblown)), &report)
-            .expect("failed to render error");
+        for expected_offset in [1, 2] {
+            let (content, line_break) = cursor.line();
 
-        println!("{}", target_sink);
+            assert!(content.is_none());
+            assert_eq!(line_break.as_ref().map(|b| *b.line_break()), Some("\n"),);
+            assert_eq!(cursor.index(), expected_offset);
+        }
+
+        assert_eq!(cursor.line(), (None, None));
+
+        let mut empty = Cursor::create("");
+        assert_eq!(empty.line(), (None, None));
+        assert_eq!(empty.index(), 0);
+    }
+
+    #[test]
+    fn line_recognizes_crlf_but_keeps_bare_cr_as_content() {
+        let mut cursor = Cursor::create("a\rb\r\nc");
+
+        let (content, line_break) = cursor.line();
+
+        assert_eq!(content, Some(span(0, 3)));
+        assert_eq!(line_break.as_ref().map(|b| *b.line_break()), Some("\r\n"),);
+        assert_eq!(line_break.as_ref().map(|b| b.span()), Some(span(3, 2)),);
+        assert_eq!(cursor.index(), 5);
+
+        let (content, line_break) = cursor.line();
+
+        assert_eq!(content, Some(Span::unit(5)));
+        assert!(line_break.is_none());
+        assert_eq!(cursor.index(), 6);
+    }
+
+    #[test]
+    fn line_preserves_utf8_byte_offsets() {
+        let mut cursor = Cursor::create("αβ\r\nγ");
+
+        let (content, line_break) = cursor.line();
+
+        assert_eq!(content, Some(span(0, 4)));
+        assert_eq!(line_break.as_ref().map(|b| b.span()), Some(span(4, 2)),);
+        assert_eq!(cursor.index(), 6);
+
+        let (content, line_break) = cursor.line();
+
+        assert_eq!(content, Some(span(6, 2)));
+        assert!(line_break.is_none());
+        assert_eq!(cursor.index(), 8);
+    }
+
+    #[test]
+    fn line_with_reuses_a_custom_terminator() {
+        let mut cursor = Cursor::create("a::b::c");
+        let mut terminator = Two::tuple((':', ':'));
+
+        let (content, line_break) = cursor.line_with(&mut terminator);
+
+        assert_eq!(content, Some(Span::unit(0)));
+        assert_eq!(line_break.as_ref().map(|b| *b.line_break()), Some("::"),);
+        assert_eq!(cursor.index(), 3);
+
+        let (content, line_break) = cursor.line_with(&mut terminator);
+
+        assert_eq!(content, Some(Span::unit(3)));
+        assert_eq!(line_break.as_ref().map(|b| b.span()), Some(span(4, 2)),);
+        assert_eq!(cursor.index(), 6);
+
+        let (content, line_break) = cursor.line_with(&mut terminator);
+
+        assert_eq!(content, Some(Span::unit(6)));
+        assert!(line_break.is_none());
+        assert_eq!(cursor.index(), 7);
+
+        assert_eq!(cursor.line_with(&mut terminator), (None, None));
+    }
+
+    #[test]
+    fn line_supports_byte_sources() {
+        let mut cursor = Cursor::create(b"a\r\nb\n".as_slice());
+
+        let (content, line_break) = cursor.line();
+
+        assert_eq!(content, Some(Span::unit(0)));
+        assert_eq!(line_break.as_ref().map(|b| *b.line_break()), Some(b"\r\n".as_slice()),);
+        assert_eq!(cursor.index(), 3);
+
+        let (content, line_break) = cursor.line();
+
+        assert_eq!(content, Some(Span::unit(3)));
+        assert_eq!(line_break.as_ref().map(|b| *b.line_break()), Some(b"\n".as_slice()),);
+        assert_eq!(cursor.index(), 5);
+
+        assert_eq!(cursor.line(), (None, None));
+    }
+
+    #[test]
+    fn line_with_handles_a_terminator_started_before_the_cursor() {
+        let source = "a\r\n";
+        let mut terminator = Two::<char>::CR_LF;
+
+        // The terminator has already observed the CR.
+        let context = TerminatorContext::raw(source, '\r', Span::unit(1));
+
+        assert!(matches!(terminator.state(&context), Outcome::Continue(()),));
+
+        let mut cursor = Cursor::at(source, 2);
+
+        let (content, line_break) = cursor.line_with(&mut terminator);
+
+        assert_eq!(content, None);
+        assert_eq!(line_break.as_ref().map(|b| b.span()), Some(span(1, 2)),);
+        assert_eq!(cursor.index(), 3);
     }
 }
