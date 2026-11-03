@@ -2,6 +2,8 @@
 //!
 //! See [`LexStream`] for further information.
 
+use core::fmt;
+
 use aldebaran_grammar::stream::TokenStream;
 use aldebaran_source::prelude::{Source, SourceDissect, SourceIter};
 
@@ -12,7 +14,6 @@ use super::{consume::Lex, internment::Internment};
 /// Each successful stream step recognizes and constructs exactly one lexical
 /// value through `L`. The wrapped [`Internment`] guarantees that every step sees
 /// the same construction context and advances the same source cursor.
-#[derive(Debug)]
 pub struct LexStream<'source, 'context, S, L>(pub Internment<'source, 'context, S, L::Context>)
 where
     S: Source<'source> + SourceDissect<'source> + SourceIter<'source> + ?Sized,
@@ -54,6 +55,20 @@ where
         } else {
             L::lex_with_context(text, context).map(Some)
         }
+    }
+}
+
+impl<'source, 'context, S, L> fmt::Debug for LexStream<'source, 'context, S, L>
+where
+    S: Source<'source> + SourceDissect<'source> + SourceIter<'source> + ?Sized,
+    S::Component: fmt::Debug,
+    L: Lex<'source, S>,
+    L::Context: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self(target_value) = self;
+
+        f.debug_tuple("LexStream").field(target_value).finish()
     }
 }
 

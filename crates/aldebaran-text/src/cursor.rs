@@ -574,15 +574,10 @@ where
 impl<'source, S> fmt::Debug for Cursor<'source, S>
 where
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
-    S: fmt::Debug,
+    S::Component: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self { source_index, source_code } = self;
-
-        f.debug_struct("Cursor")
-            .field("source_index", source_index)
-            .field("source_code", source_code)
-            .finish()
+        write!(f, "Cursor @ {} -> {:?}", self.index(), self.peek())
     }
 }
 

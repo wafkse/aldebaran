@@ -2,7 +2,10 @@
 //!
 //! See [`Branch`] for further information.
 
-use core::ops::{Deref, DerefMut};
+use core::{
+    fmt,
+    ops::{Deref, DerefMut},
+};
 
 use aldebaran_source::prelude::{SourceDissect, SourceIter};
 
@@ -15,7 +18,6 @@ use super::Cursor;
 /// commits only the final source boundary.
 ///
 /// Nested branches commit only to their immediate parent. Dropping an outer branch also discards any progress committed by its inner branches.
-#[derive(Debug)]
 // NOTE(invariant): None.
 pub struct Branch<'source, 'borrow, S>
 where
@@ -27,6 +29,28 @@ where
 
     /// The currently active branch.
     branch_text: Cursor<'source, S>,
+}
+
+impl<'source, 'borrow, S> Branch<'source, 'borrow, S>
+where
+    'source: 'borrow,
+    S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
+{
+    /// Backport any changes done in this [`Branch`] to the [`Cursor`] we originally diverged from.
+    ///
+    /// The parent may itself be a speculative branch.
+    #[inline]
+    pub const fn backport(self) {
+        let Self {
+            source_index,
+            branch_text: Cursor {
+                source_index: branch_index,
+                ..
+            },
+        } = self;
+
+        *source_index = branch_index;
+    }
 }
 
 impl<'source, 'borrow, S> From<&'borrow mut Cursor<'source, S>> for Branch<'source, 'borrow, S>
@@ -71,26 +95,19 @@ where
         branch_text
     }
 }
-
-impl<'source, 'borrow, S> Branch<'source, 'borrow, S>
+impl<'source, 'borrow, S> fmt::Debug for Branch<'source, 'borrow, S>
 where
     'source: 'borrow,
     S: SourceDissect<'source> + SourceIter<'source> + ?Sized,
+    S::Component: fmt::Debug,
 {
-    /// Backport any changes done in this [`Branch`] to the [`Cursor`] we originally diverged from.
-    ///
-    /// The parent may itself be a speculative branch.
-    #[inline]
-    pub const fn backport(self) {
-        let Self {
-            source_index,
-            branch_text: Cursor {
-                source_index: branch_index,
-                ..
-            },
-        } = self;
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { source_index, branch_text } = self;
 
-        *source_index = branch_index;
+        f.debug_struct("Branch")
+            .field("source_index", source_index)
+            .field("branch_text", branch_text)
+            .finish()
     }
 }
 
