@@ -155,3 +155,45 @@ impl Print for Char {
         target_value.visualize(writer)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Char;
+
+    use aldebaran_logic::prelude::Assert;
+
+    #[test]
+    fn character_assertion_matches_owned_and_borrowed_scalars() {
+        let assertion = Char('é');
+        let matching = 'é';
+        let different = 'e';
+        let matching_ref = &matching;
+        let different_ref = &different;
+
+        assert!(Assert::<char>::assert(&assertion, matching));
+        assert!(Assert::<&char>::assert(&assertion, matching_ref));
+        assert!(!Assert::<char>::assert(&assertion, different));
+        assert!(!Assert::<&char>::assert(&assertion, different_ref));
+    }
+
+    #[test]
+    fn byte_assertion_matches_only_ascii_values() {
+        let ascii_assertion = Char('A');
+        let matching_byte = b'A';
+        let different_byte = b'a';
+        let matching_byte_ref = &matching_byte;
+        let different_byte_ref = &different_byte;
+
+        assert!(Assert::<u8>::assert(&ascii_assertion, matching_byte));
+        assert!(Assert::<&u8>::assert(&ascii_assertion, matching_byte_ref));
+        assert!(!Assert::<u8>::assert(&ascii_assertion, different_byte));
+        assert!(!Assert::<&u8>::assert(&ascii_assertion, different_byte_ref));
+
+        let non_ascii_assertion = Char('é');
+        let encoded_byte = 0xE9;
+        let encoded_byte_ref = &encoded_byte;
+
+        assert!(!Assert::<u8>::assert(&non_ascii_assertion, encoded_byte));
+        assert!(!Assert::<&u8>::assert(&non_ascii_assertion, encoded_byte_ref));
+    }
+}

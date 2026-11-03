@@ -417,3 +417,79 @@ where
         Ok(Ice::impossible(Self::try_from(input).ok()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Ascii, Literal};
+
+    use alloc::string::String;
+
+    use aldebaran_logic::{fmt::common::Human, prelude::Assert};
+
+    #[test]
+    fn ascii_assertion_matches_every_ascii_byte_and_character_form() {
+        for target_byte in 0_u8..=0x7F {
+            let target_char = char::from(target_byte);
+            let assertion = Ascii::or_panic(target_char);
+            let mismatching_byte = target_byte | 0x80;
+            let target_byte_ref = &target_byte;
+            let target_char_ref = &target_char;
+            let mismatching_byte_ref = &mismatching_byte;
+            let mismatching_char = if target_byte == 0x7F {
+                '\u{80}'
+            } else {
+                char::from(target_byte + 1)
+            };
+            let mismatching_char_ref = &mismatching_char;
+
+            assert!(Assert::<u8>::assert(&assertion, target_byte));
+            assert!(Assert::<&u8>::assert(&assertion, target_byte_ref));
+            assert!(Assert::<char>::assert(&assertion, target_char));
+            assert!(Assert::<&char>::assert(&assertion, target_char_ref));
+
+            assert!(!Assert::<u8>::assert(&assertion, mismatching_byte));
+            assert!(!Assert::<&u8>::assert(&assertion, mismatching_byte_ref));
+            assert!(!Assert::<char>::assert(&assertion, mismatching_char));
+            assert!(!Assert::<&char>::assert(&assertion, mismatching_char_ref));
+        }
+    }
+
+    #[test]
+    fn checked_and_try_from_reject_non_ascii_values() {
+        assert_eq!(Ascii::checked('\0'), Some(Ascii::Null));
+        assert_eq!(Ascii::checked('\u{7F}'), Some(Ascii::Delete));
+        assert_eq!(Ascii::checked('\u{80}'), None);
+        assert_eq!(Ascii::try_from(0_u8), Ok(Ascii::Null));
+        assert_eq!(Ascii::try_from(0x7F_u8), Ok(Ascii::Delete));
+        assert_eq!(Ascii::try_from(0x80_u8), Err(()));
+    }
+
+    #[test]
+    fn literal_assertion_matches_owned_and_borrowed_inputs() {
+        let assertion = Literal::<'A'>;
+        let matching_byte = b'A';
+        let matching_char = 'A';
+        let matching_byte_ref = &matching_byte;
+        let matching_char_ref = &matching_char;
+        let different_byte = b'a';
+        let different_byte_ref = &different_byte;
+        let different_char = 'é';
+        let different_char_ref = &different_char;
+
+        assert!(Assert::<u8>::assert(&assertion, matching_byte));
+        assert!(Assert::<&u8>::assert(&assertion, matching_byte_ref));
+        assert!(Assert::<char>::assert(&assertion, matching_char));
+        assert!(Assert::<&char>::assert(&assertion, matching_char_ref));
+
+        assert!(!Assert::<u8>::assert(&assertion, different_byte));
+        assert!(!Assert::<&u8>::assert(&assertion, different_byte_ref));
+        assert!(!Assert::<char>::assert(&assertion, different_char));
+        assert!(!Assert::<&char>::assert(&assertion, different_char_ref));
+
+        let mut output = String::new();
+        let result = Assert::<char>::output::<_, Human>(&assertion, &mut output);
+
+        assert!(result.is_ok());
+        assert_eq!(output, "A");
+    }
+}

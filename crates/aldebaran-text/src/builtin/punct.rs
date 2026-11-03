@@ -60,3 +60,42 @@ pub enum AngleBracket {
     #[assert(use Ascii::GreaterThan type Ascii)]
     Right,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{AngleBracket, Brace, Bracket, Parenthesis};
+
+    use aldebaran_logic::prelude::Assert;
+
+    macro_rules! assert_delimiter {
+        ($assertion:expr, $target_char:literal, $other_char:literal, $target_byte:literal, $other_byte:literal) => {{
+            let assertion = $assertion;
+            let target_char = $target_char;
+            let other_char = $other_char;
+            let target_byte = $target_byte;
+            let other_byte = $other_byte;
+
+            assert!(Assert::<char>::assert(&assertion, target_char));
+            assert!(Assert::<&char>::assert(&assertion, &target_char));
+            assert!(!Assert::<char>::assert(&assertion, other_char));
+            assert!(!Assert::<&char>::assert(&assertion, &other_char));
+
+            assert!(Assert::<u8>::assert(&assertion, target_byte));
+            assert!(Assert::<&u8>::assert(&assertion, &target_byte));
+            assert!(!Assert::<u8>::assert(&assertion, other_byte));
+            assert!(!Assert::<&u8>::assert(&assertion, &other_byte));
+        }};
+    }
+
+    #[test]
+    fn delimiter_assertions_match_each_direction_for_value_and_reference_inputs() {
+        assert_delimiter!(Parenthesis::Left, '(', ')', b'(', b')');
+        assert_delimiter!(Parenthesis::Right, ')', '(', b')', b'(');
+        assert_delimiter!(Bracket::Left, '[', ']', b'[', b']');
+        assert_delimiter!(Bracket::Right, ']', '[', b']', b'[');
+        assert_delimiter!(Brace::Left, '{', '}', b'{', b'}');
+        assert_delimiter!(Brace::Right, '}', '{', b'}', b'{');
+        assert_delimiter!(AngleBracket::Left, '<', '>', b'<', b'>');
+        assert_delimiter!(AngleBracket::Right, '>', '<', b'>', b'<');
+    }
+}

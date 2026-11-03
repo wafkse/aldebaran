@@ -274,3 +274,59 @@ property!(
         char as char::is_numeric;
     }
 );
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use alloc::string::String;
+
+    use aldebaran_logic::{fmt::common::Human, prelude::Assert};
+
+    macro_rules! assert_property {
+        ($target:ident, $byte_match:expr, $byte_miss:expr, $char_match:expr, $char_miss:expr) => {{
+            let assertion = $target;
+            let byte_match: u8 = $byte_match;
+            let byte_miss: u8 = $byte_miss;
+            let char_match: char = $char_match;
+            let char_miss: char = $char_miss;
+
+            assert!(Assert::<u8>::assert(&assertion, byte_match));
+            assert!(Assert::<&u8>::assert(&assertion, &byte_match));
+            assert!(!Assert::<u8>::assert(&assertion, byte_miss));
+            assert!(!Assert::<&u8>::assert(&assertion, &byte_miss));
+
+            assert!(Assert::<char>::assert(&assertion, char_match));
+            assert!(Assert::<&char>::assert(&assertion, &char_match));
+            assert!(!Assert::<char>::assert(&assertion, char_miss));
+            assert!(!Assert::<&char>::assert(&assertion, &char_miss));
+
+            let mut output = String::new();
+            let result = Assert::<u8>::output::<_, Human>(&assertion, &mut output);
+
+            assert!(result.is_ok());
+            assert_eq!(output, concat!("<", stringify!($target), ">"));
+        }};
+    }
+
+    #[test]
+    fn ascii_properties_match_ascii_boundaries() {
+        assert_property!(Ascii, b'A', 0x80, 'A', 'é');
+        assert_property!(AsciiDigit, b'7', b'G', '7', '٧');
+        assert_property!(AsciiAlphabetic, b'Z', b'5', 'z', 'é');
+        assert_property!(AsciiAlphanumeric, b'9', b'_', 'A', '_');
+        assert_property!(AsciiWhitespace, b'\t', b'\x0B', '\n', '\u{00A0}');
+        assert_property!(AsciiControl, b'\0', b'A', '\x7F', 'A');
+        assert_property!(AsciiGraphical, b'!', b' ', '~', ' ');
+        assert_property!(AsciiPunctuation, b'!', b'a', '_', 'a');
+        assert_property!(AsciiHexadecimal, b'f', b'g', 'F', 'G');
+    }
+
+    #[test]
+    fn unicode_properties_distinguish_byte_and_character_rules() {
+        assert_property!(Whitespace, b'\t', b'A', '\u{2003}', 'A');
+        assert_property!(Alphabetic, b'Z', b'1', 'é', '1');
+        assert_property!(Alphanumeric, b'0', b'_', 'é', '_');
+        assert_property!(Digit, b'9', b'G', '½', 'A');
+    }
+}
