@@ -60,12 +60,9 @@ where
         } = other;
 
         storage.len() == other_storage.len()
-            && storage.iter().all(|(id, value)| {
-                other_map
-                    .get(id)
-                    .and_then(|&other_index| other_storage.get(other_index))
-                    == Some(value)
-            })
+            && storage
+                .iter()
+                .all(|(id, value)| other_map.get(id).and_then(|&other_index| other_storage.get(other_index)) == Some(value))
     }
 }
 
@@ -504,6 +501,15 @@ mod tests {
     use super::*;
 
     use crate::Id;
+    use crate::zeroable::NonZeroed;
+
+    use core::{
+        hash::Hasher,
+        panic::AssertUnwindSafe,
+        sync::atomic::{AtomicUsize, Ordering},
+    };
+
+    use std::panic::{catch_unwind, resume_unwind};
 
     Id!(
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -512,16 +518,188 @@ mod tests {
 
     TestId!(8 become);
 
+    static HASH_CALLS: AtomicUsize = AtomicUsize::new(0);
+    static PANIC_HASH_CALL: AtomicUsize = AtomicUsize::new(usize::MAX);
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    struct PanicHashId(TestId8);
+
+    impl AsRef<Self> for PanicHashId {
+        fn as_ref(&self) -> &Self {
+            self
+        }
+    }
+
+    impl Hash for PanicHashId {
+        fn hash<H>(&self, state: &mut H)
+        where
+            H: Hasher,
+        {
+            let hash_call = HASH_CALLS.fetch_add(1, Ordering::SeqCst);
+
+            if hash_call == PANIC_HASH_CALL.load(Ordering::SeqCst) {
+                resume_unwind(Box::new(()));
+            }
+
+            self.0.hash(state);
+        }
+    }
+
+    impl Id for PanicHashId {
+        type BackingPrimitive = u8;
+
+        const MAX: Self = Self(TestId::MAX);
+
+        const MIN: Self = Self(TestId::MIN);
+
+        fn raw(value: NonZeroed<Self::BackingPrimitive>) -> Self {
+            Self(TestId8::raw(value))
+        }
+
+        fn as_nonzeroed(&self) -> NonZeroed<Self::BackingPrimitive> {
+            self.0.as_nonzeroed()
+        }
+    }
+
+    struct PanicOnDrop(bool);
+
+    impl Drop for PanicOnDrop {
+        fn drop(&mut self) {
+            if self.0 {
+                resume_unwind(Box::new(()));
+            }
+        }
+    }
+
     #[test]
-    fn id_map() {
-        let mut map: IdMap<TestId8, &str, BuildHasherDefault<FxHasher>> = IdMap::new();
+    fn insert_get_replace_and_clear() {
+        let mut map: IdMap<TestId8, &str> = IdMap::new();
+        let id = TestId::MIN;
 
+        assert!(map.is_empty());
+        assert_eq!(map.get(id), None);
+        assert!(!map.contains_key(id));
+
+        assert_eq!(map.insert(id, "first"), None);
+        assert_eq!(map.get(id), Some(&"first"));
+        assert_eq!(map.insert(id, "second"), Some("first"));
+        assert_eq!(map.get(id), Some(&"second"));
+        assert_eq!(map.len(), 1);
+
+        let capacity = map.capacity();
+        map.clear();
+
+        assert!(map.is_empty());
+        assert_eq!(map.capacity(), capacity);
+        assert!(!map.contains_key(id));
+    }
+
+    #[test]
+    fn remove_only_entry() {
+        let mut map: IdMap<TestId8, &str> = IdMap::new();
+        let id = TestId::MIN;
+
+        assert_eq!(map.remove(id), None);
+        assert_eq!(map.insert(id, "only"), None);
+        assert_eq!(map.remove(id), Some((id, "only")));
+        assert!(map.is_empty());
+        assert!(!map.contains_key(id));
+    }
+
+    #[test]
+    fn remove_final_entry_from_nonempty_map() {
+        let mut map: IdMap<TestId8, &str> = IdMap::new();
+        let first_id = TestId::MIN;
+        let final_id = TestId::MAX;
+
+        map.insert(first_id, "first");
+        map.insert(final_id, "final");
+
+        assert_eq!(map.remove(final_id), Some((final_id, "final")));
+        assert_eq!(map.len(), 1);
+        assert_eq!(map.get(first_id), Some(&"first"));
+    }
+
+    #[test]
+    fn remove_displaced_entry_reindexes_survivor() {
+        let mut map: IdMap<TestId8, &str> = IdMap::new();
+        let removed_id = TestId::MIN;
+        let moved_id = TestId::MAX;
+
+        map.insert(removed_id, "removed");
+        map.insert(moved_id, "moved");
+
+        assert_eq!(map.remove(removed_id), Some((removed_id, "removed")));
+        assert_eq!(map.get(moved_id), Some(&"moved"));
+        assert_eq!(map.remove(moved_id), Some((moved_id, "moved")));
+        assert!(map.is_empty());
+    }
+
+    #[test]
+    fn clear_preserves_consistency_when_value_drop_unwinds() {
+        let mut map: IdMap<TestId8, PanicOnDrop> = IdMap::new();
+        let id = TestId::MIN;
+
+        map.insert(id, PanicOnDrop(true));
+
+        let result = catch_unwind(AssertUnwindSafe(|| map.clear()));
+
+        assert!(result.is_err());
         assert_eq!(map.len(), 0);
+        assert!(!map.contains_key(id));
+        assert!(map.get(id).is_none());
 
-        map.insert(TestId::MIN, "nignog");
+        map.insert(id, PanicOnDrop(false));
 
-        map.insert(TestId::MAX, "nignag");
+        assert_eq!(map.len(), 1);
+        assert!(map.get(id).is_some());
+    }
 
-        drop(map);
+    #[test]
+    fn equality_ignores_storage_order() {
+        let first_id = TestId::MIN;
+        let second_id = TestId::MAX;
+        let mut first: IdMap<TestId8, &str> = IdMap::new();
+        let mut second: IdMap<TestId8, &str> = IdMap::new();
+
+        first.insert(first_id, "first");
+        first.insert(second_id, "second");
+        second.insert(second_id, "second");
+        second.insert(first_id, "first");
+
+        assert_eq!(first, second);
+
+        second.insert(first_id, "changed");
+
+        assert_ne!(first, second);
+    }
+
+    #[test]
+    fn insert_hash_panic_does_not_append_storage() {
+        let first_id = PanicHashId(TestId::MIN);
+        let second_id = PanicHashId(TestId::MAX);
+        let target_id = NonZeroed::<u8>::new(2).map(|value| PanicHashId(TestId8::raw(value)));
+        let mut map: IdMap<PanicHashId, &str> = IdMap::new();
+
+        assert!(target_id.is_some());
+
+        let target_id = target_id.unwrap_or(first_id);
+
+        map.insert(first_id, "first");
+        map.insert(second_id, "second");
+
+        HASH_CALLS.store(0, Ordering::SeqCst);
+        PANIC_HASH_CALL.store(1, Ordering::SeqCst);
+
+        let result = catch_unwind(AssertUnwindSafe(|| map.insert(target_id, "target")));
+
+        PANIC_HASH_CALL.store(usize::MAX, Ordering::SeqCst);
+
+        assert!(result.is_err());
+        assert_eq!(HASH_CALLS.load(Ordering::SeqCst), 2);
+        assert_eq!(map.len(), 2);
+        assert_eq!(map.get(first_id), Some(&"first"));
+        assert_eq!(map.get(second_id), Some(&"second"));
+        assert!(!map.contains_key(target_id));
     }
 }
