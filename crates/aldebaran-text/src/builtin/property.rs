@@ -1,4 +1,4 @@
-//! Reusable character and byte property assertions for text traversal.
+//! Property assertions for byte and character components.
 //!
 //! See [`AsciiDigit`], [`Whitespace`], and [`Digit`] for further information.
 //!
@@ -272,6 +272,100 @@ property!(
     pub Digit where {
         ref u8 as u8::is_ascii_digit;
         char as char::is_numeric;
+    }
+);
+
+mod detail {
+    //! Implementation details for built-in character properties.
+
+    /// Determines whether `target_codepoint` is horizontal whitespace.
+    ///
+    /// [UTS #18, Annex C] defines horizontal whitespace as `U+0009` plus every
+    /// code point whose `General_Category` is `Space_Separator`. In Unicode
+    /// 18.0.0, the set is:
+    ///
+    /// - `U+0009` CHARACTER TABULATION
+    /// - `U+0020` SPACE
+    /// - `U+00A0` NO-BREAK SPACE
+    /// - `U+1680` OGHAM SPACE MARK
+    /// - `U+2000`-`U+200A` EN QUAD through HAIR SPACE
+    /// - `U+202F` NARROW NO-BREAK SPACE
+    /// - `U+205F` MEDIUM MATHEMATICAL SPACE
+    /// - `U+3000` IDEOGRAPHIC SPACE
+    ///
+    /// The separator categories come from Unicode 18.0.0 [`UnicodeData.txt`].
+    ///
+    /// [UTS #18, Annex C]: https://www.unicode.org/reports/tr18/tr18-25.html#Compatibility_Properties
+    /// [`UnicodeData.txt`]: https://www.unicode.org/Public/18.0.0/ucd/UnicodeData.txt
+    #[inline]
+    pub const fn is_horizontal_whitespace(target_codepoint: char) -> bool {
+        if let '\t' | ' ' | '\u{00A0}' | '\u{1680}' | '\u{2000}'..='\u{200A}' | '\u{202F}' | '\u{205F}' | '\u{3000}' = target_codepoint {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Determines whether `target_codepoint` is vertical whitespace.
+    ///
+    /// These are the `White_Space` code points not included in the horizontal
+    /// whitespace definition from [UTS #18, Annex C]:
+    ///
+    /// - `U+000A` LINE FEED (LF)
+    /// - `U+000B` LINE TABULATION (VT)
+    /// - `U+000C` FORM FEED (FF)
+    /// - `U+000D` CARRIAGE RETURN (CR)
+    /// - `U+0085` NEXT LINE (NEL)
+    /// - `U+2028` LINE SEPARATOR
+    /// - `U+2029` PARAGRAPH SEPARATOR
+    ///
+    /// The set is listed in Unicode 18.0.0 [`PropList.txt`].
+    ///
+    /// [UTS #18, Annex C]: https://www.unicode.org/reports/tr18/tr18-25.html#Compatibility_Properties
+    /// [`PropList.txt`]: https://www.unicode.org/Public/18.0.0/ucd/PropList.txt
+    #[inline]
+    pub const fn is_vertical_whitespace(target_codepoint: char) -> bool {
+        if let '\n' | '\u{000B}' | '\u{000C}' | '\r' | '\u{0085}' | '\u{2028}' | '\u{2029}' = target_codepoint {
+            true
+        } else {
+            false
+        }
+    }
+}
+
+property!(
+    /// A character-property assertion implementing [`Assert<char>`] and
+    /// [`Assert<&char>`].
+    ///
+    /// It accepts `U+0009` and the Unicode 18.0.0 `Space_Separator` code points:
+    /// `U+0020`, `U+00A0`, `U+1680`, `U+2000`–`U+200A`, `U+202F`, `U+205F`, and
+    /// `U+3000`. This set follows [UTS #18, Annex C] and [`UnicodeData.txt`].
+    ///
+    /// [UTS #18, Annex C]: https://www.unicode.org/reports/tr18/tr18-25.html#Compatibility_Properties
+    /// [`UnicodeData.txt`]: https://www.unicode.org/Public/18.0.0/ucd/UnicodeData.txt
+    pub HorizontalWhitespace where {
+        char as detail::is_horizontal_whitespace;
+    }
+);
+
+property!(
+    /// A character-property assertion implementing [`Assert<char>`] and
+    /// [`Assert<&char>`].
+    ///
+    /// It accepts the Unicode 18.0.0 vertical whitespace code points listed in
+    /// [`PropList.txt`]:
+    ///
+    /// - `U+000A` LINE FEED (LF)
+    /// - `U+000B` LINE TABULATION (VT)
+    /// - `U+000C` FORM FEED (FF)
+    /// - `U+000D` CARRIAGE RETURN (CR)
+    /// - `U+0085` NEXT LINE (NEL)
+    /// - `U+2028` LINE SEPARATOR
+    /// - `U+2029` PARAGRAPH SEPARATOR
+    ///
+    /// [`PropList.txt`]: https://www.unicode.org/Public/18.0.0/ucd/PropList.txt
+    pub VerticalWhitespace where {
+        char as detail::is_vertical_whitespace;
     }
 );
 
