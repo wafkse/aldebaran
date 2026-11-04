@@ -22,37 +22,14 @@ use super::Cursor;
 
 /// An error produced when one assertion cannot be satisfied.
 ///
-/// The caller supplies the failed assertion and diagnostic span without source
-/// validation. Recovery with this report leaves the cursor unchanged.
+/// Recovery with this report leaves the cursor unchanged. Its [`fmt::Display`]
+/// output is the same summary as its [`Report`] title.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 // NOTE(invariant): None.
-pub struct Expected<C, A>
+pub struct Expected<C, A>(Expect<C, A>, Span)
 where
     C: Input + Component,
-    A: Assert<C>,
-{
-    /// Expected assertion and optional mismatched component.
-    expect: Expect<C, A>,
-
-    /// Nonempty diagnostic span where the assertion failed.
-    target: Span,
-}
-
-impl<C, A> fmt::Debug for Expected<C, A>
-where
-    C: Input + Component,
-    A: Assert<C>,
-{
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self { expect, target } = self;
-
-        formatter
-            .debug_struct("Expected")
-            .field("expect", expect)
-            .field("target", target)
-            .finish()
-    }
-}
+    A: Assert<C>;
 
 impl<C, A> Expected<C, A>
 where
@@ -69,7 +46,7 @@ where
     pub const fn this(subject: A, target: Span) -> Self {
         let expect = Expect::none(subject);
 
-        Self { expect, target }
+        Self(expect, target)
     }
 
     /// Construct a failure for one mismatched existing component.
@@ -81,7 +58,30 @@ where
         let expect = Expect::some(exist, subject);
         let target = span;
 
-        Self { expect, target }
+        Self(expect, target)
+    }
+}
+
+impl<C, A> fmt::Debug for Expected<C, A>
+where
+    C: Input + Component,
+    A: Assert<C>,
+{
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self(target_expect, target_span) = self;
+
+        formatter.debug_tuple("Expected").field(target_expect).field(target_span).finish()
+    }
+}
+
+impl<C, A> fmt::Display for Expected<C, A>
+where
+    C: Input + Component,
+    A: Assert<C>,
+{
+    #[inline]
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self.title(), formatter)
     }
 }
 
@@ -96,10 +96,7 @@ where
 
     #[inline]
     fn title(&self) -> &Self::Title {
-        let Self {
-            expect: Expect { exist, .. },
-            ..
-        } = self;
+        let Self(Expect { exist, .. }, ..) = self;
 
         match exist {
             Some(_) => "unexpected character",
@@ -142,16 +139,16 @@ where
 
     #[inline]
     fn message(&self) -> &Self::Title {
-        let Self { expect, .. } = self;
+        let Self(target_value, ..) = self;
 
-        expect
+        target_value
     }
 
     #[inline]
     fn target(&self) -> Span {
-        let &Self { target, .. } = self;
+        let &Self(.., target_value) = self;
 
-        target
+        target_value
     }
 }
 
