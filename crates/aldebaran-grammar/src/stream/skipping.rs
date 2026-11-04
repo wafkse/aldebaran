@@ -10,7 +10,7 @@ use super::{TokenStream, lookahead::Lookahead};
 ///
 /// Lookahead counts only retained tokens by inspecting a clone of the filtered
 /// view. Because the cloned source or predicate may share state with the
-/// original, looking ahead can still affect the caller.
+/// original, looking ahead can still affect shared state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 // NOTE(invariant): None.
 pub struct Skipping<S, P> {

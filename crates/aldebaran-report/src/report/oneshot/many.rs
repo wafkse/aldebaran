@@ -31,7 +31,7 @@ where
     /// The title for this error.
     title: T,
 
-    /// Borrowed primary annotation followed by caller-ordered related context.
+    /// Borrowed primary annotation followed by related context in collection order.
     annotation: RefNonempty<'borrow, A>,
 }
 

@@ -185,7 +185,7 @@ where
         kind
     }
 
-    /// Primary annotation followed by related context in caller order.
+    /// Primary annotation followed by related context in stored order.
     #[inline]
     pub const fn annotations(&self) -> &Nonempty<A> {
         let &Self { ref annotations, .. } = self;

@@ -18,8 +18,8 @@ pub mod ident;
 
 #[doc(hidden)]
 pub mod reexport {
-    //! Macro support resolved through this crate, so callers need no direct
-    //! dependency on the token-generation facility.
+    //! Resolves macro support through this crate, avoiding a direct dependency on
+    //! the token-generation facility.
 
     pub use tokel::stream;
 }

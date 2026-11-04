@@ -48,8 +48,8 @@ where
 
     /// Insert the target [`trait@Id`] into this set, if it is not already present.
     ///
-    /// If the target [`trait@Id`] is already present, this operation returns it
-    /// to the caller.
+    /// If the target [`trait@Id`] is already present, this operation returns the
+    /// existing identifier.
     ///
     /// # Time Complexity
     ///

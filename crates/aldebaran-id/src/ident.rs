@@ -135,7 +135,7 @@ pub trait Id: Hash + PartialEq + Eq + Copy + 'static {
     /// Implementations must expose the same value through [`Self::as_nonzeroed`].
     fn raw(value: NonZeroed<Self::BackingPrimitive>) -> Self;
 
-    /// Numeric identity for interchange with callers using primitive integers.
+    /// Numeric identity for interchange with primitive integers.
     /// Its value matches [`Self::as_nonzeroed`] and is never zero.
     #[inline]
     fn primitive(&self) -> Self::BackingPrimitive {

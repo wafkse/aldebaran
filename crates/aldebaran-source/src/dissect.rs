@@ -2,8 +2,8 @@
 //!
 //! See [`SourceDissect`] for further information.
 //!
-//! Built-in slices measure the resulting view from zero while callers retain the original
-//! span separately.
+//! Built-in slices measure each view from zero while the original source span
+//! remains separate.
 
 use core::num::NonZero;
 
@@ -23,10 +23,10 @@ pub trait SourceDissect<'source>: Source<'source> {
 
     /// Return a view of the source window selected by an absolute source span.
     ///
-    /// Because selection uses this source's coordinate plane, callers must supply
-    /// coordinates belonging to that plane. Out-of-range handling is left to the
-    /// implementation, and [`str`] imposes a further boundary requirement because
-    /// slicing panics unless both endpoints lie on UTF-8 boundaries.
+    /// The span uses this source's coordinate plane. Out-of-range handling is
+    /// left to the implementation, and [`str`] imposes a further boundary
+    /// requirement because slicing panics unless both endpoints lie on UTF-8
+    /// boundaries.
     fn dissect<'borrow>(&'borrow self, span: Span) -> Self::View<'borrow>;
 
     /// Return a view beginning at `offset` and extending to the source end.

@@ -168,7 +168,7 @@ where
 }
 
 /// Build a report whose title comes from the annotation and whose kind is
-/// supplied by the caller.
+/// chosen independently.
 #[inline]
 pub const fn kinded<'source, A, K, S>(source: &'source S, annotation: A, kind: K) -> OneshotKinded<'source, A, K, S>
 where

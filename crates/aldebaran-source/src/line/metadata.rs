@@ -37,8 +37,8 @@ impl<R> Record for R where R: PrimInt + private::Sealed + Copy + PartialOrd + Or
 /// [`recordable`](Record) primitive.
 ///
 /// [`record`](Self::record) expands the bounds to include each observation.
-/// Raw construction and mutable access do not enforce ordering, so callers
-/// using this as an extrema accumulator must initialize coherent bounds.
+/// Raw construction and mutable access do not enforce ordering. Extrema
+/// accumulation requires coherent bounds.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Copy, Default)]
 // NOTE(invariant): None.
 pub struct MinMax<T = usize>
@@ -296,8 +296,7 @@ pub struct Metadata {
 impl Metadata {
     /// Construct a [`Metadata`] piecewise from its individual components.
     ///
-    /// The caller must ensure the bounds and statistics describe the same line
-    /// selection.
+    /// The bounds and statistics must describe the same line selection.
     #[inline]
     pub const fn raw(line_byte_bounds: Span, line_range: LineRange, line_length: MinMax<usize>) -> Self {
         Self {

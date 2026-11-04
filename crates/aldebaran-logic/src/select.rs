@@ -1,5 +1,5 @@
 //! Branch identity for heterogeneous assertion results. [`Select`] preserves
-//! which side matched, while [`Selector!`](macro@crate::Selector) gives caller-named
+//! which side matched, while [`Selector!`](macro@crate::Selector) gives named
 //! alternatives a shared assertion interface.
 
 use core::fmt;

@@ -12,9 +12,9 @@ use super::style::TextAttribute;
 ///
 /// Printing applies the stored [`Style`] around the subject's output when
 /// styling is enabled, but delegates directly to the subject when it is disabled.
-/// Because color settings replace earlier choices for the same surface while
-/// text attributes accumulate, callers can build the style before any output
-/// is written. Enabled output inherits [`Style`]'s global reset behavior and
+/// Color settings replace earlier choices for the same surface while text
+/// attributes accumulate, so the full style can be built before output begins.
+/// Enabled output inherits [`Style`]'s global reset behavior and
 /// error precedence, including reset failure after subject output. Nested
 /// painting does not restore an enclosing style after an inner reset.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

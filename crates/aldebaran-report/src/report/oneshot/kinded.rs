@@ -13,8 +13,8 @@ use crate::{
 
 /// A diagnostic whose annotation supplies its heading and sole source location.
 ///
-/// The caller supplies the [`ErrorKind`] independently, so the annotation message
-/// can be reused under different diagnostic classifications.
+/// Its message can be reused under different diagnostic classifications because
+/// the [`ErrorKind`] is independent of the annotation.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 // NOTE(invariant): None.
 pub struct OneshotKinded<'a, A, K, S = str>

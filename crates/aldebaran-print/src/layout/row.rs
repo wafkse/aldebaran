@@ -187,9 +187,9 @@ impl<'buffer> RowBuilder<'buffer> {
 
     /// Adds an accepted grapheme's displayed text and source provenance to the row.
     ///
-    /// The caller must first establish that its width is accepted. Its byte
-    /// range must follow the row's accepted visualization bytes in `input`, and
-    /// its terminal form must have been measured at the current row column.
+    /// The width must be accepted for the current row. Its byte range must follow
+    /// the row's accepted visualization bytes in `input`, and its terminal form
+    /// must have been measured at the current row column.
     /// Wide text receives continuation cells, while tabs give each expanded
     /// space a text range. Neither operation changes the original source units.
     ///

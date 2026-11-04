@@ -54,9 +54,8 @@ impl Viewport {
 
     /// Combine [`Extents`] with an explicit [`ViewportShape`].
     ///
-    /// The explicit shape takes precedence even when it disagrees with the extents,
-    /// allowing callers to supply their own layout classification. When the shape
-    /// should follow the dimensions instead, use [`Viewport::new`].
+    /// The explicit shape takes precedence even when it disagrees with the extents.
+    /// Use [`Viewport::new`] when the shape should follow the dimensions.
     #[inline]
     pub const fn raw(extents: Extents, shape: ViewportShape) -> Self {
         Self {

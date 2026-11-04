@@ -50,7 +50,7 @@ where
 {
     /// Pair content with its source-coordinate span.
     ///
-    /// The caller must ensure the span belongs to that view.
+    /// The span must belong to that view.
     #[inline]
     pub const fn raw(line_content: S::Line, span: Span) -> Self {
         Self { line_content, span }

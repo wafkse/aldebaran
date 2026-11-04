@@ -86,7 +86,6 @@ impl<'input> TerminalGrapheme<'input> {
 
     /// Appends the selected display form without inserting row delimiters.
     ///
-    /// The caller retains ownership of `buffer` and any capacity it acquires.
     /// Source provenance and cell placement are independent of this emission.
     pub(in crate::layout) fn append(&self, buffer: &mut String) {
         match *self {

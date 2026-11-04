@@ -22,8 +22,7 @@ use super::Cursor;
 
 /// An error produced when one assertion cannot be satisfied.
 ///
-/// Recovery with this report leaves the cursor unchanged. Its [`fmt::Display`]
-/// output is the same summary as its [`Report`] title.
+/// Its [`fmt::Display`] output is the same summary as its [`Report`] title.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 // NOTE(invariant): None.
 pub struct Expected<C, A>(Expect<C, A>, Span)
@@ -155,7 +154,7 @@ where
 /// Printable expectation state for one assertion failure.
 ///
 /// If no input was available, the component is absent. Otherwise, it is the
-/// mismatching component reported by the caller.
+/// present component associated with the failed assertion.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 // NOTE(invariant): None.
 pub struct Expect<C, A>
@@ -256,9 +255,8 @@ where
 
 /// Failure produced when none of several assertion candidates can match.
 ///
-/// The caller supplies the candidates, rejected component when present, and
-/// diagnostic span. Construction does not validate the rejection or its source
-/// coordinates, and recovery with this report leaves the cursor unchanged.
+/// The rejected component and diagnostic span are recorded without validation
+/// against the source.
 // NOTE(invariant): None.
 pub struct OneOf<'borrow, C, K, A, F>
 where
@@ -438,8 +436,7 @@ where
 /// The title for an [`OneOf`] error.
 ///
 /// This type distinguishes missing input from a present component rejected by
-/// every candidate. Candidates are described in the order supplied by the
-/// caller, but `OfMany` does not determine whether a candidate accepts.
+/// every candidate. Candidate descriptions retain list order.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum OfMany<'borrow, C, K, A, F>
 where

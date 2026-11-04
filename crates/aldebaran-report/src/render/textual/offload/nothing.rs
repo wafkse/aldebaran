@@ -1,5 +1,4 @@
-//! [`Nothing`] implements [`Offload`] while discarding the report, so callers can
-//! suppress output without changing the rendering pipeline.
+//! Use [`Nothing`] to discard a report without changing the rendering pipeline.
 
 use core::convert::Infallible;
 
@@ -11,8 +10,7 @@ use super::{Offload, OffloadContext};
 
 /// Offload backend that deliberately produces no output.
 ///
-/// This enum carries no state. Its [`Offload`] implementation lets callers
-/// select suppression through the same interface as other backends.
+/// An [`Offload`] backend that produces no output.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum Nothing {}
 

@@ -17,7 +17,7 @@ where
     S: SourceLines<'source> + ?Sized,
     D: Spanned,
 {
-    /// Content selected by caller data whose original span is retained.
+    /// Content associated with spanned data, retaining its original span.
     Relevant(Segment<'source, S, D>),
 
     /// Unannotated content carrying its own absolute source extent.

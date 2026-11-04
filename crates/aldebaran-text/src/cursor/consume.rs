@@ -12,7 +12,7 @@ use super::Cursor;
 /// lexical recognition from construction.
 ///
 /// Implementations are expected to leave the cursor unchanged when returning an
-/// error, so callers can try another lexical value at the same position. A
+/// error, so another lexical value can be tried at the same position. A
 /// [`Cursor::branch`] can be used to keep reads speculative until they succeed.
 ///
 /// # Two-stage Lexing
@@ -33,10 +33,9 @@ use super::Cursor;
 /// In this case, the scan does work that recognition already requires, while its
 /// byte count tells construction how much space to allocate. The pass can therefore
 /// prepare for an efficient allocation without allocating the buffer itself.
-/// Because allocation is deferred until construction, a caller that only needs to
-/// recognize the literal can skip it altogether. Likewise, if the caller later
-/// rejects a speculative parse, it can discard the recognized input without having
-/// allocated a buffer or acquired other resources needed only to build the value.
+/// Because allocation is deferred until construction, recognition-only passes
+/// avoid it. A rejected speculative parse can likewise discard the recognized
+/// input without acquiring resources needed only to build the value.
 ///
 /// The pass should only collect the information needed to recognize or build the
 /// value. Consequently, semantic conversion, allocation, interning, and final
@@ -81,7 +80,7 @@ where
     ///
     /// Returns an error if the source text cannot be recognized as this lexical
     /// value. Implementations are expected to leave the cursor at its original
-    /// position when this happens, allowing the caller to try another value.
+    /// position when this happens, so another value can be tried there.
     fn pass<'input>(text: &'input mut Cursor<'source, S>) -> Result<Self::Input<'input>, Self::Error>
     where
         'source: 'input;

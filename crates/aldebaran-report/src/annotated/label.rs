@@ -10,8 +10,8 @@ use aldebaran_source::prelude::Source;
 
 /// A minimal inline annotation with a message and a nonempty diagnostic span.
 ///
-/// The span carries no source identity or bounds validation. Callers supply a
-/// compatible source when the enclosing report is rendered.
+/// The span carries no source identity or bounds validation; rendering
+/// interprets it in the source paired with the report.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 // NOTE(invariant): None.
 pub struct Label<C>

@@ -90,8 +90,7 @@ where
     /// Create a new transition context from its raw parts: a source, a
     /// component, and a span.
     ///
-    /// The caller must ensure the component and span describe that position in
-    /// `source`.
+    /// The component and span must describe the same position in `source`.
     #[inline]
     pub const fn raw(source: &'a S, component: S::Component, span: Span) -> Self {
         Self { source, component, span }

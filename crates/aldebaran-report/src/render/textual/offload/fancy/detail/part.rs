@@ -64,7 +64,7 @@ where
     }
 }
 
-/// Prints the line-number column and its padding, leaving the separator to the caller.
+/// Prints the line-number column and its padding before the separator.
 // NOTE(invariant): LineNumber.IsSome => LineNumber.Digits <= Gutter.LineNumberDigitWidth
 pub(in crate::render::textual::offload::fancy::detail) struct GutterLine<'a> {
     /// Prepared digit width and surrounding spaces.
@@ -285,7 +285,7 @@ pub(in crate::render::textual::offload::fancy::detail) struct UnderlineSegment {
     pub(in crate::render::textual::offload::fancy::detail) underline: Underline,
 }
 
-/// Prints one marker lane, leaving the gutter and newline to the caller.
+/// Prints one marker lane.
 // NOTE(invariant): OrderedNonoverlapping(UnderlineSegmentList.ColumnRange)
 pub(in crate::render::textual::offload::fancy::detail) struct UnderlineRow<'a> {
     /// Ordered segments selected for this lane.
@@ -367,8 +367,7 @@ impl Print for AnnotationReference<'_> {
     }
 }
 
-/// Prints an annotation marker and its message. The caller adds indentation and
-/// a newline.
+/// Prints an annotation marker and its message.
 // NOTE(invariant): Reference = AssignedPresentation(Annotation.Target)
 pub(in crate::render::textual::offload::fancy::detail) struct AnnotationMessage<'a, A> {
     /// Borrowed annotation supplying the message content.

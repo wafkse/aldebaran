@@ -10,9 +10,9 @@ use core::{
 
 /// A value that can write its textual representation into a formatting sink.
 ///
-/// The context belongs to the caller, allowing stored values to remain separate
-/// from the data needed to display them. Output is written incrementally, so an
-/// error may leave a prefix in the sink.
+/// The context is supplied separately, keeping stored values independent of the
+/// data needed to display them. Output is written incrementally, so an error may
+/// leave a prefix in the sink.
 #[diagnostic::on_unimplemented(message = "{Self} is not printable")]
 pub trait Print {
     /// External data required while printing this value.
@@ -33,8 +33,8 @@ pub trait Print {
         self.print_with_context(writer, &context)
     }
 
-    /// Write this value using `context`. Formatting errors are returned to the
-    /// caller, but output already written to the sink is not rolled back.
+    /// Write this value using `context`. Formatting errors are returned, but
+    /// output already written to the sink is not rolled back.
     fn print_with_context<W>(&self, writer: &mut W, context: &Self::Context) -> fmt::Result
     where
         W: fmt::Write;
@@ -384,7 +384,7 @@ mod tests {
 
     use super::Print as _;
 
-    /// Caller-owned names used to resolve printed indices.
+    /// External names used to resolve printed indices.
     // NOTE(invariant): None.
     struct Names(&'static [&'static str]);
 

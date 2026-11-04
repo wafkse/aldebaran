@@ -67,7 +67,7 @@ macro_rules! nonzeroable {
 
                 #[inline]
                 unsafe fn new_unchecked(value: $target_type) -> Self {
-                    // SAFETY: The caller guarantees that `value` is nonzero.
+                    // SAFETY: The trait method's safety contract requires a nonzero value.
                     unsafe {
                         NonZero::new_unchecked(value)
                     }
@@ -277,7 +277,7 @@ where
     /// of the underlying [`NonZero`] value and is undefined behavior.
     #[inline]
     pub unsafe fn new_unchecked(value: T) -> Self {
-        // SAFETY: The caller guarantees the nonzero input required by `new_unchecked`.
+        // SAFETY: This function's safety contract requires `value` to be nonzero.
         let inner = unsafe { T::Type::new_unchecked(value) };
 
         Self(inner)

@@ -395,7 +395,7 @@ impl Gutter {
     }
 }
 
-/// Format a report using the caller's destination and presentation settings.
+/// Format a report into the configured destination using its presentation settings.
 pub(in crate::render::textual::offload::fancy) fn render<'source, 'input, W, E, T>(
     report: &'source E,
     offload: &mut OffloadContext<'source, 'input, W, Fancy<T>, E>,

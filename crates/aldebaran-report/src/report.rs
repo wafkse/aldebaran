@@ -67,7 +67,8 @@ pub trait Report {
 
     /// Interpret this report's targets against `source` without checking their bounds.
     ///
-    /// The caller must choose a source whose coordinates match the annotation targets.
+    /// The source's coordinates must match the annotation targets; source identity
+    /// and target bounds are not checked.
     #[inline]
     fn attach<'source, 'report, S>(&'report self, source: &'source S) -> Attached<'source, 'report, S, Self>
     where
@@ -80,8 +81,8 @@ pub trait Report {
 
 /// A diagnostic with the source needed to interpret its annotation targets.
 ///
-/// Implementers must supply coordinates compatible with every target because
-/// the trait does not check source identity or target bounds.
+/// The source's coordinates must match every target; source identity and target
+/// bounds are not checked.
 pub trait SourceReport<'source>: Report {
     /// Source used to render this report.
     type Source: SourceLines<'source> + SourceMetadata<'source> + ?Sized;

@@ -11,7 +11,7 @@ use core::{fmt, num::NonZero, ops::Range};
 
 use aldebaran_print::prelude::Print;
 
-/// A nonempty half-open range in caller-defined coordinates.
+/// A nonempty half-open range of coordinates.
 ///
 /// The range covers `[start, end)`, with its nonzero length measured in the
 /// same unit as `start`. Because a span carries no source identity, however,

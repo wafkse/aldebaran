@@ -130,8 +130,8 @@ where
     /// Construct a new [`LineId`] from its raw parts: a line number, the line
     /// content, and its optional line break.
     ///
-    /// When `line_break` is present, the caller must ensure its span immediately
-    /// follows the content span and both refer to the same source.
+    /// When `line_break` is present, its span must immediately follow the content
+    /// span, and both must refer to the same source.
     #[inline]
     pub fn raw(line_number: NonZero<usize>, line_content: LineContent<'a, S>, line_break: Option<LineBreak<'a, S>>) -> Self {
         let line_inner = match line_break {

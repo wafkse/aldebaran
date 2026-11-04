@@ -100,7 +100,7 @@ struct SourceFragment {
 ///
 /// Borrowed UTF-8 input retains its original bytes without copying them. For
 /// component input, [`Self::push`] appends each visualization while recording
-/// its extent in the caller's source units. Graphemes may span component writes,
+/// its extent in the original source units. Graphemes may span component writes,
 /// so source extents remain independent of display segmentation.
 ///
 /// This input is retained by [`TextLayout`] while rows are lent. Owned text and
@@ -450,10 +450,10 @@ pub struct TextLayout<'source> {
 impl<'source> TextLayout<'source> {
     /// Starts a layout for new input while retaining the previous output capacity.
     ///
-    /// Returns the previous input alongside the new layout. The caller can
-    /// recover its owned capacity through [`SourceText::cleared`], while the new
-    /// layout carries only the new input's lifetime. Segmentation, source
-    /// projection, and row position all restart for the replacement input.
+    /// Returns the previous input alongside the new layout so its owned capacity
+    /// can be recovered through [`SourceText::cleared`]. The new layout carries
+    /// only the new input's lifetime. Segmentation, source projection, and row
+    /// position all restart for the replacement input.
     #[inline]
     pub fn reused<'next>(self, input: SourceText<'next>, layout_options: LayoutOptions) -> (SourceText<'source>, TextLayout<'next>) {
         let Self {

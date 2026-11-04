@@ -14,8 +14,8 @@ use crate::report::{Report, SourceReport};
 /// report semantics continue to delegate to the borrowed report, so attachment
 /// does not duplicate annotations, titles, or diagnostic kinds.
 ///
-/// Pairing checks neither source identity nor target bounds, so callers must
-/// supply a source whose coordinates match the report's targets.
+/// The source's coordinates must match the report's targets; attachment does not
+/// check source identity or target bounds.
 #[derive(Debug, Clone, Copy)]
 // NOTE(invariant): None.
 pub struct Attached<'source, 'report, S, R>

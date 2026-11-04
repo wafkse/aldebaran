@@ -114,7 +114,7 @@ where
     /// Construct a new [`Segment`] from its raw parts: the line view and the
     /// data.
     ///
-    /// The caller must keep the view within the data's span in the original source.
+    /// The view must remain within the data's span in the original source.
     #[inline]
     pub const fn raw(line_view: <S::Line as LineSegmented<'a, S>>::View, data: D) -> Self {
         Self { line_view, data }
