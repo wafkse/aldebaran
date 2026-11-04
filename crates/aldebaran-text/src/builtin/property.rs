@@ -1,6 +1,6 @@
 //! Property assertions for byte and character components.
 //!
-//! See [`AsciiDigit`], [`Whitespace`], and [`Digit`] for further information.
+//! See [`AsciiDigit`], [`Whitespace`], [`Digit`], [`Eol`], and [`NonEol`] for further information.
 //!
 //! Value and reference inputs follow the same acceptance rules, and descriptions use the
 //! property name in angle brackets.
@@ -368,6 +368,108 @@ property!(
         char as detail::is_vertical_whitespace;
     }
 );
+
+/// A character assertion implementing [`Assert<char>`] and [`Assert<&char>`].
+///
+/// It accepts the line-ending characters accepted by [`VerticalWhitespace`]
+/// and prints as `(<end-of-line component>)`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Eol;
+
+impl Assert<char> for Eol {
+    #[inline]
+    fn assert(&self, input: char) -> bool {
+        <VerticalWhitespace as Assert<char>>::assert(&VerticalWhitespace, input)
+    }
+
+    #[inline]
+    fn output_with<W, F>(target_value: &Self, writer: &mut W, _: Precedence) -> fmt::Result
+    where
+        W: fmt::Write,
+        F: Formatter,
+    {
+        Self::print(target_value, writer)
+    }
+}
+
+impl Assert<&char> for Eol {
+    #[inline]
+    fn assert(&self, input: &char) -> bool {
+        <Self as Assert<char>>::assert(self, *input)
+    }
+
+    #[inline]
+    fn output_with<W, F>(target_value: &Self, writer: &mut W, _: Precedence) -> fmt::Result
+    where
+        W: fmt::Write,
+        F: Formatter,
+    {
+        Self::print(target_value, writer)
+    }
+}
+
+impl Print for Eol {
+    type Context = ();
+
+    #[inline]
+    fn print_with_context<W>(&self, writer: &mut W, _: &Self::Context) -> fmt::Result
+    where
+        W: fmt::Write,
+    {
+        writer.write_str("<end-of-line component>")
+    }
+}
+
+/// A character assertion implementing [`Assert<char>`] and [`Assert<&char>`].
+///
+/// It accepts every character rejected by [`Eol`] and prints as
+/// `(<non-end-of-line component>)`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct NonEol;
+
+impl Assert<char> for NonEol {
+    #[inline]
+    fn assert(&self, input: char) -> bool {
+        !<Eol as Assert<char>>::assert(&Eol, input)
+    }
+
+    #[inline]
+    fn output_with<W, F>(target_value: &Self, writer: &mut W, _: Precedence) -> fmt::Result
+    where
+        W: fmt::Write,
+        F: Formatter,
+    {
+        Self::print(target_value, writer)
+    }
+}
+
+impl Assert<&char> for NonEol {
+    #[inline]
+    fn assert(&self, input: &char) -> bool {
+        <Self as Assert<char>>::assert(self, *input)
+    }
+
+    #[inline]
+    fn output_with<W, F>(target_value: &Self, writer: &mut W, _: Precedence) -> fmt::Result
+    where
+        W: fmt::Write,
+        F: Formatter,
+    {
+        Self::print(target_value, writer)
+    }
+}
+
+impl Print for NonEol {
+    type Context = ();
+
+    #[inline]
+    fn print_with_context<W>(&self, writer: &mut W, _: &Self::Context) -> fmt::Result
+    where
+        W: fmt::Write,
+    {
+        writer.write_str("<non-end-of-line component>")
+    }
+}
 
 #[cfg(test)]
 mod tests {

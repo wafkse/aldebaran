@@ -22,6 +22,8 @@ pub mod prelude {
 
     pub use crate::recovery::{AnyOf, Recover, Skip, Until};
 
-    pub use crate::builtin::property::{AsciiAlphabetic, AsciiAlphanumeric, AsciiDigit, Digit, HorizontalWhitespace, VerticalWhitespace};
+    pub use crate::builtin::property::{
+        AsciiAlphabetic, AsciiAlphanumeric, AsciiDigit, Digit, Eol, HorizontalWhitespace, NonEol, VerticalWhitespace,
+    };
     pub use crate::builtin::{Ascii, Byte, Char};
 }
