@@ -4,7 +4,7 @@
 //!
 //! Built-in messages use character terminology even for byte sources.
 
-use core::{fmt, marker};
+use core::{error, fmt, marker};
 
 use aldebaran_baseline::span::Span;
 use aldebaran_logic::{
@@ -82,6 +82,13 @@ where
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(self.title(), formatter)
     }
+}
+
+impl<C, A> error::Error for Expected<C, A>
+where
+    C: Input + Component,
+    A: Assert<C>,
+{
 }
 
 impl<C, A> Report for Expected<C, A>
