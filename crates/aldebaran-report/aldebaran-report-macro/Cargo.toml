@@ -19,8 +19,7 @@ darling.workspace = true
 proc-macro2.workspace = true
 proc-macro-crate.workspace = true
 quote.workspace = true
-fack-codegen.workspace = true
-syn.workspace = true
+syn = { workspace = true, features = ["fold"] }
 
 [lints]
 workspace = true

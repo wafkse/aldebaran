@@ -10,6 +10,7 @@ extern crate alloc;
 #[doc(hidden)]
 pub mod reexport {
     pub use aldebaran_baseline::span::Span;
+    pub use aldebaran_print::prelude::Print;
 }
 
 /// Derive support for diagnostic report types.
@@ -28,10 +29,15 @@ mod tests {
     //! [`aldebaran_report`]: super
 
     #[cfg(feature = "codegen")]
+    mod typed;
+
+    #[cfg(feature = "codegen")]
     mod derive_tests {
         //! Tests module for the [`tests`] module.
         //!
         //! [`tests`]: super
+
+        use fack::prelude::Error;
 
         use crate::{
             annotated::{Annotated, InlineAnnotations, label::Label},
@@ -39,7 +45,7 @@ mod tests {
             report::Report as ReportTrait,
         };
 
-        #[derive(Debug, crate::codegen::Report)]
+        #[derive(Debug, Error, crate::codegen::Report)]
         #[aldebaran(crate)]
         #[error("invalid value {value}")]
         #[report(title = "invalid value", message_with = issue_message)]
@@ -53,7 +59,7 @@ mod tests {
             "expected a valid value"
         }
 
-        #[derive(Debug, crate::codegen::Report)]
+        #[derive(Debug, Error, crate::codegen::Report)]
         #[aldebaran(crate)]
         #[error("multiple labels")]
         #[report(title = "multiple labels", annotations = labels)]
@@ -62,7 +68,7 @@ mod tests {
             labels: InlineAnnotations<Label<&'static str>, 1>,
         }
 
-        #[derive(Debug, crate::codegen::Report)]
+        #[derive(Debug, Error, crate::codegen::Report)]
         #[aldebaran(crate)]
         #[error(transparent(inner))]
         #[report(transparent(inner))]
@@ -72,7 +78,7 @@ mod tests {
             inner: GenericIssue<u8>,
         }
 
-        #[derive(Debug, crate::codegen::Report)]
+        #[derive(Debug, Error, crate::codegen::Report)]
         #[aldebaran(crate)]
         enum EnumIssue {
             #[error("source issue")]

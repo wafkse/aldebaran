@@ -41,7 +41,7 @@ aldebaran-report-macro = { version = "0.1.0", path = "crates/aldebaran-report/al
 aldebaran-source = { version = "0.1.0", path = "crates/aldebaran-source" }
 aldebaran-text = { version = "0.1.0", path = "crates/aldebaran-text" }
 darling = "0.24.1"
-fack-codegen = "0.5.0"
+fack = "0.5.0"
 hashbrown = { version = "0.17.1", features = ["raw-entry"] }
 num-traits = { version = "0.2.19", default-features = false }
 proc-macro-crate = "3.5.0"

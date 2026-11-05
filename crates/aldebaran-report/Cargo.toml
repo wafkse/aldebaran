@@ -23,5 +23,8 @@ aldebaran-print = { workspace = true, features = ["alloc"] }
 aldebaran-source.workspace = true
 hashbrown.workspace = true
 
+[dev-dependencies]
+fack.workspace = true
+
 [lints]
 workspace = true

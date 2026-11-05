@@ -6,6 +6,8 @@ use darling::{FromMeta, ast::NestedMeta};
 use proc_macro2::TokenStream;
 use quote::ToTokens;
 use quote::quote;
+use syn::ext::IdentExt;
+use syn::fold::{self, Fold};
 use syn::{Attribute, Data, DeriveInput, Fields, Ident, LitStr, Member, Path, Type};
 
 /// Validated report derive input ready for policy expansion.
@@ -64,6 +66,61 @@ impl Report {
     }
 }
 
+/// Keeps `Self` tied to the input enum when syntax moves into a printer impl.
+#[derive(Debug)]
+// NOTE(invariant): Target = OriginalEnum(DeclaredGenericArguments)
+struct InputSelf(
+    /// Original enum type, including its declared generic arguments.
+    syn::TypePath,
+);
+
+impl InputSelf {
+    /// Qualify a leading `Self` path with the original enum type.
+    fn qualify(&self, path: syn::TypePath) -> syn::TypePath {
+        match path {
+            syn::TypePath { attrs, qself: None, path }
+                if path.leading_colon.is_none() && path.segments.first().is_some_and(|segment| segment.ident == "Self") =>
+            {
+                let Self(target) = self;
+
+                let mut qualified = if path.segments.len() == 1 {
+                    target.clone()
+                } else {
+                    let suffix = Path {
+                        leading_colon: None,
+                        segments: path.segments.into_iter().skip(1).collect(),
+                    };
+
+                    syn::parse_quote!(<#target>::#suffix)
+                };
+
+                qualified.attrs = attrs;
+
+                qualified
+            }
+            path => path,
+        }
+    }
+}
+
+impl Fold for InputSelf {
+    fn fold_type_path(&mut self, path: syn::TypePath) -> syn::TypePath {
+        let path = fold::fold_type_path(self, path);
+
+        self.qualify(path)
+    }
+
+    fn fold_expr_path(&mut self, path: syn::ExprPath) -> syn::ExprPath {
+        let syn::ExprPath { attrs, qself, path } = fold::fold_expr_path(self, path);
+
+        let path = syn::TypePath { attrs, qself, path };
+
+        let syn::TypePath { attrs, qself, path } = self.qualify(path);
+
+        syn::ExprPath { attrs, qself, path }
+    }
+}
+
 /// Validated report shape.
 #[derive(Debug)]
 enum Body {
@@ -85,19 +142,31 @@ impl Body {
     fn expand_enum(ident: &Ident, generics: &syn::Generics, variants: &[Variant], runtime: &TokenStream) -> TokenStream {
         let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-        let message = variants.iter().map(|variant| variant.message_arm(runtime));
+        let typed = variants.iter().any(|variant| matches!(variant.policy, Policy::Transparent));
+
+        let (annotation_title, message, adapter) = if typed {
+            let adapter = Self::expand_message(ident, generics, variants, runtime);
+
+            (quote!(Self), quote!(self), adapter)
+        } else {
+            let arms = variants.iter().map(|variant| variant.message_arm(runtime));
+            let message = quote!(match self { #(#arms)* });
+
+            (quote!(str), message, TokenStream::new())
+        };
+
         let target = variants.iter().map(|variant| variant.target_arm(runtime));
         let title = variants.iter().map(|variant| variant.title_arm(runtime));
 
         quote! {
+            #adapter
+
             impl #impl_generics #runtime::annotated::Annotated for #ident #ty_generics #where_clause {
-                type Title = str;
+                type Title = #annotation_title;
 
                 #[inline]
                 fn message(&self) -> &Self::Title {
-                    match self {
-                        #(#message)*
-                    }
+                    #message
                 }
 
                 #[inline]
@@ -131,6 +200,116 @@ impl Body {
                 }
             }
         }
+    }
+
+    /// Generate a borrowed printable view of heterogeneous annotation messages.
+    ///
+    /// The enum itself supplies the annotation title, while the local adapter
+    /// dispatches printing to the active payload. Independent context tuple
+    /// entries preserve each payload's printing requirements. Nested pairs keep
+    /// default contexts available regardless of the number of variants.
+    fn expand_message(ident: &Ident, generics: &syn::Generics, variants: &[Variant], runtime: &TokenStream) -> TokenStream {
+        let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
+        let mut input_self = InputSelf(syn::parse_quote!(#ident #ty_generics));
+        let printer_generics = input_self.fold_generics(generics.clone());
+
+        let (printer_impl_generics, _, printer_where_clause) = printer_generics.split_for_impl();
+
+        let ident_path = ident;
+        let message_ident = Self::fresh_ident(generics, &format!("__{}Message", ident.unraw()));
+        let writer_ident = Self::fresh_ident(generics, &format!("__{}Writer", ident.unraw()));
+        let contexts = variants.iter().map(|variant| match variant {
+            Variant {
+                ty,
+                policy: Policy::Transparent,
+                ..
+            } => {
+                quote!(<<#ty as #runtime::annotated::Annotated>::Title as #runtime::annotated::title::Title>::Context)
+            }
+            Variant {
+                policy: Policy::Custom { .. },
+                ..
+            } => quote!(()),
+        });
+        let context = contexts.rev().fold(quote!(()), |tail, head| quote!((#head, #tail)));
+        let arms = variants.iter().enumerate().map(|(index, variant)| {
+            let Variant { ident, policy, cfg, .. } = variant;
+
+            let context = (0..index).fold(quote!(context), |context, _| quote!(#context.1));
+            let message = match policy {
+                Policy::Transparent => quote!(#runtime::annotated::Annotated::message(error)),
+                Policy::Custom {
+                    message: Message::With(path),
+                    ..
+                } => {
+                    let path = syn::ExprPath {
+                        attrs: Vec::new(),
+                        qself: None,
+                        path: path.clone(),
+                    };
+                    let path = input_self.fold_expr_path(path);
+
+                    quote!(#path(error))
+                }
+                Policy::Custom { message, .. } => message.expression(quote!(error)),
+            };
+
+            quote! {
+                #(#cfg)*
+                #ident_path::#ident(error) => #runtime::reexport::Print::print_with_context(
+                    &#runtime::annotated::title::Title::content(#message),
+                    writer,
+                    &#context.0,
+                ),
+            }
+        });
+
+        quote! {
+            const _: () = {
+                struct #message_ident<'a, T: ?Sized>(&'a T);
+
+                impl #printer_impl_generics #runtime::reexport::Print for #message_ident<'_, #ident #ty_generics> #printer_where_clause {
+                    type Context = <#ident #ty_generics as #runtime::annotated::title::Title>::Context;
+
+                    #[inline]
+                    fn print_with_context<#writer_ident>(&self, writer: &mut #writer_ident, context: &Self::Context) -> ::core::fmt::Result
+                    where
+                        #writer_ident: ::core::fmt::Write,
+                    {
+                        let Self(error) = self;
+
+                        match error {
+                            #(#arms)*
+                        }
+                    }
+                }
+
+                impl #impl_generics #runtime::annotated::title::Title for #ident #ty_generics #where_clause {
+                    type Context = #context;
+
+                    #[inline]
+                    fn content(&self) -> impl #runtime::reexport::Print<Context = Self::Context> {
+                        #message_ident(self)
+                    }
+                }
+            };
+        }
+    }
+
+    /// Choose a generated type name that cannot shadow an input parameter.
+    fn fresh_ident(generics: &syn::Generics, stem: &str) -> Ident {
+        let mut ident = quote::format_ident!("{stem}");
+
+        while generics.params.iter().any(|parameter| match parameter {
+            syn::GenericParam::Type(parameter) => parameter.ident == ident,
+            syn::GenericParam::Const(parameter) => parameter.ident == ident,
+            syn::GenericParam::Lifetime(_) => false,
+        }) {
+            ident = quote::format_ident!("{ident}_");
+        }
+
+        ident
     }
 }
 

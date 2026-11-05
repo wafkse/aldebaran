@@ -55,15 +55,13 @@ impl RuntimePath {
 }
 
 /// Derives [`Annotated`](https://docs.rs/aldebaran-report/latest/aldebaran_report/annotated/trait.Annotated.html)
-/// and [`Report`](https://docs.rs/aldebaran-report/latest/aldebaran_report/report/trait.Report.html)
-/// together with [`Display`](core::fmt::Display) and [`Error`](core::error::Error).
+/// and [`Report`](https://docs.rs/aldebaran-report/latest/aldebaran_report/report/trait.Report.html).
 ///
-/// Use `report` attributes to describe the diagnostic and `error` attributes to
-/// set standard error behavior. Put an `error` declaration such as
-/// `#[error("invalid value")]` on a struct or on each enum variant, and provide
-/// [`Debug`](core::fmt::Debug) separately. The report title and annotation message
-/// do not control standard error display text. To forward the standard error
-/// behavior, use `#[error(transparent(field))]` or `#[error(transparent(0))]`.
+/// Use `report` attributes to describe diagnostic headings, messages, and source
+/// annotations. The derive has no requirements on [`Debug`](core::fmt::Debug),
+/// [`Display`](core::fmt::Display), or [`Error`](core::error::Error) and generates
+/// no implementations of those traits. A diagnostic can implement or derive
+/// standard error behavior independently.
 ///
 /// # Struct reports
 ///
@@ -104,7 +102,12 @@ impl RuntimePath {
 ///
 /// A transparent variant takes its annotation message, report title, and target
 /// from the payload, which must implement both `Annotated` and `Report`. Its
-/// borrowed message and title must each coerce to `&str` for the payload borrow.
+/// borrowed title must coerce to `&str` for the payload borrow. Annotation messages
+/// retain their printable types. When any variant is transparent, the enum is its
+/// own annotation title and supplies a borrowed printer that dispatches to the
+/// active variant's message. Its printing context nests pairs of each variant's
+/// message context and the remaining contexts, ending in `()`. Custom variants
+/// contribute `()` as their message context.
 /// The derived enum still acts as its own annotation and uses `Simple::Error`,
 /// so it does not forward the payload's annotation collection or classification.
 /// Variants do not support `title_with`, stored annotations, or transparent field
@@ -118,20 +121,14 @@ impl RuntimePath {
 /// variant cannot repeat or conflict. Unions are unsupported. The derive does
 /// not compare targets with a source, so pair each report with a source that uses
 /// the same coordinates.
-#[proc_macro_derive(Report, attributes(error, report, aldebaran))]
+#[proc_macro_derive(Report, attributes(report, aldebaran))]
 #[inline]
 pub fn report_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let expanded = RuntimePath::resolve(&input.attrs).and_then(|runtime| {
         let RuntimePath(runtime) = runtime;
 
-        let error = fack_codegen::generate(&input)?;
-        let report = report::Report::new(input)?.expand(&runtime);
-
-        Ok(quote! {
-            #error
-            #report
-        })
+        report::Report::new(input).map(|report| report.expand(&runtime))
     });
 
     match expanded {
