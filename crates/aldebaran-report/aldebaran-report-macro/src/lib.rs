@@ -3,6 +3,7 @@
 #![doc = include_str!("../../../../docs/part/FACADE.md")]
 #![doc = include_str!("../../../../docs/part/LICENSE.md")]
 
+mod forward;
 mod report;
 
 use proc_macro::TokenStream;
@@ -113,18 +114,32 @@ impl RuntimePath {
 /// Variants do not support `title_with`, stored annotations, or transparent field
 /// selectors.
 ///
+/// `#[report(forward)]` on an enum selects a collection-preserving alternative.
+/// Each variant must wrap exactly one report without per-variant report metadata.
+/// Variants and payload fields cannot use `cfg` or `cfg_attr`, since every
+/// alternative contributes to the enum's shared report contract.
+/// Payload reports must share their title and kind types and their annotation
+/// element type, while their annotation collection sizes may differ. The enum
+/// implements `Annotations` and `Report`, forwarding the active collection and
+/// classification. It leaves `Annotated` unimplemented so the blanket
+/// `Annotations` implementation cannot collapse the forwarded collection to its
+/// primary annotation. Nested forwarding enums preserve related annotations
+/// without copying or allocating collections.
+///
 /// # Dependencies and type requirements
 ///
-/// Generated implementations keep the type's declared generics and `where`
-/// clauses without adding field bounds, so those bounds must support the chosen
-/// report form. Option names must be recognized, and options on a struct or
-/// variant cannot repeat or conflict. Unions are unsupported. The derive does
-/// not compare targets with a source, so pair each report with a source that uses
-/// the same coordinates.
+/// Generated implementations retain the type's declared generics and `where`
+/// clauses. Ordinary report policies add no field bounds, so the declared bounds
+/// must support the selected form. The forwarding policy adds payload bounds for
+/// generic enums to require compatible report types. Option names must be
+/// recognized, and options on a struct or variant cannot repeat or conflict.
+/// Unions are unsupported. The derive does not compare targets with a source, so
+/// pair each report with a source that uses the same coordinates.
 #[proc_macro_derive(Report, attributes(report, aldebaran))]
 #[inline]
 pub fn report_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
+
     let expanded = RuntimePath::resolve(&input.attrs).and_then(|runtime| {
         let RuntimePath(runtime) = runtime;
 
@@ -134,89 +149,5 @@ pub fn report_derive(input: TokenStream) -> TokenStream {
     match expanded {
         Ok(expanded) => TokenStream::from(expanded),
         Err(error) => TokenStream::from(error.into_compile_error()),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    //! Tests module for the [`aldebaran_report_macro`] module.
-    //!
-    //! [`aldebaran_report_macro`]: super
-
-    use super::report::Report;
-
-    fn parse(input: &str) -> syn::Result<Report> {
-        Report::new(syn::parse_str(input)?)
-    }
-
-    #[test]
-    fn accepts_generic_structures_and_enum_alternatives() {
-        parse(
-            r#"
-                #[report(title = "generic", message_with = render_message)]
-                struct GenericIssue<T> { target: Span, value: T }
-            "#,
-        )
-        .expect("valid generic report metadata parses");
-
-        parse(
-            r#"
-                enum Issue {
-                    #[report(title = "source", message = "bad source")]
-                    Source(Span),
-                    #[report(transparent)]
-                    Wrapped(InnerIssue),
-                }
-            "#,
-        )
-        .expect("valid enum alternatives parse");
-    }
-
-    #[test]
-    fn rejects_malformed_and_duplicate_darling_metadata() {
-        let malformed = parse(
-            r#"
-                #[report(title = 42, message = "bad input")]
-                struct Issue(Span);
-            "#,
-        );
-        assert!(malformed.is_err(), "title metadata must be a string literal");
-
-        let duplicate = parse(
-            r#"
-                #[report(title = "first", title = "second", message = "bad input")]
-                struct Issue(Span);
-            "#,
-        );
-        assert!(duplicate.is_err(), "Darling must reject duplicate declarations");
-    }
-
-    #[test]
-    fn rejects_conflicting_policies_and_invalid_targets() {
-        let conflicting = parse(
-            r#"
-                #[report(title = "static", title_with = project_title, message = "bad input")]
-                struct Issue(Span);
-            "#,
-        );
-        assert!(conflicting.is_err(), "static and projected titles are exclusive");
-
-        let invalid_target = parse(
-            r#"
-                #[report(title = "stored", annotations = missing)]
-                struct Issue { annotations: Annotations }
-            "#,
-        );
-        assert!(invalid_target.is_err(), "selected annotation members must exist");
-
-        let invalid_variant = parse(
-            r#"
-                enum Issue {
-                    #[report(title = "invalid", message = "bad input")]
-                    Pair(Span, Span),
-                }
-            "#,
-        );
-        assert!(invalid_variant.is_err(), "report alternatives wrap one tuple field");
     }
 }

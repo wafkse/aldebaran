@@ -25,6 +25,7 @@ pub mod prelude {
     //! defining, composing, describing, and classifying assertions.
 
     pub use crate::assert::{AsAssert, Assert, IntoAssert};
+
     pub use crate::choose::Choose;
 
     pub use crate::input::Input;

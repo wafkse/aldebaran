@@ -129,6 +129,8 @@ pub fn derive_choose(input: TokenStream) -> TokenStream {
     })
 }
 
+mod pattern;
+
 /// Derive composable assertion behavior from `assert` attributes.
 ///
 /// Struct metadata defines one assertion composition. Enum metadata defines one
@@ -146,6 +148,11 @@ pub fn derive_choose(input: TokenStream) -> TokenStream {
 /// an expression of type `TY`, which must implement `Assert` for the input.
 /// The expression is evaluated separately for each predicate or formatting call,
 /// and unused field types need not implement `Assert`.
+///
+/// `#[assert(input(Type))]` on an enum instead selects structural input matching.
+/// Each unit variant declares `#[assert(matches(PATTERN) as "description")]`.
+/// Patterns match the concrete input directly, including payload-bearing
+/// alternatives, without requiring a second tag representation.
 ///
 /// A struct or each enum variant requires exactly one supported attribute.
 /// Enums use the active variant's rule, and unions are unsupported.
@@ -166,6 +173,21 @@ pub fn derive_assert(input: TokenStream) -> TokenStream {
         Ok(runtime) => runtime,
         Err(error) => return error.into_compile_error().into(),
     };
+
+    if pattern::Pattern::selected(&attribute_list) {
+        let input = DeriveInput {
+            attrs: attribute_list,
+            ident: name_ident,
+            generics,
+            data,
+            vis: syn::Visibility::Inherited,
+        };
+
+        return match pattern::Pattern::new(input).map(|pattern| pattern.expand(&runtime)) {
+            Ok(tokens) => tokens.into(),
+            Err(error) => error.into_compile_error().into(),
+        };
+    }
 
     let target_code: syn::Result<TokenStream2> = 'a: {
         let target_input = match data {
@@ -980,43 +1002,4 @@ struct ParamExpr {
 }
 
 #[cfg(test)]
-mod tests {
-    //! Tests module for the [`aldebaran_logic_macro`] module.
-    //!
-    //! [`aldebaran_logic_macro`]: super
-
-    use syn::{Attribute, parse_quote};
-
-    use super::{Param, ParamExpr, fresh};
-
-    #[test]
-    fn fresh_parameters_avoid_const_and_raw_identifiers() {
-        let generics = parse_quote!(<r#__AssertTy, __AssertTy_, const __AssertTy__: usize>);
-
-        assert_eq!(fresh(&generics, "__AssertTy"), "__AssertTy___");
-    }
-
-    #[test]
-    fn parses_declarative_and_custom_assertion_syntax() {
-        let conjunctive: Attribute = parse_quote!(#[assert(conjunctive)]);
-        assert!(matches!(Param::attribute(conjunctive), Ok(Param::Conjunctive)));
-
-        let custom: Attribute = parse_quote!(#[assert(use Or::one(A, B) type Or<A, B>)]);
-        assert!(matches!(Param::attribute(custom), Ok(Param::Expr(expression)) if matches!(*expression, ParamExpr { .. })));
-    }
-
-    #[test]
-    fn rejects_malformed_duplicate_and_conflicting_assertion_metadata() {
-        let malformed: Attribute = parse_quote!(#[assert(unknown)]);
-        assert!(Param::attribute(malformed).is_err());
-
-        let duplicate_key: Attribute = parse_quote!(#[assert(conjunctive, conjunctive)]);
-        assert!(Param::attribute(duplicate_key).is_err());
-
-        let conflicting: Attribute = parse_quote!(#[assert(conjunctive, disjunctive)]);
-        assert!(Param::attribute(conflicting).is_err());
-
-        let mut duplicate_attributes = vec![parse_quote!(#[assert(conjunctive)]), parse_quote!(#[assert(disjunctive)])];
-        assert!(Param::take_attribute(&mut duplicate_attributes).is_err());
-    }
-}
+mod tests;

@@ -2,10 +2,6 @@
 
 #[cfg(test)]
 mod tests {
-    //! Tests module for the [`assert`] module.
-    //!
-    //! [`assert`]: super
-
     use core::fmt;
 
     use aldebaran_logic::{

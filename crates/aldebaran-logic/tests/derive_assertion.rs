@@ -2,16 +2,37 @@
 
 #[cfg(test)]
 mod tests {
-    //! Tests module for the [`derive`] module.
-    //!
-    //! [`derive`]: super
-
     use core::{cell::RefCell, fmt};
 
     use aldebaran_logic::{
         fmt::{BinaryConnective, Connective, Formatter, Precedence, Segment},
         prelude::{Assert, Choose},
     };
+
+    #[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
+    enum PatternToken {
+        Digit(u8),
+        End,
+    }
+
+    #[derive(Assert)]
+    #[aldebaran(crate)]
+    #[assert(input(PatternToken))]
+    enum PatternExpectation {
+        #[assert(matches(PatternToken::Digit(0..=9)) as "digit")]
+        Digit,
+
+        #[assert(matches(PatternToken::End) as "end")]
+        End,
+
+        #[cfg(target_os = "windows")]
+        #[assert(matches(PatternToken::Digit(10..=u8::MAX)) as "wide digit")]
+        WideDigit,
+
+        #[cfg_attr(target_os = "linux", cfg(windows))]
+        #[assert(matches(PatternToken::End) as "conditional end")]
+        ConditionalEnd,
+    }
 
     /// Describes conjunction and disjunction boundaries only within negation's context.
     struct Events;
@@ -32,6 +53,21 @@ mod tests {
 
             writer.write_str(text)
         }
+    }
+
+    #[test]
+    fn structural_expectations_match_inputs_and_describe_the_selected_variant() {
+        assert!(PatternExpectation::Digit.assert(PatternToken::Digit(4)));
+        assert!(!PatternExpectation::Digit.assert(PatternToken::Digit(12)));
+        assert!(!PatternExpectation::Digit.assert(PatternToken::End));
+
+        let mut output = String::new();
+        assert_eq!(
+            <PatternExpectation as Assert<PatternToken>>::output_with::<_, Events>(&PatternExpectation::End, &mut output, Precedence::NOT,),
+            Ok(()),
+            "structural expectation formatting should succeed",
+        );
+        assert_eq!(output, "end", "formatting should describe the selected variant");
     }
 
     /// Field-free predicates governed by conjunction or disjunction identity.
@@ -89,12 +125,24 @@ mod tests {
         where
             A: Choose<char, Unit = A> + PartialEq + fmt::Debug,
         {
-            assert_eq!(value.assert('x'), identity);
-            assert_eq!(value.choose('x').as_ref(), identity.then_some(&value));
+            assert_eq!(
+                value.assert('x'),
+                identity,
+                "predicate result must follow the empty connective identity"
+            );
+            assert_eq!(
+                value.choose('x').as_ref(),
+                identity.then_some(&value),
+                "derived classification must follow the predicate result",
+            );
 
             let mut output = String::new();
-            assert_eq!(A::output_with::<_, Events>(&value, &mut output, Precedence::NOT), Ok(()));
-            assert_eq!(output, expected);
+            assert_eq!(
+                A::output_with::<_, Events>(&value, &mut output, Precedence::NOT),
+                Ok(()),
+                "formatting an empty connective must succeed",
+            );
+            assert_eq!(output, expected, "empty connective formatting must be balanced");
         }
 
         #[test]
@@ -137,7 +185,6 @@ mod tests {
     }
 
     /// A predicate with an observable acceptance call and an independent label description.
-    // NOTE(invariant): None.
     struct Probe<'a>(&'a RefCell<Vec<char>>, char, bool);
 
     impl Assert<char> for Probe<'_> {
@@ -167,7 +214,6 @@ mod tests {
     #[derive(Assert)]
     #[aldebaran(crate)]
     #[assert(conjunctive)]
-    // NOTE(invariant): None.
     struct All<A> {
         /// Highest-priority conjunct whose rejection is sufficient for failure.
         first: A,
@@ -183,7 +229,6 @@ mod tests {
     #[derive(Assert)]
     #[aldebaran(crate)]
     #[assert(disjunctive)]
-    // NOTE(invariant): None.
     struct Any<A>(A, A, A);
 
     /// Alternatives selecting all-operand or any-operand acceptance.
@@ -213,13 +258,17 @@ mod tests {
         A: Assert<char>,
     {
         log.borrow_mut().clear();
-        assert_eq!(value.assert('x'), result);
-        assert_eq!(*log.borrow(), ['a', 'b']);
+        assert_eq!(value.assert('x'), result, "composite acceptance must follow its operands");
+        assert_eq!(*log.borrow(), ['a', 'b'], "acceptance must short-circuit in field order");
 
         let mut output = String::new();
-        assert_eq!(A::output_with::<_, Events>(&value, &mut output, Precedence::NOT), Ok(()));
-        assert_eq!(output, expected);
-        assert_eq!(*log.borrow(), ['a', 'b']);
+        assert_eq!(
+            A::output_with::<_, Events>(&value, &mut output, Precedence::NOT),
+            Ok(()),
+            "formatting a composite must succeed",
+        );
+        assert_eq!(output, expected, "composite formatting must include every operand");
+        assert_eq!(*log.borrow(), ['a', 'b'], "formatting must not evaluate predicates");
     }
 
     #[test]

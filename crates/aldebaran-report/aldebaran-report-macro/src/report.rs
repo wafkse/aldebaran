@@ -10,6 +10,8 @@ use syn::ext::IdentExt;
 use syn::fold::{self, Fold};
 use syn::{Attribute, Data, DeriveInput, Fields, Ident, LitStr, Member, Path, Type};
 
+use super::forward::Forward;
+
 /// Validated report derive input ready for policy expansion.
 ///
 /// Construction classifies the input as a structure or enum and validates its
@@ -42,6 +44,9 @@ impl Report {
 
         let body = match data {
             Data::Struct(data) => Body::Struct(Box::new(Structure::new(attrs, data.fields, &ident)?)),
+            Data::Enum(data) if attrs.iter().any(|attribute| attribute.path().is_ident("report")) => {
+                Body::Forward(Box::new(Forward::new(data, attrs)?))
+            }
             Data::Enum(data) => data
                 .variants
                 .into_iter()
@@ -61,6 +66,7 @@ impl Report {
 
         match body {
             Body::Struct(structure) => structure.expand(&ident, &generics, runtime),
+            Body::Forward(forward) => forward.expand(&ident, &generics, runtime),
             Body::Enum(variants) => Body::expand_enum(&ident, &generics, &variants, runtime),
         }
     }
@@ -129,6 +135,9 @@ enum Body {
         /// Validated report structure policy.
         Box<Structure>,
     ),
+
+    /// Annotation-preserving report alternatives.
+    Forward(Box<Forward>),
 
     /// Per-alternative report policies.
     Enum(
@@ -1099,3 +1108,6 @@ impl Policy {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;
